@@ -1,0 +1,185 @@
+.chatbot-floating-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 400px;
+  height: 520px;
+  z-index: 999;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.chatbot-card {
+  height: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+}
+
+/* Header */
+.chatbot-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(5, 5, 5, 0.06);
+  background: linear-gradient(135deg, #1677ff, #36cfc9);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chatbot-header-minimize {
+  width: 32px; /* tăng kích thước nút */
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #fff !important; /* màu icon */
+  font-size: 16px; /* size icon lớn hơn */
+}
+
+.chatbot-header-minimize .anticon {
+  font-size: 16px; /* đảm bảo icon lớn */
+}
+
+.chatbot-header-minimize:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.chatbot-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.chatbot-subtitle {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Body */
+.chatbot-body {
+  padding: 12px;
+  height: calc(100% - 60px - 64px); /* header + footer approx */
+  overflow-y: auto;
+  background: transparent;
+}
+
+/* Rows */
+.chat-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chat-row-bot {
+  justify-content: flex-start;
+}
+
+.chat-row-user {
+  justify-content: flex-end;
+}
+
+/* Bubble */
+.chat-bubble {
+  max-width: 75%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.chat-bubble-bot {
+  background-color: #ffffff;
+  border: 1px solid rgba(5, 5, 5, 0.06);
+}
+
+.chat-bubble-user {
+  background-color: white;
+  color: #ffffff;
+  border: 1px solid rgba(5, 5, 5, 0.06);
+}
+
+.chat-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 14px;
+}
+
+.chat-time {
+  font-size: 10px;
+  margin-top: 4px;
+  opacity: 0.6;
+  align-self: flex-end;
+}
+
+/* Footer */
+.chatbot-footer {
+  padding: 8px 12px;
+  border-top: 1px solid rgba(5, 5, 5, 0.06);
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  background-color: #fff;
+}
+
+.chatbot-input {
+  background-color: #f5f5f5;
+  border-radius: 999px;
+  padding: 8px 12px !important;
+}
+.chatbot-toggle-container {
+  position: fixed; /* 👈 cố định theo viewport, không theo layout */
+  bottom: 400px; /* cách đáy 24px */
+  right: 24px; /* cách phải 24px */
+  z-index: 9999; /* nổi lên trên cùng */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+/* Nút bong bóng */
+.chatbot-toggle-btn {
+  width: 80px;
+  height: 80px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+  /* 👇 Animation gọi chú ý */
+  animation: chatbot-pulse 1.8s ease-in-out infinite;
+}
+
+/* Khi hover thì dừng rung, chỉ phóng nhẹ cho đỡ rối mắt */
+.chatbot-toggle-btn:hover {
+  animation-play-state: paused;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.45);
+}
+
+/* Keyframes pulse + hơi rung nhẹ */
+@keyframes chatbot-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+  }
+  30% {
+    transform: translateY(-2px) scale(1.06) rotate(-1deg);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.45);
+  }
+  60% {
+    transform: translateY(1px) scale(0.98) rotate(1deg);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+  }
+}
