@@ -1,3 +1,5 @@
+import { imageFileError } from '@/utils/tourMedia';
+import { errorMessage } from '@/utils/errors';
 import { useState } from 'react'; // <-- Thêm useState
 import type { RootState } from '@/store';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -25,14 +27,9 @@ const AccountTop = () => {
   };
 
   const beforeUpload = (file: File) => {
-    const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
-    if (!isJpgOrPng) {
-      message.error('Bạn chỉ có thể upload file JPG/PNG!');
-      return Upload.LIST_IGNORE;
-    }
-    const isLt2M = file.size / 1024 / 1024 < 2;
-    if (!isLt2M) {
-      message.error('Hình ảnh phải nhỏ hơn 2MB!');
+    const error = imageFileError(file);
+    if (error || file.size > 2 * 1024 * 1024) {
+      message.error(error || 'Avatar tối đa 2 MB');
       return Upload.LIST_IGNORE;
     }
 
@@ -64,17 +61,20 @@ const AccountTop = () => {
       await dispatch(uploadAvatar({ data, userId: user?.id })).unwrap();
       message.success('Cập nhật avatar thành công!');
       handleCancel();
-    } catch (error: any) {
-      console.log('>>>>>>>>>>>>>>>>>>', error);
-      message.error(error.message || 'Upload thất bại.');
+    } catch (error: unknown) {
+      message.error(errorMessage(error, 'Upload thất bại.'));
     }
   };
-  console.log('>>>>>>>>>>>>', user);
   return (
     <>
       <Card className="flex items-center gap-4 shadow-md rounded-2xl">
         <Tooltip title="Ấn để đổi avatar" placement="bottom">
-          <div className="relative group cursor-pointer" onClick={showModal}>
+          <button
+            type="button"
+            aria-label="Đổi ảnh đại diện"
+            className="relative group cursor-pointer bg-transparent border-0 p-0"
+            onClick={showModal}
+          >
             <Avatar
               size={80}
               src={user?.avatar}
@@ -82,13 +82,13 @@ const AccountTop = () => {
               className="border-2 border-gray-200"
             />
             {!loading && (
-              <div
+              <span
                 className={`absolute w-full inset-0 bg-[#c1c1c1] bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity`}
               >
                 <CameraOutlined className="!text-white text-2xl " />
-              </div>
+              </span>
             )}
-          </div>
+          </button>
         </Tooltip>
 
         <div>
@@ -117,7 +117,7 @@ const AccountTop = () => {
           <Upload
             name="avatar"
             showUploadList={false}
-            beforeUpload={beforeUpload} // <-- Chỉ dùng beforeUpload
+            accept="image/jpeg,image/png,image/webp" beforeUpload={beforeUpload} // <-- Chỉ dùng beforeUpload
             // Bỏ customRequest
           >
             <Button icon={<CameraOutlined />}>Chọn ảnh mới</Button>

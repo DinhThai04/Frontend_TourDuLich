@@ -1,3 +1,4 @@
+import { errorMessage } from '@/utils/errors';
 import type { RootState } from '@/store';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { LockOutlined, SaveOutlined } from '@ant-design/icons';
@@ -12,7 +13,7 @@ const Info = () => {
   const dispatch = useAppDispatch();
   const { user, loading } = useAppSelector((state: RootState) => state.auth);
 
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<IUserUpdate & { email: string }>();
 
   useEffect(() => {
     if (user) {
@@ -21,12 +22,14 @@ const Info = () => {
         email: user.email,
         phone: user.phone,
         address: user.address,
-        file: null,
+        file: undefined,
       });
     }
   }, [user, form]);
 
   const onFinish = async (values: IUserUpdate) => {
+    // Enter in a field and the button both submit; a second profile write is never wanted.
+    if (loading) return;
     if (!user) {
       message.error('Không tìm thấy thông tin người dùng. Vui lòng tải lại trang.');
       return;
@@ -41,6 +44,12 @@ const Info = () => {
       message.info('Không có thay đổi nào để lưu.');
       return;
     }
+    // The profile API requires a non-blank address and a 9-11 digit phone, so blanking a
+    // field would be silently ignored while the UI reported success.
+    if ((oldPhone && !newPhone) || (oldAddress && !newAddress)) {
+      message.error('Không thể xóa trắng số điện thoại hoặc địa chỉ. Vui lòng nhập giá trị mới.');
+      return;
+    }
 
     try {
       const updatedUser = await dispatch(
@@ -48,8 +57,8 @@ const Info = () => {
       ).unwrap();
       message.success('Cập nhật thông tin thành công!');
       form.setFieldsValue(updatedUser);
-    } catch (error: any) {
-      message.error(error.message || 'Cập nhật thất bại.');
+    } catch (error: unknown) {
+      message.error(errorMessage(error, 'Cập nhật thất bại.'));
     }
   };
 
@@ -67,7 +76,16 @@ const Info = () => {
           <Input disabled />
         </Form.Item>
 
-        <Form.Item label="Số điện thoại" name="phone" >
+        <Form.Item
+          label="Số điện thoại"
+          name="phone"
+          rules={[{
+            validator: (_, value: string) =>
+              !value || /^[0-9]{9,11}$/.test(value)
+                ? Promise.resolve()
+                : Promise.reject(new Error('Số điện thoại phải có từ 9 đến 11 chữ số.')),
+          }]}
+        >
           <Input />
         </Form.Item>
 
