@@ -1,4 +1,4 @@
-import { Typography } from "antd/lib";
+import { Typography } from 'antd';
 
 const { Title } = Typography;
 

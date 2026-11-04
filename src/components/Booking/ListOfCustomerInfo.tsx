@@ -1,6 +1,9 @@
-import { useRef } from 'react';
+import type { FormInstance } from 'antd';
+import type { CustomersFormValues, PassengerFormValues } from '@/types/Booking';
+import { useRef, useEffect } from 'react';
 import { Form, Input, DatePicker, Select, Row, Col, Button, Divider, Typography } from 'antd';
 import dayjs from 'dayjs';
+import { passengerLabel } from '@/utils/booking';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -9,20 +12,27 @@ export default function ListOfCustomerInfo({
   onFormReady,
   // personalFormGetter,
   onCustomersChange,
+  maxPassengers,
 }: {
-  onFormReady?: (form: any) => void;
+  onFormReady?: (form: FormInstance<CustomersFormValues>) => void;
   /** optional getter function provided by parent to read personal info form values */
-  personalFormGetter?: (form: any) => any;
+  personalFormGetter?: (form: FormInstance<CustomersFormValues>) => unknown;
   /** notify parent when customers change */
-  onCustomersChange?: (customers: any[]) => void;
+  onCustomersChange?: (customers: PassengerFormValues[]) => void;
+  /** Số hành khách bổ sung tối đa theo số chỗ còn lại của chuyến đi. */
+  maxPassengers?: number;
 }) {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<CustomersFormValues>();
 
-  if (onFormReady) onFormReady(form);
+  useEffect(() => { onFormReady?.(form); }, [form, onFormReady]);
   const idCounter = useRef(1);
+  const customersWatch = Form.useWatch('customers', form) as PassengerFormValues[] | undefined;
+  const customerCount = customersWatch?.length ?? 0;
+  const capacityReached = maxPassengers != null && customerCount >= maxPassengers;
 
   const addCustomer = (type: 'ADULT' | 'CHILD' | 'TODDLER' | 'INFANT') => {
-    const customers = form.getFieldValue('customers') || [];
+    const customers = form.getFieldsValue().customers || [];
+    if (maxPassengers != null && customers.length >= maxPassengers) return;
 
     idCounter.current += 1;
     const newItem = {
@@ -33,7 +43,9 @@ export default function ListOfCustomerInfo({
       birthDate: null,
       address: '',
     };
-    form.setFieldsValue({ customers: [...customers, newItem] });
+    const next = [...customers, newItem];
+    form.setFieldsValue({ customers: next });
+    onCustomersChange?.(next);
   };
 
   return (
@@ -43,10 +55,15 @@ export default function ListOfCustomerInfo({
         layout="vertical"
         name="list_of_customers"
         onValuesChange={() => {
-          if (onCustomersChange) onCustomersChange(form.getFieldValue('customers') || []);
+          if (onCustomersChange) onCustomersChange(form.getFieldsValue().customers || []);
         }}
       >
-        <Title level={4}>Hành khách</Title>
+        <Title level={4}>Hành khách bổ sung</Title>
+        {maxPassengers != null && (
+          <p className="text-xs text-gray-500" style={{ marginTop: -8 }}>
+            Chuyến đi còn tối đa {maxPassengers} hành khách bổ sung (đã thêm {customerCount}).
+          </p>
+        )}
 
         {/* Add buttons */}
         <Row gutter={16} className="mb-6">
@@ -56,7 +73,7 @@ export default function ListOfCustomerInfo({
                 <p className="font-medium">Người lớn</p>
                 <p className="text-xs text-gray-500">Từ 12 tuổi trở lên</p>
               </div>
-              <Button type="primary" className="bg-[#7BBCB0]!" onClick={() => addCustomer('ADULT')}>
+              <Button type="primary" className="bg-[#7BBCB0]!" disabled={capacityReached} onClick={() => addCustomer('ADULT')}>
                 + Thêm
               </Button>
             </div>
@@ -67,7 +84,7 @@ export default function ListOfCustomerInfo({
                 <p className="font-medium">Trẻ em</p>
                 <p className="text-xs text-gray-500">Từ 5 - 11 tuổi</p>
               </div>
-              <Button type="primary" className="bg-[#7BBCB0]!" onClick={() => addCustomer('CHILD')}>
+              <Button type="primary" className="bg-[#7BBCB0]!" disabled={capacityReached} onClick={() => addCustomer('CHILD')}>
                 + Thêm
               </Button>
             </div>
@@ -81,6 +98,7 @@ export default function ListOfCustomerInfo({
               <Button
                 type="primary"
                 className="bg-[#7BBCB0]!"
+                disabled={capacityReached}
                 onClick={() => addCustomer('TODDLER')}
               >
                 + Thêm
@@ -96,6 +114,7 @@ export default function ListOfCustomerInfo({
               <Button
                 type="primary"
                 className="bg-[#7BBCB0]!"
+                disabled={capacityReached}
                 onClick={() => addCustomer('INFANT')}
               >
                 + Thêm
@@ -121,30 +140,29 @@ export default function ListOfCustomerInfo({
                   style={{ marginBottom: 24, borderBottom: '1px solid #eee', paddingBottom: 16 }}
                 >
                   <Row gutter={16} align="middle">
-                    <Col span={20}>
+                    <Col xs={24} sm={20}>
                       <p className="font-bold mb-2">
-                        {index + 1}.{' '}
-                        <Form.Item {...restField} name={[name, 'type']} noStyle>
-                          <>{/* will render type label via value */}</>
-                        </Form.Item>
-                        <span>
-                          {form.getFieldValue(['customers', name, 'type']) === 'ADULT'
-                            ? 'Người lớn'
-                            : form.getFieldValue(['customers', name, 'type']) === 'CHILD'
-                              ? 'Trẻ em'
-                              : form.getFieldValue(['customers', name, 'type']) === 'TODDLER'
-                                ? 'Trẻ nhỏ'
-                                : 'Em bé'}
-                        </span>
+                        {index + 1}. {passengerLabel(customersWatch?.[name]?.type)}
                       </p>
                     </Col>
-                    <Col span={4} className="text-right">
-                      <Button type="link" danger onClick={() => remove(name)}>
+                    <Col xs={24} sm={4} className="text-right">
+                      <Button
+                        type="link"
+                        danger
+                        onClick={() => {
+                          // Form.List.remove does not fire onValuesChange, so notify the parent explicitly.
+                          const remaining = (form.getFieldsValue().customers || []).filter(
+                            (_, position) => position !== name,
+                          );
+                          remove(name);
+                          onCustomersChange?.(remaining);
+                        }}
+                      >
                         Xóa
                       </Button>
                     </Col>
 
-                    <Col span={6}>
+                    <Col xs={24} sm={12} md={6}>
                       <Form.Item
                         {...restField}
                         name={[name, 'fullName']}
@@ -155,7 +173,7 @@ export default function ListOfCustomerInfo({
                       </Form.Item>
                     </Col>
 
-                    <Col span={6}>
+                    <Col xs={24} sm={12} md={6}>
                       <Form.Item
                         {...restField}
                         name={[name, 'gender']}
@@ -169,7 +187,7 @@ export default function ListOfCustomerInfo({
                       </Form.Item>
                     </Col>
 
-                    <Col span={6}>
+                    <Col xs={24} sm={12} md={6}>
                       <Form.Item
                         {...restField}
                         name={[name, 'birthDate']}
@@ -230,7 +248,7 @@ export default function ListOfCustomerInfo({
                     </Col>
 
                     {/* Hidden type field so type persists */}
-                    <Form.Item {...restField} name={[name, 'type']} hidden initialValue="adult">
+                    <Form.Item {...restField} name={[name, 'type']} hidden>
                       <Input />
                     </Form.Item>
                   </Row>
@@ -239,18 +257,6 @@ export default function ListOfCustomerInfo({
             </>
           )}
         </Form.List>
-
-        {/* helper: if parent wants to ensure first customer exists, they can call this exposed method via ref */}
-
-        <Divider />
-
-        <Title level={5}>Ghi chú</Title>
-        <Form.Item name="note">
-          <Input.TextArea
-            rows={3}
-            placeholder="Vui lòng nhập nội dung lời nhắn bằng tiếng Việt hoặc tiếng Anh"
-          />
-        </Form.Item>
       </Form>
     </div>
   );
