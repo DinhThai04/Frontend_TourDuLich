@@ -5,11 +5,11 @@ import type {
   LoginResponse,
   RegisterRequest,
   RegisterResponse,
-  ReviewResponse,
+  TourReviewsResponse,
 } from '@/types/Auth';
-import { sessionService } from './sessionServices';
 import axios from 'axios';
-import type { AxiosResponse, CreateCommentRequest } from '@/types/comment';
+import type { ApiResponse, CreateCommentRequest, ReviewResponse } from '@/types/comment';
+import { listPageParams, type ListQuery } from '@/utils';
 
 export const loginService = async (data: LoginRequest): Promise<LoginResponse> => {
   try {
@@ -26,22 +26,24 @@ export const loginService = async (data: LoginRequest): Promise<LoginResponse> =
     throw new Error('Unexpected error');
   }
 };
-export const loginWithGGService = async (googleToken: string) => {
+export const loginWithGGService = async (googleToken: string): Promise<LoginResponse> => {
   try {
-    const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}/auth/users/google`,
+    // The Google ID token travels in Authorization; axiosClient keeps that header for auth routes.
+    const res: LoginResponse = await axiosClient.post(
+      '/auth/users/google',
       {},
-      {
-        headers: {
-          Authorization: `Bearer ${googleToken}`,
-        },
-      }
+      { headers: { Authorization: `Bearer ${googleToken}` } }
     );
-    if (res.data.code === 1000) {
-      return res.data;
+    if (res.code !== 1000) {
+      throw new Error(res?.message || 'Đăng nhập thất bại');
     }
-  } catch (error) {
-    console.error(error);
+    return res;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      const serverError = err.response?.data as { message?: string };
+      throw new Error(serverError?.message || 'Đăng nhập thất bại');
+    }
+    if (err instanceof Error) throw err;
     throw new Error('Đăng nhập thất bại');
   }
 };
@@ -49,7 +51,6 @@ export const loginWithGGService = async (googleToken: string) => {
 export const registerService = async (data: RegisterRequest) => {
   try {
     const res: RegisterResponse = await axiosClient.post('/auth/users/register', data);
-    console.log('>>>', res);
     if (res.code !== 1000) {
       throw new Error(res?.message || 'Register failed');
     }
@@ -66,50 +67,38 @@ export const registerService = async (data: RegisterRequest) => {
   }
 };
 
-export const logoutService = async (token: string): Promise<void> => {
-  try {
-    await axiosClient.post('/auth/users/logout', { token });
-  } finally {
-    sessionService.clearSession();
-  }
+export const logoutService = async (token: string, refreshToken?: string): Promise<void> => {
+  // A missing access token must not skip revoking a refresh token that is still valid.
+  if (!token && !refreshToken) return;
+  // Revoke the captured tokens only; local logout must not wait on the server.
+  await axiosClient.post('/auth/users/logout', { token: token || undefined, refreshToken }, { timeout: 5000 });
 };
 
-export const refreshTokenService = async (token: string): Promise<LoginResponse> => {
-  try {
-    const res: LoginResponse = await axiosClient.post('/auth/users/refresh', token);
-
-    if (res.code !== 1000) {
-      throw new Error(res?.message || 'Refresh failed');
-    }
-    return res;
-  } catch (err: unknown) {
-    if (axios.isAxiosError(err)) {
-      const serverError = err.response?.data as { message?: string };
-      throw new Error(serverError?.message || 'Refresh failed');
-    }
-    if (err instanceof Error) {
-      throw err;
-    }
-    throw new Error('Unexpected error');
-  }
-};
-
-export const changePW = async (data: ChangePWReq): Promise<AxiosResponse> => {
+export const changePW = async (data: ChangePWReq): Promise<ApiResponse> => {
   return axiosClient.post('/auth/users/Change-password', data);
 };
 
-export const getListComentByTour = (id: number): Promise<AxiosResponse> => {
-  return axiosClient.get(`/auth/reviews/tour/${id}`);
+export const getReviewsByTour = (
+  id: number,
+  query?: { page?: number; size?: number },
+): Promise<ApiResponse<ReviewResponse[]>> => {
+  return axiosClient.get(`/auth/reviews/tour/${id}`, { params: query });
 };
 
-export const getListComentByTourALll = (): Promise<AxiosResponse> => {
-  return axiosClient.get(`/auth/reviews/list`);
+export const getAllReviews = (query?: ListQuery): Promise<ApiResponse<TourReviewsResponse[]>> => {
+  return axiosClient.get(`/auth/reviews/list`, { params: listPageParams(query) });
 };
 
-export const createComent = (data: CreateCommentRequest): Promise<AxiosResponse> => {
+export const createReview = (data: CreateCommentRequest): Promise<ApiResponse<ReviewResponse>> => {
   return axiosClient.post('/auth/reviews', data);
 };
 
-export const getHighReviews = (size: number = 3): Promise<AxiosResponse<ReviewResponse[]>> => {
+export const getReviewEligibility = (
+  tourId: number,
+): Promise<ApiResponse<{ eligible: boolean; message: string }>> => {
+  return axiosClient.get(`/auth/reviews/eligibility?tourId=${tourId}`);
+};
+
+export const getHighReviews = (size: number = 3): Promise<ApiResponse<ReviewResponse[]>> => {
   return axiosClient.get(`/auth/reviews/high-rating?size=${size}`);
 };

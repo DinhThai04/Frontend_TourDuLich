@@ -1,41 +1,20 @@
+import type { InvoiceResponse } from '@/types/Invoice';
 import axiosClient from "@/api/axios";
-import type { AxiosResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/comment';
+import { listPageParams, type ListQuery } from '@/utils';
 
 const INVOICE_API = "/invoice/direct";
 
 const invoiceServices = {
-  /**
-   * 
-   * @param data 
-   * @returns 
-   */
-  create: (data: any): Promise<AxiosResponse> => {
-    return axiosClient.post(`${INVOICE_API}/create`, data);
+  getAll: (query?: ListQuery): Promise<ApiResponse<InvoiceResponse[]>> => {
+    return axiosClient.get(`${INVOICE_API}/all`, { params: listPageParams(query) });
   },
 
-  /**
-   * 
-   * @returns 
-   */
-  getAll: (): Promise<AxiosResponse> => {
-    return axiosClient.get(`${INVOICE_API}/all`);
-  },
-
-  /**
-   * 
-   * @param id 
-   * @returns 
-   */
-  getById: (id: number): Promise<AxiosResponse> => {
+  getById: (id: number): Promise<ApiResponse<InvoiceResponse>> => {
     return axiosClient.get(`${INVOICE_API}/${id}`);
   },
 
-  /**
-   * 
-   * @param bookingId 
-   * @returns 
-   */
-  getByBookingId: (bookingId: number): Promise<AxiosResponse> => {
+  getByBookingId: (bookingId: number): Promise<ApiResponse<InvoiceResponse>> => {
     return axiosClient.get(`${INVOICE_API}/booking/${bookingId}`);
   },
 };

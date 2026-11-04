@@ -1,65 +1,34 @@
 import axiosClient from '@/api/axios';
-import type { BookingRequest } from '@/types/Booking';
-import type { AxiosResponse } from '@/types/comment';
+import type { BookingRequest, BookingResponse, CustomerResponse } from '@/types/Booking';
+import type { ApiResponse } from '@/types/comment';
+import { listPageParams, type ListQuery } from '@/utils';
 
 const BOOKING_API = '/booking/book';
 const CUSTOMER_API = '/booking/customer';
 
 const bookingServices = {
-  /**
-   *
-   * @param data
-   * @returns
-   */
-  create: (data: BookingRequest): Promise<AxiosResponse> => {
+  create: (data: BookingRequest): Promise<ApiResponse<BookingResponse>> => {
     return axiosClient.post(`${BOOKING_API}/create`, data);
   },
 
-  /**
-   *
-   * @returns
-   */
-  getAll: (): Promise<AxiosResponse> => {
-    return axiosClient.get(`${BOOKING_API}/all`);
+  getAll: (query?: ListQuery): Promise<ApiResponse<BookingResponse[]>> => {
+    return axiosClient.get(`${BOOKING_API}/all`, { params: listPageParams(query) });
   },
 
-  /**
-   *
-   * @param id
-   * @returns
-   */
-  getById: (id: number): Promise<AxiosResponse> => {
+  getById: (id: number): Promise<ApiResponse<BookingResponse>> => {
     return axiosClient.get(`${BOOKING_API}/${id}`);
   },
 
-  /**
-   *
-   * @param id
-   * @returns
-   */
-  delete: (id: number): Promise<AxiosResponse> => {
+  delete: (id: number): Promise<ApiResponse> => {
     return axiosClient.delete(`${BOOKING_API}/${id}`);
   },
 
-  /**
-   *
-   * @returns
-   */
-  getAllCustomers: (): Promise<AxiosResponse> => {
-    return axiosClient.get(`${CUSTOMER_API}/all`);
+  getAllCustomers: (query?: ListQuery): Promise<ApiResponse<CustomerResponse[]>> => {
+    return axiosClient.get(`${CUSTOMER_API}/all`, { params: listPageParams(query) });
   },
 
-  /**
-   *
-   * @param id
-   * @returns
-   */
-  getListOfCustomersByBookingId: (id: number): Promise<AxiosResponse> => {
+  getListOfCustomersByBookingId: (id: number): Promise<ApiResponse<CustomerResponse[]>> => {
     return axiosClient.get(`${CUSTOMER_API}/booking/${id}`);
-  },
-
-  updateStatus: (id: number): Promise<AxiosResponse> => {
-    return axiosClient.put(`${BOOKING_API}/status/${id}`);
   },
 };
 
