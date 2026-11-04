@@ -1,28 +1,23 @@
 'use client';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Input, message, Row, Col, Select, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Alert, Button, Input, message, Row, Col, Select, Typography } from 'antd';
 
 import { getListUser } from '@/services/userServices';
 import { getRoles } from '@/services/rolesServices';
+import { isApiSuccess } from '@/utils/apiResult';
+import { isListCapped } from '@/utils';
+import { useApiQuery } from '@/hooks';
 
 import type { User } from '@/types/User.d';
 import UserTable from './UserTable';
 import UserDetailModal from './ModelEdit';
 import UserFormModal from './UserFormModal';
+import { ALL_PERMISSIONS } from '@/config/permissions';
+import { useHasPermission } from '@/config/useHasPermission';
 
 const { Option } = Select;
 
-interface Role {
-  id: number;
-  name: string;
-}
-
 const ManagerUser: React.FC = () => {
-  const [data, setData] = useState<User[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [loadingRoles, setLoadingRoles] = useState(false);
-
   const [searchName, setSearchName] = useState('');
   const [searchEmail, setSearchEmail] = useState('');
   const [searchRole, setSearchRole] = useState<number | null>(null);
@@ -32,53 +27,40 @@ const ManagerUser: React.FC = () => {
 
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  console.log('Log để build không bị lỗi never read', loadingUsers, loadingRoles);
-  const fetchData = async () => {
-    setLoadingUsers(true);
-    try {
+  const canChangeRole = useHasPermission(ALL_PERMISSIONS.ROLES.UPDATE);
+
+  const { data = [], loading: loadingUsers, refresh } = useApiQuery(
+    async () => {
       const res = await getListUser();
-      setData(res?.code === 1000 ? res.result : []);
-    } catch {
-      message.error('Lấy danh sách người dùng thất bại');
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
+      if (!isApiSuccess(res)) throw new Error(res?.message || 'Lấy danh sách người dùng thất bại');
+      return res.result;
+    },
+    { onError: (msg) => message.error(msg) },
+  );
 
-  const fetchRoles = async () => {
-    setLoadingRoles(true);
-    try {
+  const { data: roles = [] } = useApiQuery(
+    async () => {
       const res = await getRoles();
-      if (res.code === 200) {
-        const normalized = (res.result as any[]).map((r) => ({
-          id: r.id ?? r.role_id,
-          name: r.name,
-        }));
-        setRoles(normalized as Role[]);
-      }
-    } catch {
-      message.error('Lấy danh sách vai trò thất bại');
-    } finally {
-      setLoadingRoles(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    fetchRoles();
-  }, []);
+      if (!isApiSuccess(res)) throw new Error(res?.message || 'Lấy danh sách vai trò thất bại');
+      return res.result.map((r) => ({ id: r.id, name: r.name }));
+    },
+    // The role list needs ROLES_GET_LIST; users who may only register customers must not see a 403.
+    { enabled: canChangeRole, onError: (msg) => message.error(msg) },
+  );
 
   const filteredData = useMemo(() => {
     return data.filter((u) => {
       const matchName = (u.username ?? '').toLowerCase().includes(searchName.toLowerCase());
       const matchEmail = (u.email ?? '').toLowerCase().includes(searchEmail.toLowerCase());
       const matchRole = searchRole ? u.role?.id === searchRole : true;
-      return matchName && matchEmail && matchRole;
+      return matchName && matchEmail && matchRole && (!statusFilter || (u.status ?? 'ACTIVE') === statusFilter);
     });
-  }, [data, searchName, searchEmail, searchRole]);
+  }, [data, searchName, searchEmail, searchRole, statusFilter]);
 
   const handleResetFilter = () => {
+    setStatusFilter('');
     setSearchName('');
     setSearchEmail('');
     setSearchRole(null);
@@ -99,27 +81,10 @@ const ManagerUser: React.FC = () => {
     setFormModalOpen(true);
   };
 
-  const handleSubmitUser = async (values: any) => {
-    try {
-      setFormLoading(true);
-      if (editingUser) {
-        setData((prev) => prev.map((u) => (u.id === editingUser.id ? { ...u, ...values } : u)));
-        message.success('Cập nhật người dùng thành công');
-      } else {
-        const newUser: User = {
-          id: Date.now(),
-          ...values,
-          role: roles.find((r) => r.id === values.role) as Role,
-          permissions: [],
-        };
-        setData((prev) => [newUser, ...prev]);
-        message.success('Thêm người dùng thành công');
-      }
-      setFormModalOpen(false);
-      setEditingUser(null);
-    } finally {
-      setFormLoading(false);
-    }
+  const handleSubmitUser = async () => {
+    setFormLoading(true);
+    try { await refresh(); setFormModalOpen(false); setEditingUser(null); }
+    finally { setFormLoading(false); }
   };
 
   return (
@@ -199,12 +164,21 @@ const ManagerUser: React.FC = () => {
         </Col>
       </Row>
 
+      <Select aria-label="Lọc trạng thái tài khoản" value={statusFilter || undefined} allowClear placeholder="Tất cả trạng thái" onChange={value=>setStatusFilter(value ?? '')} options={[{value:'ACTIVE',label:'Hoạt động'},{value:'LOCKED',label:'Đã khóa'},{value:'ARCHIVED',label:'Đã lưu trữ'}]} style={{width:220,marginBottom:16}} />
+      {isListCapped(data) && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Danh sách tài khoản đã đạt giới hạn 500 bản ghi. Dữ liệu có thể chưa đầy đủ, hãy lọc hoặc kiểm tra trực tiếp trước khi kết luận."
+        />
+      )}
       <UserTable
         data={filteredData}
         onView={handleViewUser}
         onEdit={handleEditUser}
         onAdd={handleOpenAddModal}
-        fetchData={fetchData}
+        fetchData={() => void refresh()}
         loading={loadingUsers}
       />
 
@@ -220,10 +194,11 @@ const ManagerUser: React.FC = () => {
         roles={roles}
         initialValues={editingUser || undefined}
         mode={editingUser ? 'edit' : 'add'}
+        canChangeRole={canChangeRole}
         onCancel={() => {
           setFormModalOpen(false);
           setEditingUser(null);
-          fetchData();
+          void refresh();
         }}
         onSubmit={handleSubmitUser}
       />

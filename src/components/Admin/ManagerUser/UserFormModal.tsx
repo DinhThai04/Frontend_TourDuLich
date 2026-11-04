@@ -1,9 +1,10 @@
-// src/pages/admin/users/components/UserFormModal.tsx
-import React, { useEffect } from 'react';
+import type { UserFormValues } from '@/types/adminForms';
+import React, { useEffect, useState } from 'react';
 import { Modal, Form, Row, Col, Input, Select } from 'antd';
 import type { User } from '@/types/User.d';
 import { createUser, updateUser } from '@/services/userServices';
 import { toast } from 'react-toastify';
+import { errorMessage } from '@/utils/errors';
 
 const { Option } = Select;
 
@@ -17,9 +18,10 @@ interface Props {
   loading?: boolean;
   mode: 'add' | 'edit';
   roles: Role[];
+  canChangeRole?: boolean;
   initialValues?: User;
   onCancel: () => void;
-  onSubmit: (values: any) => Promise<void> | void;
+  onSubmit: () => Promise<void> | void;
 }
 
 const UserFormModal: React.FC<Props> = ({
@@ -27,11 +29,13 @@ const UserFormModal: React.FC<Props> = ({
   loading,
   mode,
   roles,
+  canChangeRole = true,
   initialValues,
   onCancel,
-  // onSubmit,
+  onSubmit,
 }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<UserFormValues>();
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -50,49 +54,45 @@ const UserFormModal: React.FC<Props> = ({
   }, [open, initialValues, form]);
 
   const handleOk = async () => {
-    const values = await form.validateFields();
-
-    if (mode === 'add') {
-      const dataUser = {
-        username: values.username,
-        email: values.email,
-        phone: values.phone,
-        address: values.address,
-        roleId: values.role,
-        password: values.password,
-      };
-      try {
-        const res = await createUser(dataUser);
-        if (res.code === 1000) {
-          toast.success('Thêm người dùng thành công');
-          form.resetFields();
-
-          onCancel();
-        }
-      } catch (error) {
-        toast.error('Người dùng đã tồn tại');
-      }
+    if (submitting) return;
+    let values: UserFormValues;
+    try {
+      values = await form.validateFields();
+    } catch {
+      return; // AntD already highlights the invalid fields.
     }
-
-    if (mode === 'edit' && initialValues) {
-      const dataUser = {
-        username: values.username,
-        email: values.email,
-        phone: values.phone,
-        address: values.address,
-        roleId: values.role,
-        password: values.password,
-      };
-      try {
-        const res = await updateUser(dataUser, initialValues.id);
-        if (res.code === 1000) {
-          toast.success('Cập nhật người dùng thành công');
-          form.resetFields();
-          onCancel();
+    const dataUser = {
+      username: values.username,
+      email: values.email,
+      phone: values.phone,
+      address: values.address,
+      roleId: values.role,
+      password: values.password,
+    };
+    setSubmitting(true);
+    try {
+      if (mode === 'add') {
+        const res = await createUser(dataUser);
+        if (res.code !== 1000) {
+          toast.error(res.message || 'Chưa tạo được người dùng');
+          return;
         }
-      } catch (error) {
-        toast.error('Cập nhật người dùng thất bại');
+        toast.success('Thêm người dùng thành công');
+      } else if (initialValues) {
+        const res = await updateUser(dataUser, initialValues.id);
+        if (res.code !== 1000) {
+          toast.error(res.message || 'Chưa cập nhật được người dùng');
+          return;
+        }
+        toast.success('Cập nhật người dùng thành công');
       }
+      form.resetFields();
+      await onSubmit();
+      onCancel();
+    } catch (error) {
+      toast.error(errorMessage(error, mode === 'add' ? 'Chưa tạo được người dùng' : 'Chưa cập nhật được người dùng'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -102,11 +102,11 @@ const UserFormModal: React.FC<Props> = ({
       title={mode === 'add' ? 'Thêm mới người dùng' : 'Cập nhật người dùng'}
       onCancel={onCancel}
       onOk={handleOk}
-      confirmLoading={loading}
+      confirmLoading={loading || submitting}
       okText="Lưu"
       width={800}
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>
@@ -114,7 +114,10 @@ const UserFormModal: React.FC<Props> = ({
             <Form.Item
               label="Họ và tên"
               name="username"
-              rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
+              rules={[
+                { required: true, message: 'Vui lòng nhập họ và tên' },
+                { min: 3, max: 50, message: 'Họ và tên phải từ 3 đến 50 ký tự' },
+              ]}
             >
               <Input placeholder="Nhập họ và tên" />
             </Form.Item>
@@ -151,52 +154,61 @@ const UserFormModal: React.FC<Props> = ({
           )}
 
           <Col span={12}>
-            <Form.Item label="Số điện thoại" name="phone">
+            <Form.Item
+              label="Số điện thoại"
+              name="phone"
+              rules={[{ pattern: /^[0-9]{9,11}$/, message: 'Số điện thoại phải có từ 9 đến 11 chữ số' }]}
+            >
               <Input placeholder="Nhập số điện thoại" />
             </Form.Item>
           </Col>
 
           <Col span={12}>
-            <Form.Item label="Địa chỉ" name="address">
+            <Form.Item
+              label="Địa chỉ"
+              name="address"
+              rules={[
+                { required: true, message: 'Vui lòng nhập địa chỉ' },
+                { max: 255, message: 'Địa chỉ không được quá 255 ký tự' },
+              ]}
+            >
               <Input placeholder="Nhập địa chỉ" />
             </Form.Item>
           </Col>
 
-          <Col span={12}>
-            <Form.Item
-              label="Role"
-              name="role"
-              rules={[{ required: true, message: 'Vui lòng chọn role' }]}
-            >
-              <Select placeholder="Chọn role">
-                {roles.map((role) => (
-                  <Option key={role.id} value={role.id}>
-                    {role.name}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
+          {canChangeRole && (
+            <Col span={12}>
+              <Form.Item
+                label="Role"
+                name="role"
+                rules={[{ required: true, message: 'Vui lòng chọn role' }]}
+              >
+                <Select placeholder="Chọn role">
+                  {roles.map((role) => (
+                    <Option key={role.id} value={role.id}>
+                      {role.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          )}
 
           {mode === 'add' && (
             <Col span={12}>
               <Form.Item
                 label="Mật khẩu"
                 name="password"
-                rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+                rules={[
+                  { required: true, message: 'Vui lòng nhập mật khẩu' },
+                  { min: 8, max: 72, message: 'Mật khẩu phải từ 8 đến 72 ký tự' },
+                ]}
               >
                 <Input.Password placeholder="Nhập mật khẩu" />
               </Form.Item>
             </Col>
           )}
 
-          {mode === 'edit' && (
-            <Col span={12}>
-              <Form.Item label="Mật khẩu" name="password">
-                <Input.Password placeholder="Nhập mật khẩu mới (nếu muốn đổi)" disabled />
-              </Form.Item>
-            </Col>
-          )}
         </Row>
       </Form>
     </Modal>

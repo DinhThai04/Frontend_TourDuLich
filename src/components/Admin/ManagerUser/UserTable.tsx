@@ -1,12 +1,11 @@
-'use client';
+import UserAccountActions from './UserAccountActions';
+import { accountStatusLabels } from '@/utils/accounts';
 import React, { useMemo, useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { Space, Tag, Button, Popconfirm, Input, Avatar } from 'antd';
-import { EyeOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Space, Tag, Button, Input, Avatar } from 'antd';
+import { EyeOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import type { User } from '@/types/User';
-import { deleteUser } from '@/services/userServices';
-import { toast } from 'react-toastify';
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 
@@ -27,28 +26,11 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
   const canCreateUser = useHasPermission(ALL_PERMISSIONS.USERS.REGISTER);
   const canUpdateUser = useHasPermission(ALL_PERMISSIONS.USERS.UPDATE);
   const canDeleteUser = useHasPermission(ALL_PERMISSIONS.USERS.DELETE);
+  const canStatus = useHasPermission(ALL_PERMISSIONS.USERS.STATUS);
+  const canArchive = useHasPermission(ALL_PERMISSIONS.USERS.ARCHIVE);
+  const canEvents = useHasPermission(ALL_PERMISSIONS.USERS.EVENTS);
 
-  const hasAnyAction = canViewDetail || canUpdateUser || canDeleteUser;
-
-  const handleDeleteUser = async (id: number) => {
-    if (!canDeleteUser) {
-      toast.error('Bạn không có quyền xóa người dùng');
-      return;
-    }
-
-    try {
-      const res = await deleteUser(id);
-      if (res.code === 1000) {
-        toast.success('Xóa người dùng thành công');
-        fetchData();
-      } else {
-        toast.error('Xóa người dùng thất bại');
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error('Xóa người dùng thất bại');
-    }
-  };
+  const hasAnyAction = canViewDetail || canUpdateUser || canDeleteUser || canStatus || canArchive || canEvents;
 
   const columns: ProColumns<User>[] = [
     {
@@ -59,6 +41,7 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
       render: (_, record) => <Avatar>{(record.username || 'A')[0]}</Avatar>,
     },
     { title: 'Họ và tên', dataIndex: 'username', width: 150 },
+    { title: 'Trạng thái', dataIndex: 'status', valueType: 'select', valueEnum: { ACTIVE: 'Hoạt động', LOCKED: 'Đã khóa', ARCHIVED: 'Đã lưu trữ' }, render: (_, record) => <Tag color={record.status==='LOCKED'?'orange':record.status==='ARCHIVED'?'default':'green'}>{accountStatusLabels[record.status ?? 'ACTIVE']}</Tag> },
     { title: 'Email', dataIndex: 'email', width: 250 },
     { title: 'Số điện thoại', dataIndex: 'phone', search: false },
     { title: 'Địa chỉ', dataIndex: 'address', ellipsis: true, search: false },
@@ -77,29 +60,24 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
       render: (_, record) => (
         <Space>
           {canViewDetail && (
-            <EyeOutlined
-              style={{ color: '#1677ff', fontSize: 18, cursor: 'pointer' }}
+            <Button
+              type="text"
+              aria-label={`Xem chi tiết ${record.username || record.email}`}
+              icon={<EyeOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
               onClick={() => onView(record)}
             />
           )}
 
-          {canUpdateUser && (
-            <EditOutlined
-              style={{ color: '#52c41a', fontSize: 18, cursor: 'pointer' }}
+          {canUpdateUser && record.status !== 'ARCHIVED' && (
+            <Button
+              type="text"
+              aria-label={`Sửa ${record.username || record.email}`}
+              icon={<EditOutlined style={{ color: '#52c41a', fontSize: 18 }} />}
               onClick={() => onEdit(record)}
             />
           )}
 
-          {canDeleteUser && (
-            <Popconfirm
-              title="Bạn có chắc muốn xóa người dùng này?"
-              okText="Xóa"
-              cancelText="Hủy"
-              onConfirm={() => handleDeleteUser(record.id)}
-            >
-              <DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />
-            </Popconfirm>
-          )}
+          <UserAccountActions user={record} onChanged={fetchData} />
         </Space>
       ),
     },
