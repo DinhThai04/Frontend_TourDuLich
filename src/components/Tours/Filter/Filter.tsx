@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Select, Radio, DatePicker, Button, Checkbox, Space, Typography } from 'antd';
+import { Alert, Select, Radio, DatePicker, Button, Checkbox, Space, Typography } from 'antd';
 import type { RadioChangeEvent } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { getAllDepartures, getAllDestinations, getAllVehicles } from '@/services/tourServices';
+import { settledRows } from '@/utils/settledRows';
+import { BUDGET_BUCKETS, budgetKeyFromParams, budgetParams } from '@/utils/tourSearch';
 import type { ILocation, ITour, IVehicle } from '@/types/Tour';
 import type { useSearchParams } from 'react-router-dom';
 
@@ -18,13 +20,7 @@ interface IProps {
   setSearchParams: ReturnType<typeof useSearchParams>[1];
 }
 
-const getBudgetStateFromParams = (minP: string | null, maxP: string | null): string | null => {
-  if (minP === '0' && maxP === '5000000') return '<5';
-  if (minP === '5000000' && maxP === '10000000') return '5-10';
-  if (minP === '10000000' && maxP === '20000000') return '10-20';
-  if (minP === '20000000' && !maxP) return '>20';
-  return null; // Không giới hạn
-};
+const FILTER_KEYS = ['dest', 'depD', 'minP', 'maxP', 'veh', 'dep'] as const;
 
 const Filter = ({ searchParams, setSearchParams }: IProps) => {
   // State để lưu trữ các giá trị của bộ lọc
@@ -33,13 +29,23 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
   const [destination, setDestination] = useState<ILocation[] | null>(null);
   const [vehicles, setVehicles] = useState<IVehicle[] | null>(null);
   const [departureDate, setDepartureDate] = useState<Dayjs | null>(null);
+  const [catalogError, setCatalogError] = useState(false);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
 
   const [selectedTransports, setSelectedTransports] = useState<string[] | null>(null);
   const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
+  // Bản sao bộ lọc đang hiển thị trong URL; null ở lần render đầu để URL luôn được áp dụng.
+  const [syncedFilters, setSyncedFilters] = useState<string | null>(null);
 
   useEffect(() => {
-    // Đọc các giá trị từ URL
+    // Chỉ đọc lại URL khi chính bộ lọc thay đổi (nút "Áp dụng", liên kết từ trang chủ).
+    // Đổi sắp xếp hay chuyển trang cũng làm searchParams đổi, nhưng không được xóa các lựa
+    // chọn người dùng đang soạn mà chưa bấm "Áp dụng".
+    const key = FILTER_KEYS.map((name) => searchParams.get(name) ?? '').join('|');
+    if (key === syncedFilters) return;
+    setSyncedFilters(key);
+
     const dest = searchParams.get('dest');
     const depD = searchParams.get('depD');
     const minP = searchParams.get('minP');
@@ -48,15 +54,15 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
     const dep = searchParams.get('dep');
 
     // Cập nhật state nội bộ của Filter để UI khớp với URL
-    if (dest) setSelectedDestination(dest);
-    if (dep) setSelectedDeparture(dep);
-    if (depD) setDepartureDate(dayjs(depD));
-    if (veh) setSelectedTransports(veh.split(',')); // Chuyển "1,2" thành ["1", "2"]
+    setSelectedDestination(dest);
+    setSelectedDeparture(dep);
+    // Lịch trình đã khởi hành không còn chỗ để đặt, nên bộ lọc không nhận ngày trong quá khứ.
+    setDepartureDate(depD && dayjs(depD).isValid() && !dayjs(depD).isBefore(dayjs(), 'day') ? dayjs(depD) : null);
+    setSelectedTransports(veh ? veh.split(',') : null);
 
     // Đồng bộ budget
-    const budgetState = getBudgetStateFromParams(minP, maxP);
-    setBudget(budgetState);
-  }, [searchParams]); // Phụ thuộc vào searchParams
+    setBudget(budgetKeyFromParams(minP, maxP));
+  }, [searchParams, syncedFilters]); // Phụ thuộc vào searchParams
 
   const handleApplyFilters = () => {
     // Tạo một bản sao của params hiện tại (ví dụ: để giữ 'sort')
@@ -65,24 +71,10 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
     // 1. Xử lý Budget (minP, maxP)
     newParams.delete('minP'); // Xóa key cũ
     newParams.delete('maxP');
-    if (budget) {
-      switch (budget) {
-        case '<5':
-          newParams.set('minP', '0');
-          newParams.set('maxP', '5000000');
-          break;
-        case '5-10':
-          newParams.set('minP', '5000000');
-          newParams.set('maxP', '10000000');
-          break;
-        case '10-20':
-          newParams.set('minP', '10000000');
-          newParams.set('maxP', '20000000');
-          break;
-        case '>20':
-          newParams.set('minP', '20000000');
-          break;
-      }
+    const range = budgetParams(budget);
+    if (range) {
+      newParams.set('minP', range.minP);
+      if (range.maxP !== null) newParams.set('maxP', range.maxP);
     }
 
     // 2. Xử lý Điểm đến (dest)
@@ -111,35 +103,43 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
     setSearchParams(newParams);
   };
 
+  // Mỗi danh mục tải độc lập: một API lỗi không được làm mất dữ liệu của hai API còn lại.
   const getAllData = async () => {
-    const [departures, destinations, vehicles] = await Promise.all([
+    const [departures, destinations, vehicles] = await Promise.allSettled([
       getAllDepartures(),
       getAllDestinations(),
       getAllVehicles(),
     ]);
 
-    return { departures, destinations, vehicles };
+    return {
+      departures: settledRows(departures),
+      destinations: settledRows(destinations),
+      vehicles: settledRows(vehicles),
+      complete: [departures, destinations, vehicles].every(
+        (result) => result.status === 'fulfilled' && result.value.code === 1000
+      ),
+    };
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      const data = await getAllData();
-      if (
-        data.departures.code === 1000 &&
-        data.destinations.code === 1000 &&
-        data.vehicles.code === 1000
-      ) {
-        setDeparture(data.departures.result);
-        setDestination(data.destinations.result);
-        setVehicles(data.vehicles.result);
-      }
-    };
-
-    fetchData();
-  }, []);
+    let active = true;
+    setCatalogError(false);
+    void getAllData()
+      .then((data) => {
+        if (!active) return;
+        setDeparture(data.departures);
+        setDestination(data.destinations);
+        setVehicles(data.vehicles);
+        setCatalogError(!data.complete);
+      })
+      .catch(() => { if (active) setCatalogError(true); });
+    return () => { active = false; };
+  }, [catalogAttempt]);
 
   return (
     <div className="!p-6 bg-white rounded-lg shadow-md max-w-4xl mx-auto">
+      {catalogError && <Alert type="warning" message="Chưa tải được các lựa chọn bộ lọc"
+        action={<Button onClick={() => setCatalogAttempt(value => value + 1)}>Thử lại</Button>} />}
       <Space direction="vertical" size="large" className="w-full">
         <div className="flex flex-col gap-6">
           <div className="flex flex-col">
@@ -147,16 +147,15 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
               Ngân sách
             </Text>
             <Radio.Group
-              onChange={(e: RadioChangeEvent) => setBudget(e.target.value)}
-              value={budget}
+              onChange={(e: RadioChangeEvent) => setBudget(e.target.value === 'all' ? null : e.target.value)}
+              value={budget ?? 'all'}
               className="mt-2"
             >
               <Space direction="vertical">
-                <Radio value={null}>Không giới hạn</Radio>
-                <Radio value="<5">Dưới 5 triệu</Radio>
-                <Radio value="5-10">Từ 5 - 10 triệu</Radio>
-                <Radio value="10-20">Từ 10 - 20 triệu</Radio>
-                <Radio value=">20">Trên 20 triệu</Radio>
+                <Radio value="all">Không giới hạn</Radio>
+                {BUDGET_BUCKETS.map((bucket) => (
+                  <Radio key={bucket.key} value={bucket.key}>{bucket.label}</Radio>
+                ))}
               </Space>
             </Radio.Group>
           </div>
@@ -200,6 +199,7 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
               className="w-full mt-2"
               value={departureDate}
               onChange={(date) => setDepartureDate(date)}
+              disabledDate={(current) => !!current && current.isBefore(dayjs(), 'day')}
               format="dddd, DD/MM/YYYY"
               placeholder="Chọn ngày đi"
             />

@@ -9,8 +9,7 @@ import {
 } from '@ant-design/icons';
 import { Button } from 'antd';
 import dayjs from 'dayjs';
-
-const FALLBACK_IMAGE_URL = 'https://via.placeholder.com/400x200?text=No+Image';
+import ResponsiveImage from '@/components/Share/ResponsiveImage';
 
 interface TourCardProps {
   tour: ITour;
@@ -18,8 +17,7 @@ interface TourCardProps {
 }
 
 const TourCard: React.FC<TourCardProps> = ({ tour, onBooking }) => {
-  const imageUrl =
-    tour.imageIds && tour.imageIds.length > 0 ? tour.imageIds[0] : FALLBACK_IMAGE_URL;
+  const imageUrl = tour.imageIds?.[0];
 
   const nightDuration = tour.duration > 0 ? tour.duration - 1 : 0;
 
@@ -27,10 +25,11 @@ const TourCard: React.FC<TourCardProps> = ({ tour, onBooking }) => {
     <div className="!py-2 !px-[8px]">
       <div className="shadow-xl rounded-2xl overflow-hidden bg-white">
         <div className="relative">
-          <img
+          <ResponsiveImage
             src={imageUrl}
             alt={tour.tourTitle || 'Tour image'}
             className="w-full h-[200px] object-cover"
+            width={640} height={400}
           />
         </div>
 

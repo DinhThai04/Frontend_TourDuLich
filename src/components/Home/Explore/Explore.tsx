@@ -2,8 +2,11 @@ import Container from '@/components/Share/Container';
 import { getRandom7Destinations } from '@/services/tourServices';
 import type { ILocation } from '@/types/Tour';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Slider, { type Settings } from 'react-slick';
+import { Link } from 'react-router-dom';
+import Slider, { type Settings } from '@/components/Share/TourSlider';
+import ResponsiveImage from '@/components/Share/ResponsiveImage';
+import { errorMessage } from '@/utils/errors';
+import { message } from 'antd';
 
 const VouchersSlider: React.FC = () => {
   const settings: Settings = {
@@ -24,18 +27,19 @@ const VouchersSlider: React.FC = () => {
   const [destinations, setDestination] = useState<ILocation[]>();
 
   const get7Destinations = async () => {
-    const res = await getRandom7Destinations();
-
-    if (res.code === 1000) {
-      setDestination(res.result);
+    try {
+      const res = await getRandom7Destinations();
+      if (res.code === 1000) setDestination(res.result);
+      // Báo lỗi có cấu trúc (code !== 1000) cũng phải hiện, nếu không slider vĩnh viễn trống mà không ai biết.
+      else message.error(res.message || 'Không tải được điểm đến nổi bật.');
+    } catch (error) {
+      message.error(errorMessage(error, 'Không tải được điểm đến nổi bật.'));
     }
   };
-  const navigate = useNavigate();
-  const handleView = (city: string) => {
+  const destinationPath = (city: string) => {
     const params = new URLSearchParams();
     params.set('dest', city);
-
-    navigate(`/tours/search?${params.toString()}`);
+    return `/tours/search?${params.toString()}`;
   };
 
   useEffect(() => {
@@ -59,22 +63,24 @@ const VouchersSlider: React.FC = () => {
           {destinations &&
             destinations.length > 0 &&
             destinations.map((dest, index) => (
-              <div
-                key={index}
+              <Link
+                key={dest.city || index}
+                to={destinationPath(dest.city)}
+                aria-label={`Xem tour đến ${dest.city}`}
                 className="!px-[10px] cursor-pointer"
-                onClick={() => handleView(dest.city)}
               >
                 <div className="relative w-full h-[240px] rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
-                  <img
+                  <ResponsiveImage
                     src={dest.img}
-                    alt={`Voucher ${index + 1}`}
+                    alt={`Ảnh điểm đến ${dest.city}`}
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                    width={640} height={400}
                   />
                   <div className="absolute bottom-0 left-0 w-full text-center text-white text-[18px] font-semibold uppercase !p-3 bg-gradient-to-t from-[rgba(0,0,0,0.85)] to-transparent">
                     {dest.city}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
         </Slider>
       </Container>

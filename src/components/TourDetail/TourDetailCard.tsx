@@ -1,5 +1,6 @@
 import { getTourDepartureById } from '@/services/tourServices';
-import type { ITour, ITourDeparture, TourDepartureResponse } from '@/types/Tour';
+import type { ITour, ITourDeparture } from '@/types/Tour';
+import { formatCurrencyVND } from '@/utils';
 import {
   CalendarOutlined,
   ClockCircleOutlined,
@@ -27,32 +28,24 @@ export default function TourDetailCard({
   const [dataDetailTourDeparture, setDataDetailTourDeparture] = useState<ITourDeparture | null>(
     null
   );
-  let navi = useNavigate();
-  const fetchDataTourDepartureById = async () => {
-    if (!selectedDepartureId) return;
-
-    const res = await getTourDepartureById(selectedDepartureId);
-    const data: TourDepartureResponse = res;
-
-    setDataDetailTourDeparture(data.result);
-  };
-
-  // const { user } = useAppSelector((state: RootState) => state.auth);
-
-  // const handleBookTour = async () => {
-  //   if (!user) {
-  //     message.info('Bạn cần phải đăng nhập trước khi đặt tour');
-  //     return;
-  //   }
-  //   message.success('Bạn đã đặt tour ' + tourData?.id);
-  // };
-
+  const [detailLoading, setDetailLoading] = useState(false);
+  const navi = useNavigate();
   useEffect(() => {
-    fetchDataTourDepartureById();
+    let active = true;
+    setDataDetailTourDeparture(null);
+    setDetailLoading(Boolean(selectedDepartureId));
+    if (selectedDepartureId) {
+      getTourDepartureById(selectedDepartureId).then(response => {
+        if (active) setDataDetailTourDeparture(response.result);
+      }).catch(() => { if (active) setDataDetailTourDeparture(null); })
+        .finally(() => { if (active) setDetailLoading(false); });
+    }
+    return () => { active = false; };
   }, [selectedDepartureId]);
 
   function accessBookingPage() {
-    navi(`/booking`);
+    if (!selectedDepartureId || !tourData?.id) return;
+    navi(`/booking?departureId=${selectedDepartureId}&tourId=${tourData.id}`);
   }
   const handleSelectDepartureClick = () => {
     if (onSelectDeparture) {
@@ -63,7 +56,7 @@ export default function TourDetailCard({
   return (
     <Card
       style={{ width: '100%', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-      bodyStyle={{ padding: 15 }}
+      styles={{ body: { padding: 15 } }}
     >
       <div
         style={{
@@ -87,7 +80,7 @@ export default function TourDetailCard({
           gap: 4,
         }}
       >
-        {tourData?.basePrice.toLocaleString('vi-VN')} ₫
+        {tourData?.basePrice ? formatCurrencyVND(tourData.basePrice) : 'Đang cập nhật'}
         <span style={{ fontSize: 14, fontWeight: 500, color: '#555' }}>/ Khách</span>
       </Title>
       {/* 
@@ -119,7 +112,7 @@ export default function TourDetailCard({
           selectedDepartureId
             ? {
                 label: 'Mã tour',
-                value: dataDetailTourDeparture?.tourCode,
+                value: dataDetailTourDeparture?.tourCode ?? '—',
                 icon: <TagOutlined />,
                 valueStyle: { fontWeight: 500, fontSize: 13 },
               }
@@ -133,7 +126,7 @@ export default function TourDetailCard({
           selectedDepartureId
             ? {
                 label: 'Khởi hành',
-                value: tourData?.departureCity.city,
+                value: tourData?.departureCity?.city ?? '—',
                 icon: <EnvironmentOutlined />,
                 valueStyle: { fontWeight: 500, fontSize: 13 },
               }
@@ -141,7 +134,9 @@ export default function TourDetailCard({
           selectedDepartureId
             ? {
                 label: 'Ngày khởi hành',
-                value: dayjs(dataDetailTourDeparture?.departureDate).format('DD-MM-YYYY'),
+                value: dataDetailTourDeparture?.departureDate
+                  ? dayjs(dataDetailTourDeparture.departureDate).format('DD-MM-YYYY')
+                  : '—',
                 icon: <CalendarOutlined />,
                 valueStyle: { fontWeight: 500, fontSize: 13 },
               }
@@ -157,7 +152,7 @@ export default function TourDetailCard({
           selectedDepartureId
             ? {
                 label: 'Số chỗ còn',
-                value: dataDetailTourDeparture?.availableSeats,
+                value: dataDetailTourDeparture?.availableSeats ?? '—',
                 icon: <TeamOutlined />,
                 valueStyle: { fontWeight: 500, fontSize: 13 },
               }
@@ -207,6 +202,7 @@ export default function TourDetailCard({
           </Button> */}
           <Button
             icon={<CalendarOutlined />}
+            disabled={detailLoading || !dataDetailTourDeparture}
             style={{
               backgroundColor: '#E01600',
               color: '#fff',
@@ -217,7 +213,7 @@ export default function TourDetailCard({
             }}
             onClick={accessBookingPage}
           >
-            Đặt ngay
+            {detailLoading ? 'Đang tải lịch...' : dataDetailTourDeparture ? 'Đặt ngay' : 'Lịch không khả dụng'}
           </Button>
         </div>
       ) : (

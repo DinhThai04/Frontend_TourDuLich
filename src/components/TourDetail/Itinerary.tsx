@@ -4,7 +4,6 @@ import { Collapse, theme, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 
 const { Title } = Typography;
-const { Panel } = Collapse;
 
 interface ItineraryProps {
   tourId?: number | null;
@@ -21,14 +20,23 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
   };
 
   const [dataItinerary, setDataItinerary] = useState<IItinerary[]>([]);
-
-  const fechDataItineraryByTourId = async () => {
-    const res = await getItineraryByTourId(1);
-    setDataItinerary(res.result); // sửa để build
-  };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    fechDataItineraryByTourId();
+    let active = true;
+    setDataItinerary([]);
+    setError(false);
+    if (!tourId || !Number.isSafeInteger(tourId) || tourId < 1) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    getItineraryByTourId(tourId)
+      .then((res) => { if (active) setDataItinerary(res.result); })
+      .catch(() => { if (active) setError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [tourId]);
 
   return (
@@ -39,25 +47,26 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
       >
         LỊCH TRÌNH
       </Title>
+      {loading && <p role="status">Đang tải lịch trình…</p>}
+      {error && <p role="alert">Không tải được lịch trình. Bạn vui lòng thử lại sau.</p>}
+      {tourId && !loading && !error && dataItinerary.length === 0 && <p>Tour chưa có lịch trình chi tiết.</p>}
       <Collapse
         expandIconPosition="end"
         bordered={false}
         style={{ background: token.colorBgContainer }}
         className="custom-collapse"
-      >
-        {dataItinerary.map((item) => (
-          <Panel
-            header={
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{ fontWeight: 650, fontSize: 13 }}>
-                  Ngày {item.dayNumber}: {item.title}
-                </span>
-                <span style={{ fontWeight: 500, fontSize: 12, color: '#555' }}>{item.meal}</span>
-              </div>
-            }
-            key={item.id}
-            style={panelStyle}
-          >
+        items={dataItinerary.map((item) => ({
+          key: item.id,
+          style: panelStyle,
+          label: (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{ fontWeight: 650, fontSize: 13 }}>
+                Ngày {item.dayNumber}: {item.title}
+              </span>
+              <span style={{ fontWeight: 500, fontSize: 12, color: '#555' }}>{item.meal}</span>
+            </div>
+          ),
+          children: (
             <div style={{ position: 'relative', paddingLeft: 12 }}>
               <div
                 style={{
@@ -94,9 +103,9 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
                 />
               </div>
             </div>
-          </Panel>
-        ))}
-      </Collapse>
+          ),
+        }))}
+      />
     </div>
   );
 };

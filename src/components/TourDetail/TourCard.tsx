@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, Typography, Button } from "antd";
 import {
-    HeartOutlined,
     CalendarOutlined,
     GlobalOutlined,
 } from "@ant-design/icons";
 import type { ITour } from "@/types/Tour";
+import ResponsiveImage from '@/components/Share/ResponsiveImage';
+import { formatCurrencyVND } from '@/utils';
 
 const { Text, Title } = Typography;
 
@@ -16,6 +18,7 @@ interface TourCardProps {
 
 export default function TourCard({ tour }: TourCardProps) {
     const [isHovered, setIsHovered] = useState(false);
+    const navigate = useNavigate();
 
     return (
         <Card
@@ -26,14 +29,15 @@ export default function TourCard({ tour }: TourCardProps) {
                 boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
                 cursor: "pointer",
             }}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
             {/* Ảnh */}
             <div style={{ position: "relative", height: 290, overflow: "hidden" }}>
-                <img
-                    src={tour.imageIds[0]}
+                <ResponsiveImage
+                    src={tour.imageIds?.[0]}
+                    width={640} height={400}
                     alt={tour.tourTitle}
                     style={{
                         width: "100%",
@@ -43,11 +47,6 @@ export default function TourCard({ tour }: TourCardProps) {
                         transition: "transform 0.4s ease-in-out",
                         display: "block",
                     }}
-                />
-                <Button
-                    type="text"
-                    icon={<HeartOutlined style={{ color: "white", fontSize: 20 }} />}
-                    style={{ position: "absolute", top: 12, left: 12, zIndex: 2 }}
                 />
             </div>
 
@@ -178,12 +177,13 @@ export default function TourCard({ tour }: TourCardProps) {
                 <div>
                     <Text style={{ fontSize: 12, fontWeight: 600 }}>Giá từ</Text>
                     <Title level={4} style={{ color: "#D5382C", margin: 0 }}>
-                        {tour.basePrice.toLocaleString("vi-VN")} đ
+                        {tour.basePrice ? formatCurrencyVND(tour.basePrice) : "Đang cập nhật"}
                     </Title>
                 </div>
 
                 <Button
                     type="link"
+                    onClick={() => navigate(`/tours/detail/${tour.id}`)}
                     style={{
                         paddingRight: 0,
                         fontSize: 12,

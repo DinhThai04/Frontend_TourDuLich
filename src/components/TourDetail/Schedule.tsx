@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import {
   Calendar,
   Button,
@@ -7,9 +8,12 @@ import {
   List,
   Card,
   ConfigProvider,
+  message,
   Typography,
   Divider,
-  Space,
+  Empty,
+  Spin,
+  Alert,
 } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
@@ -23,10 +27,19 @@ import type {
   ITourDeparture,
 } from '@/types/Tour';
 import { ArrowLeft, Bus } from 'lucide-react';
+import { departureCalendar, departureMonthStart } from '@/utils/tourSchedule';
+import { formatCurrencyVND } from '@/utils';
 
 dayjs.locale('vi');
 
 const { Title, Text } = Typography;
+
+/** Show the departure time stored on the schedule instead of a made-up travel window. */
+const clock = (value?: string | null): string =>
+  value && dayjs(value).isValid() ? dayjs(value).format('HH:mm') : '—';
+
+const vnd = (value?: number | null): string =>
+  typeof value === 'number' && Number.isFinite(value) ? formatCurrencyVND(value) : '—';
 
 interface ScheduleProps {
   // tourId?: number;
@@ -37,7 +50,9 @@ interface ScheduleProps {
 
 export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>();
-  const [currentDate, setCurrentDate] = useState(dayjs(''));
+  const [currentDate, setCurrentDate] = useState(dayjs().startOf('month'));
+  const [loadingDepartures, setLoadingDepartures] = useState(true);
+  const [departureError, setDepartureError] = useState(false);
   const [specialDates, setSpecialDates] = useState<Record<string, { id: number; price: string }>>(
     {}
   );
@@ -48,54 +63,57 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
     null
   );
 
-  const fechDataDepartureById = async () => {
-    const res = await getDepartureByTourId(Number(tourData?.id));
-    const data: TourDeparturesResponse = res;
-    const newSpecialDates: Record<string, { id: number; price: string }> = {};
-    const monthsWithDepartures = new Set<string>();
-
-    data.result.forEach((dep: ITourDeparture) => {
-      const date = dayjs(dep.departureDate);
-      const dateKey = dayjs(dep.departureDate).format('YYYY-MM-DD');
-      newSpecialDates[dateKey] = {
-        id: Number(dep.id),
-        price:
-          tourData?.basePrice !== undefined
-            ? `${(tourData.basePrice / 1000).toLocaleString('en-US')}K`
-            : '',
-      };
-
-      monthsWithDepartures.add(date.format('YYYY-MM'));
-    });
-    const monthArray = Array.from(monthsWithDepartures);
-    setSpecialDates(newSpecialDates);
-    setSpecialMonths(monthArray);
-
-    if (monthArray.length > 0 && !selectedMonth) {
-      setSelectedMonth(monthArray[0]);
-      const [m, y] = monthArray[0].split('/');
-      setCurrentDate(dayjs(`${y}-${m}-01`));
-    }
-  };
-
-  const fetchDataTourDepartureById = async () => {
-    if (!selectedDepartureId) return;
-    const res = await getTourDepartureById(selectedDepartureId);
-    const data: TourDepartureResponse = res;
-    setDataDetailTourDeparture(data.result);
-  };
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedDepartureId(null);
+    onSelectDepartureId?.(null);
+    setDataDetailTourDeparture(null);
+    setSpecialDates({});
+    setSpecialMonths([]);
+    setSelectedMonth(undefined);
+    setCurrentDate(dayjs().startOf('month'));
+    setDepartureError(false);
+    setLoadingDepartures(true);
+    if (!tourData?.id) { setLoadingDepartures(false); return; }
+    getDepartureByTourId(Number(tourData.id))
+      .then((data: TourDeparturesResponse) => {
+        if (cancelled) return;
+        const calendar = departureCalendar(data.result || [], tourData.basePrice);
+        setSpecialDates(calendar.dates);
+        setSpecialMonths(calendar.months);
+        setSelectedMonth(calendar.months[0]);
+        const firstMonth = calendar.months[0] && departureMonthStart(calendar.months[0]);
+        setCurrentDate(firstMonth || dayjs().startOf('month'));
+      })
+      .catch(() => { if (!cancelled) setDepartureError(true); })
+      .finally(() => { if (!cancelled) setLoadingDepartures(false); });
+    return () => { cancelled = true; };
+  }, [tourData, onSelectDepartureId]);
 
   useEffect(() => {
-    fechDataDepartureById();
-    fetchDataTourDepartureById();
-  }, [tourData?.id, selectedDepartureId]);
+    let cancelled = false;
+    setDataDetailTourDeparture(null);
+    if (!selectedDepartureId) return;
+    getTourDepartureById(selectedDepartureId)
+      .then((data: TourDepartureResponse) => { if (!cancelled) setDataDetailTourDeparture(data.result); })
+      .catch(() => {
+        if (!cancelled) {
+          setSelectedDepartureId(null); onSelectDepartureId?.(null);
+          // Nếu chỉ âm thầm nhả chọn thì người dùng bấm ngày mà không hiểu vì sao lịch biến mất
+          // (đang hết hạn, bị ngưng hoặc đã bán hết ngay sau khi tải danh sách).
+          message.error('Chưa tải được lịch khởi hành này. Vui lòng chọn ngày khác hoặc tải lại trang.');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [selectedDepartureId, onSelectDepartureId]);
 
   const handleMonthSelect = (month: string) => {
+    const firstDay = departureMonthStart(month);
+    if (!firstDay || !specialMonths.includes(month)) return;
     setSelectedDepartureId(null);
     onSelectDepartureId?.(null);
     setSelectedMonth(month);
-    const [m, y] = month.split('/');
-    setCurrentDate(dayjs(`${y}-${m}-01`));
+    setCurrentDate(firstDay);
   };
 
   //  Hàm render danh sách tháng
@@ -133,7 +151,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                 fontSize: 16,
               }}
             >
-              {month}
+              {departureMonthStart(month)?.format('MM/YYYY')}
             </Button>
           </List.Item>
         )}
@@ -215,51 +233,74 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
   );
 
   // Hàm render ô ngày
-  const dateCellRender = (value: any) => {
+  const dateCellRender = (value: dayjs.Dayjs) => {
     const dateStr = dayjs(value).format('YYYY-MM-DD');
     const special = specialDates[dateStr];
-    const isSpecial = Boolean(special);
     const isHover = hoverDate === dateStr;
 
-    const handleClick = () => {
-      if (special) {
-        setSelectedDepartureId(special.id);
-        onSelectDepartureId?.(special.id);
-      }
+    const cellStyle: CSSProperties = {
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: '100%',
+      height: '100%',
+      textAlign: 'center',
+      padding: 6,
+      borderRadius: 6,
+      cursor: special ? 'pointer' : 'default',
+      border: special && isHover ? '1px solid red' : '1px solid transparent',
+      transition: 'all 0.2s',
+      background: 'transparent',
+      font: 'inherit',
+      color: 'inherit',
     };
 
-    return (
-      <div
-        onClick={handleClick}
-        onMouseEnter={() => setHoverDate(dateStr)}
-        onMouseLeave={() => setHoverDate(null)}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: '100%',
-          height: '100%',
-          textAlign: 'center',
-          padding: 6,
-          borderRadius: 6,
-          cursor: 'pointer',
-          border: isSpecial && isHover ? '1px solid red' : '1px solid transparent',
-          transition: 'all 0.2s',
-        }}
-      >
+    const hoverHandlers = {
+      onMouseEnter: () => setHoverDate(dateStr),
+      onMouseLeave: () => setHoverDate(null),
+    };
+
+    const cellContent = (
+      <>
         {/* Ngày */}
-        <div style={{ fontWeight: isSpecial ? 'bold' : '450', fontSize: 16 }}>
+        <div style={{ fontWeight: special ? 'bold' : '450', fontSize: 16 }}>
           {dayjs(value).date()}
         </div>
 
         {/* Giá */}
         <div
-          style={{ fontSize: 14, fontWeight: '700', color: isSpecial ? '#E01600' : 'transparent' }}
+          style={{ fontSize: 14, fontWeight: '700', color: special ? '#E01600' : 'transparent' }}
         >
           {special?.price || '—'}
         </div>
-      </div>
+      </>
+    );
+
+    if (!special) {
+      // fullCellRender thay toàn bộ nội dung ô lịch, nên không được aria-hidden:
+      // nếu ẩn thì người dùng đọc màn hình mất luôn con số ngày của mọi ô không có tour.
+      return (
+        <div {...hoverHandlers} style={cellStyle}>
+          {cellContent}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        {...hoverHandlers}
+        onClick={() => {
+          setSelectedDepartureId(special.id);
+          onSelectDepartureId?.(special.id);
+        }}
+        aria-pressed={selectedDepartureId === special.id}
+        aria-label={`Chọn ngày khởi hành ${dayjs(value).format('DD/MM/YYYY')}, giá ${special.price}`}
+        style={cellStyle}
+      >
+        {cellContent}
+      </button>
     );
   };
 
@@ -271,13 +312,17 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
       >
         <Row justify="space-between" align="middle">
           <Col>
-            <Space align="center" style={{ cursor: 'pointer', fontWeight: 500 }}>
+            <button
+              type="button"
+              onClick={() => { setSelectedDepartureId(null); onSelectDepartureId?.(null); }}
+              style={{ background: 'none', border: 'none', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 500 }}
+            >
               <ArrowLeft size={15} />
               <Text style={{ fontSize: 13, fontWeight: 'bold' }}>Quay lại</Text>
-            </Space>
+            </button>
           </Col>
           <Col>
-            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#E01600' }}>25/10/2025</div>
+            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#E01600' }}>{dayjs(dataDetailTourDeparture?.departureDate).format('DD/MM/YYYY')}</div>
           </Col>
         </Row>
 
@@ -307,7 +352,9 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                 marginTop: 4,
               }}
             >
-              <Text style={{ fontWeight: 500, fontSize: 13 }}>20:00</Text>
+              <Text style={{ fontWeight: 500, fontSize: 13 }}>
+                {clock(dataDetailTourDeparture?.departureDate)}
+              </Text>
               <div
                 style={{
                   flex: 1,
@@ -329,7 +376,6 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                   }}
                 />
               </div>
-              <Text style={{ fontWeight: 500, fontSize: 13 }}>22:00</Text>
             </div>
             <div
               style={{
@@ -369,7 +415,9 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                 marginTop: 4,
               }}
             >
-              <Text style={{ fontWeight: 500, fontSize: 13 }}>20:00</Text>
+              <Text style={{ fontWeight: 500, fontSize: 13 }}>
+                {clock(dataDetailTourDeparture?.returnDate)}
+              </Text>
               <div
                 style={{
                   flex: 1,
@@ -391,7 +439,6 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                   }}
                 />
               </div>
-              <Text style={{ fontWeight: 500, fontSize: 13 }}>22:00</Text>
             </div>
             <div
               style={{
@@ -436,7 +483,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                 </Text>
               </div>
               <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
-                {dataDetailTourDeparture?.tourPrice.adultPrice.toLocaleString('vi-VN')} đ
+                {vnd(dataDetailTourDeparture?.tourPrice?.adultPrice)}
               </Text>
             </div>
 
@@ -455,7 +502,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                 </Text>
               </div>
               <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
-                {dataDetailTourDeparture?.tourPrice.childPrice.toLocaleString('vi-VN')} đ
+                {vnd(dataDetailTourDeparture?.tourPrice?.childPrice)}
               </Text>
             </div>
 
@@ -474,7 +521,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                 </Text>
               </div>
               <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
-                {dataDetailTourDeparture?.tourPrice.toddlerPrice.toLocaleString('vi-VN')} đ
+                {vnd(dataDetailTourDeparture?.tourPrice?.toddlerPrice)}
               </Text>
             </div>
           </div>
@@ -504,7 +551,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                 </Text>
               </div>
               <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
-                {dataDetailTourDeparture?.tourPrice.infantPrice.toLocaleString('vi-VN')} đ
+                {vnd(dataDetailTourDeparture?.tourPrice?.infantPrice)}
               </Text>
             </div>
 
@@ -518,7 +565,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
             >
               <Text style={{ fontWeight: 500, fontSize: 13 }}>Phụ thu phòng đơn</Text>
               <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
-                {dataDetailTourDeparture?.tourPrice.singleSupplementPrice.toLocaleString('vi-VN')} đ
+                {vnd(dataDetailTourDeparture?.tourPrice?.singleSupplementPrice)}
               </Text>
             </div>
           </div>
@@ -538,7 +585,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 'bold', fontSize: 13 }}>Địa điểm tập trung</div>
             <div style={{ display: 'flex' }}>
-              <div style={{ fontWeight: 700, fontSize: 12 }}>10:00 19/10/2025</div>
+              <div style={{ fontWeight: 700, fontSize: 12 }}>Sẽ được thông báo trước ngày đi</div>
               <div style={{ fontWeight: 500, fontSize: 12, marginLeft: 3 }}>Đang cập nhật</div>
             </div>
           </div>
@@ -555,7 +602,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 'bold', fontSize: 13 }}>Địa điểm khách sạn</div>
             <div style={{ fontWeight: 500, fontSize: 11 }}>
-              263 Lê Hồng Phong, Phường Thắng Tam, Thành phố Vũng Tàu, Bà Rịa - Vũng Tàu, Việt Nam.
+              Chưa công bố. Vui lòng liên hệ SGU Tour để xác nhận trước chuyến đi.
             </div>
           </div>
         </div>
@@ -573,12 +620,10 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
             marginTop: 10,
           }}
         >
-          Combo không hoàn, không hủy, không đổi. Giá áp dụng tối thiểu cho 2 khách/ booking. Quý
-          khách cần mang theo CCCD/Passport gốc còn hạn để làm thủ tục nhận phòng. Giá chưa bao gồm
-          chỗ ngồi cho trẻ em dưới 4 tuổi, nếu muốn mua thêm ghế ngồi trên xe vui lòng liên hệ phụ
-          trách để được báo giá. Tổng đài tư vấn 1800.646.888.
-          <br />
-          Thông tin xe sẽ được cập nhật theo tình hình thực tế số lượng khách tham gia trong tour.
+          Giá được tính theo bảng giá và nhóm tuổi của từng hành khách; có thể đặt cho một người.
+          Mỗi hành khách, kể cả trẻ nhỏ, chiếm một chỗ trong chuyến đi.
+          Phụ thu phòng đơn chỉ là giá tham khảo và chưa tự động cộng vào thanh toán.
+          Vui lòng đọc chính sách giữ chỗ, thanh toán và dời lịch SGU Tour bên dưới trước khi đặt.
         </div>
       </Card>
     );
@@ -592,10 +637,13 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
       >
         LỊCH KHỞI HÀNH
       </Title>
-      <Row gutter={17}>
-        <Col span={4}>{renderMonthSelector()}</Col>
-        <Col span={20}>{selectedDepartureId ? renderTravelInfoCard() : renderCalendar()}</Col>
-      </Row>
+      {loadingDepartures ? <Spin tip="Đang tải lịch khởi hành"><div style={{ minHeight: 120 }} /></Spin>
+        : departureError ? <Alert type="error" showIcon message="Chưa tải được lịch khởi hành. Vui lòng thử lại." />
+        : specialMonths.length === 0 ? <Empty description="Tour hiện chưa có lịch khởi hành sắp tới." />
+        : <Row gutter={17}>
+        <Col xs={24} md={4}>{renderMonthSelector()}</Col>
+        <Col xs={24} md={20}>{selectedDepartureId ? (dataDetailTourDeparture ? renderTravelInfoCard() : <Spin />) : renderCalendar()}</Col>
+      </Row>}
     </div>
   );
 }

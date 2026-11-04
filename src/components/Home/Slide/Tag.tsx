@@ -26,6 +26,8 @@ const Tag: React.FC<IProps> = ({img, title}) => {
             <img
               alt={title}
               src={img}
+              loading="lazy"
+              decoding="async"
               style={{width: '100%', height: '100%', objectFit: 'cover'}}
               />
           </div>
