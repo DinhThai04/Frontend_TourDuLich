@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import type { ItineraryFormValues } from '@/types/adminForms';
+import React, { useState } from 'react';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 
-import { Button, Modal, Space, message, Tooltip, Input } from 'antd';
+import { Button, Modal, Space, message, Tooltip, Input, Alert, Select } from 'antd';
 
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -9,51 +10,57 @@ import type { IItinerary, AddItineraryRequest } from '@/types/Tour';
 import {
   addItinerary,
   deleteItinerary,
+  getAllTours,
   getItineraryByTourId,
   updateItinerary,
 } from '@/services/tourServices';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AddItinerary from './ModelSchedule/AddSchedule';
 import EditItinerary from './ModelSchedule/EditSchedule';
+import { isApiSuccess } from '@/utils/apiResult';
+import { isListCapped, TOUR_LIST_CAP } from '@/utils';
+import { errorMessage } from '@/utils/errors';
+import { useApiQuery } from '@/hooks';
+import { ALL_PERMISSIONS as P } from '@/config/permissions';
+import { useHasPermission } from '@/config/useHasPermission';
 
 const ManagerItinerary: React.FC = () => {
+  const canCreate = useHasPermission(P.ITINERARIES.CREATE);
+  const canUpdate = useHasPermission(P.ITINERARIES.UPDATE);
+  const canDelete = useHasPermission(P.ITINERARIES.DELETE);
   const location = useLocation();
+  const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const tourIdParam = params.get('tourId');
   const tourId = tourIdParam ? Number(tourIdParam) : null;
-  const [data, setData] = useState<IItinerary[]>([]);
-  const [searchTour, setSearchTour] = useState('');
   const [searchTitle, setSearchTitle] = useState('');
 
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editingItinerary, setEditingItinerary] = useState<IItinerary | null>(null);
 
-  const fetchDataItinerary = useCallback(async () => {
-    try {
-      if (!tourId) return;
-
-      const res = await getItineraryByTourId(tourId);
-      if (res.code === 1000) {
-        setData(res.result);
-      }
-    } catch (error) {
-      console.error('Failed to fetch tours:', error);
-    }
-  }, [tourId]);
-
-  useEffect(() => {
-    fetchDataItinerary();
-  }, [fetchDataItinerary]);
-
-  // Lọc dữ liệu theo search
-  const filteredData = data.filter(
-    (d) =>
-      d.title.toLowerCase().includes(searchTour.toLowerCase()) &&
-      d.title.toLowerCase().includes(searchTitle.toLowerCase())
+  const { data = [], loading, error: loadError, refresh } = useApiQuery(
+    async () => {
+      const res = await getItineraryByTourId(tourId as number);
+      if (!isApiSuccess(res)) throw new Error(res?.message || 'Không tải được lịch trình');
+      return res.result;
+    },
+    { enabled: tourId != null, deps: [tourId] },
+  );
+  const { data: tours = [] } = useApiQuery(
+    async () => {
+      const res = await getAllTours();
+      if (!isApiSuccess(res)) throw new Error(res?.message || 'Không tải được danh sách tour');
+      return res.result;
+    },
+    { enabled: tourId == null, deps: [tourId], onError: (msg) => message.error(msg) },
   );
 
-  const handleAdd = async (values: any) => {
+  const filteredData = data.filter((d) =>
+    d.title.toLowerCase().includes(searchTitle.toLowerCase()),
+  );
+
+  const handleAdd = async (values: ItineraryFormValues) => {
     if (!tourId) {
       message.error('Không tìm thấy tour ID');
       return;
@@ -65,15 +72,18 @@ const ManagerItinerary: React.FC = () => {
       meal: values.meal,
       tourId: tourId,
     };
-    const res = await addItinerary(newLocation);
+    const res = await addItinerary(newLocation).catch((err: unknown) => {
+      message.error(errorMessage(err, 'Thêm lịch trình thất bại'));
+      return null;
+    });
+    if (!res) return;
     if (res.code === 1000) {
-      setData([res.result, ...data]);
+      await refresh();
       message.success('Thêm lịch trình thành công');
       setOpenAdd(false);
     } else {
-      message.error('Thêm lịch trình thất bại: ');
+      message.error(res.message || 'Thêm lịch trình thất bại');
     }
-    setOpenAdd(false);
   };
 
   const handleEditClick = (record: IItinerary) => {
@@ -81,25 +91,28 @@ const ManagerItinerary: React.FC = () => {
     setOpenEdit(true);
   };
 
-  const handleEdit = async (values: any) => {
+  const handleEdit = async (values: ItineraryFormValues) => {
     if (!editingItinerary) return;
 
     const updateData = {
       ...values,
       id: editingItinerary.id,
+      tourId: editingItinerary.tourId,
     };
 
-    const res = await updateItinerary(updateData);
+    const res = await updateItinerary(updateData).catch((err: unknown) => {
+      message.error(errorMessage(err, 'Cập nhật lịch trình thất bại'));
+      return null;
+    });
+    if (!res) return;
 
     if (res.code === 1000) {
-      setData((prev) =>
-        prev.map((tour) => (tour.id === editingItinerary.id ? { ...tour, ...res.result } : tour))
-      );
+      await refresh();
       message.success('Cập nhật lịch trình thành công');
       setOpenEdit(false);
       setEditingItinerary(null);
     } else {
-      message.error('Cập nhật lịch trình thất bại');
+      message.error(res.message || 'Cập nhật lịch trình thất bại');
     }
   };
 
@@ -112,17 +125,18 @@ const ManagerItinerary: React.FC = () => {
         cancelText: 'Hủy',
         okType: 'danger',
         onOk: async () => {
-          const res = await deleteItinerary(id);
-          if (res.code === 1000) {
-            setData(data.filter((d) => d.id !== id));
+          try {
+            const res = await deleteItinerary(id);
+            if (res.code !== 1000) throw new Error(res.message || 'Xóa lịch trình thất bại');
+            await refresh();
             message.success('Xóa lịch trình thành công');
-          } else {
-            message.error('Xóa lịch trình thất bại');
+          } catch (err) {
+            message.error(errorMessage(err, 'Xóa lịch trình thất bại'));
+            throw err;
           }
         },
       });
-    } catch (error) {
-      console.error('Failed to delete itinerary:', error);
+    } catch {
       message.error('Có lỗi xảy ra khi xóa lịch trình');
     }
   };
@@ -136,16 +150,25 @@ const ManagerItinerary: React.FC = () => {
       title: 'Hành động',
       key: 'actions',
       width: 150,
+      hideInTable: !canUpdate && !canDelete,
       render: (_, record) => (
         <Space>
-          <EditOutlined
-            style={{ color: '#1890ff', fontSize: 18, cursor: 'pointer' }}
-            onClick={() => handleEditClick(record)}
-          />
-          <DeleteOutlined
-            style={{ color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }}
-            onClick={() => handleDelete(record.id)}
-          />
+          {canUpdate && (
+            <Button
+              type="text"
+              aria-label={`Sửa lịch trình ngày ${record.dayNumber}`}
+              icon={<EditOutlined style={{ color: '#1890ff', fontSize: 18 }} />}
+              onClick={() => handleEditClick(record)}
+            />
+          )}
+          {canDelete && (
+            <Button
+              type="text"
+              aria-label={`Xóa lịch trình ngày ${record.dayNumber}`}
+              icon={<DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />}
+              onClick={() => handleDelete(record.id)}
+            />
+          )}
         </Space>
       ),
     },
@@ -153,6 +176,7 @@ const ManagerItinerary: React.FC = () => {
 
   // Tạo button thêm mới với điều kiện
   const renderAddButton = () => {
+    if (!canCreate) return null;
     if (!tourId) {
       return (
         <Tooltip title="Vui lòng chọn tour trước khi thêm lịch trình">
@@ -172,27 +196,49 @@ const ManagerItinerary: React.FC = () => {
 
   return (
     <div>
-      {/* --------------- Chỗ sửa: Thêm để build không bị lỗi never read --------------- */}
       <Space style={{ marginBottom: 16 }}>
         <Input
-          placeholder="Search title"
+          placeholder="Tìm theo tiêu đề lịch trình"
           value={searchTitle}
           onChange={(e) => setSearchTitle(e.target.value)}
-          style={{ width: 200 }}
-        />
-        <Input
-          placeholder="Search tour"
-          value={searchTour}
-          onChange={(e) => setSearchTour(e.target.value)}
-          style={{ width: 200 }}
+          style={{ width: 240 }}
         />
       </Space>
-      {/* --------------- Chỗ sửa: Thêm để build không bị lỗi never read --------------- */}
+      {loadError && (
+        <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
+      )}
+      {tourId == null && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Chọn tour để quản lý lịch trình"
+          action={
+            <Select
+              style={{ minWidth: 280 }}
+              showSearch
+              optionFilterProp="label"
+              placeholder="Chọn tour"
+              options={tours.map((tour) => ({ value: tour.id, label: tour.tourTitle }))}
+              onChange={(id) => navigate(`/admin/managerTour/itinerary?tourId=${id}`)}
+            />
+          }
+        />
+      )}
+      {isListCapped(tours, TOUR_LIST_CAP) && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`Danh sách chỉ tải ${TOUR_LIST_CAP} tour gần nhất nên tour cũ hơn không chọn được ở đây.`}
+        />
+      )}
 
       <ProTable<IItinerary>
         columns={columns}
         rowKey="id"
         dataSource={filteredData}
+        loading={loading}
         search={false}
         headerTitle="Danh sách lịch trình tour"
         toolBarRender={() => [renderAddButton()]}
@@ -205,7 +251,7 @@ const ManagerItinerary: React.FC = () => {
         open={openAdd}
         onCancel={() => setOpenAdd(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         centered
       >
         <AddItinerary onSubmit={handleAdd} />
@@ -217,7 +263,7 @@ const ManagerItinerary: React.FC = () => {
         open={openEdit}
         onCancel={() => setOpenEdit(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         centered
       >
         {editingItinerary && <EditItinerary data={editingItinerary} onSubmit={handleEdit} />}

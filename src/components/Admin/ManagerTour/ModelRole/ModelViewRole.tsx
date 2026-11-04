@@ -1,22 +1,22 @@
+import type { Permission } from '@/types/Permission';
 import React from 'react';
 import { Modal, Tag, Collapse, Space, Divider, Typography, Switch } from 'antd';
 
-const { Panel } = Collapse;
 const { Text, Title } = Typography;
 
 interface Props {
   open: boolean;
   setOpen: (v: boolean) => void;
-  role: any;
+  role: Role | null;
 }
 
 const ModelViewRole: React.FC<Props> = ({ open, setOpen, role }) => {
   if (!role) return null;
 
   // Nhóm quyền theo module
-  const permissionsByModule = role.permissions?.reduce((acc: any, p: any) => {
-    if (!acc[p.module]) acc[p.module] = [];
-    acc[p.module].push(p);
+  const permissionsByModule = role.permissions?.reduce((acc: Record<string, Permission[]>, p) => {
+    const list = acc[p.module] ?? (acc[p.module] = []);
+    list.push(p);
     return acc;
   }, {});
 
@@ -49,17 +49,17 @@ const ModelViewRole: React.FC<Props> = ({ open, setOpen, role }) => {
       {!role.permissions || role.permissions.length === 0 ? (
         <Text type="secondary">• Vai trò này chưa được gán quyền nào</Text>
       ) : (
-        <Collapse accordion>
-          {Object.keys(permissionsByModule).map((moduleName) => {
-            const perms = permissionsByModule[moduleName];
+        <Collapse
+          accordion
+          items={Object.keys(permissionsByModule).map((moduleName) => {
+            const perms = permissionsByModule[moduleName] ?? [];
 
-            return (
-              <Panel
-                key={moduleName}
-                header={<div style={{ fontWeight: 600, fontSize: 15 }}>{moduleName}</div>}
-              >
+            return {
+              key: moduleName,
+              label: <div style={{ fontWeight: 600, fontSize: 15 }}>{moduleName}</div>,
+              children: (
                 <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                  {perms.map((perm: any) => (
+                  {perms.map((perm) => (
                     <div
                       key={perm.id}
                       style={{
@@ -97,10 +97,10 @@ const ModelViewRole: React.FC<Props> = ({ open, setOpen, role }) => {
                     </div>
                   ))}
                 </Space>
-              </Panel>
-            );
+              ),
+            };
           })}
-        </Collapse>
+        />
       )}
     </Modal>
   );

@@ -1,19 +1,22 @@
-'use client';
-import React, { useCallback, useEffect, useState } from 'react';
+import type { PriceFormValues } from '@/types/adminForms';
+import React, { useState } from 'react';
 import { EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Modal, Space, message } from 'antd';
+import { Button, Modal, Space, message, Alert } from 'antd';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import type { AddTourPriceRequest, ITourPrice } from '@/types/Tour';
 import { addPrice, getAllPrice, updateTourPrice } from '@/services/tourServices';
 import AddPrice from './ModelPrice/AddPrice';
 import EditPrice from './ModelPrice/EditPrice';
+import { isApiSuccess } from '@/utils/apiResult';
+import { errorMessage } from '@/utils/errors';
+import { useApiQuery } from '@/hooks';
+import { formatCurrencyVND } from '@/utils';
 
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 
 const ManagerPrice: React.FC = () => {
-  const [data, setData] = useState<ITourPrice[]>([]);
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedTourPrice, setSelectedTourPrice] = useState<ITourPrice | null>(null);
@@ -23,30 +26,16 @@ const ManagerPrice: React.FC = () => {
   const canCreate = useHasPermission(ALL_PERMISSIONS.PRICE.CREATE);
   const canUpdate = useHasPermission(ALL_PERMISSIONS.PRICE.UPDATE);
 
-  const fetchDataPrice = useCallback(async () => {
-    if (!canList) {
-      setData([]);
-      return;
-    }
-
-    try {
+  const { data = [], loading, error: loadError, refresh } = useApiQuery(
+    async () => {
       const res = await getAllPrice();
-      if (res.code === 1000) {
-        setData(res.result);
-      } else {
-        message.error('Lấy danh sách giá thất bại');
-      }
-    } catch (error) {
-      console.error('Failed to fetch prices:', error);
-      message.error('Lấy danh sách giá thất bại');
-    }
-  }, [canList]);
+      if (!isApiSuccess(res)) throw new Error(res?.message || 'Lấy danh sách giá thất bại');
+      return res.result;
+    },
+    { enabled: canList, onError: (msg) => message.error(msg) },
+  );
 
-  useEffect(() => {
-    fetchDataPrice();
-  }, [fetchDataPrice]);
-
-  const handleAdd = async (values: any) => {
+  const handleAdd = async (values: PriceFormValues) => {
     if (!canCreate) {
       message.error('Bạn không có quyền thêm giá');
       return;
@@ -63,19 +52,18 @@ const ManagerPrice: React.FC = () => {
     try {
       const res = await addPrice(newPrice);
       if (res.code === 1000) {
-        setData((prev) => [res.result, ...prev]);
+        await refresh();
         message.success('Thêm giá thành công');
         setOpenAdd(false);
       } else {
-        message.error('Thêm giá thất bại');
+        message.error(res.message || 'Thêm giá thất bại');
       }
     } catch (error) {
-      console.error(error);
-      message.error('Thêm giá thất bại');
+      message.error(errorMessage(error, 'Thêm giá thất bại'));
     }
   };
 
-  const handleEdit = async (values: any) => {
+  const handleEdit = async (values: PriceFormValues) => {
     if (!selectedTourPrice) return;
 
     if (!canUpdate) {
@@ -92,18 +80,15 @@ const ManagerPrice: React.FC = () => {
       const res = await updateTourPrice(updateData);
 
       if (res.code === 1000) {
-        setData((prev) =>
-          prev.map((tour) => (tour.id === selectedTourPrice.id ? { ...tour, ...res.result } : tour))
-        );
+        await refresh();
         message.success('Cập nhật giá thành công');
         setOpenEdit(false);
         setSelectedTourPrice(null);
       } else {
-        message.error('Cập nhật giá thất bại');
+        message.error(res.message || 'Cập nhật giá thất bại');
       }
     } catch (error) {
-      console.error(error);
-      message.error('Cập nhật giá thất bại');
+      message.error(errorMessage(error, 'Cập nhật giá thất bại'));
     }
   };
 
@@ -115,11 +100,15 @@ const ManagerPrice: React.FC = () => {
       align: 'center',
       render: (_, __, index) => index + 1,
     },
-    { title: 'Người lớn', dataIndex: 'adultPrice' },
-    { title: 'Trẻ em', dataIndex: 'childPrice' },
-    { title: 'Trẻ nhỏ', dataIndex: 'toddlerPrice' },
-    { title: 'Em bé', dataIndex: 'infantPrice' },
-    { title: 'Phụ thu phòng đơn', dataIndex: 'singleSupplementPrice' },
+    { title: 'Người lớn', dataIndex: 'adultPrice', render: (val) => formatCurrencyVND(Number(val)) },
+    { title: 'Trẻ em', dataIndex: 'childPrice', render: (val) => formatCurrencyVND(Number(val)) },
+    { title: 'Trẻ nhỏ', dataIndex: 'toddlerPrice', render: (val) => formatCurrencyVND(Number(val)) },
+    { title: 'Em bé', dataIndex: 'infantPrice', render: (val) => formatCurrencyVND(Number(val)) },
+    {
+      title: 'Phụ thu phòng đơn',
+      dataIndex: 'singleSupplementPrice',
+      render: (val) => formatCurrencyVND(Number(val)),
+    },
     {
       title: 'Hành động',
       key: 'actions',
@@ -128,8 +117,10 @@ const ManagerPrice: React.FC = () => {
       render: (_, record) =>
         canUpdate ? (
           <Space>
-            <EditOutlined
-              style={{ color: '#1890ff', fontSize: 18, cursor: 'pointer' }}
+            <Button
+              type="text"
+              aria-label={`Sửa bảng giá ${record.id}`}
+              icon={<EditOutlined style={{ color: '#1890ff', fontSize: 18 }} />}
               onClick={() => {
                 setSelectedTourPrice(record);
                 setOpenEdit(true);
@@ -147,10 +138,14 @@ const ManagerPrice: React.FC = () => {
 
   return (
     <div>
+      {loadError && (
+        <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
+      )}
       <ProTable<ITourPrice>
         columns={columns}
         rowKey="id"
         dataSource={data}
+        loading={loading}
         search={false}
         headerTitle="Danh sách combo giá"
         toolBarRender={() => [
@@ -174,7 +169,7 @@ const ManagerPrice: React.FC = () => {
         open={openAdd}
         onCancel={() => setOpenAdd(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         centered
       >
         <AddPrice onSubmit={handleAdd} />
@@ -189,7 +184,7 @@ const ManagerPrice: React.FC = () => {
           setSelectedTourPrice(null);
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         centered
       >
         <EditPrice data={selectedTourPrice} onSubmit={handleEdit} />
