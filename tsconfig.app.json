@@ -19,22 +19,22 @@
 		"strict": true,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
+		"noUncheckedIndexedAccess": true,
 		"erasableSyntaxOnly": true,
 		"noFallthroughCasesInSwitch": true,
-		"noUncheckedSideEffectImports": true /* Paths */,
-		"baseUrl": "./src",
+		"noUncheckedSideEffectImports": true,
+
+		/* Paths */
 		"paths": {
-			"@/*": ["*"],
-			"@routes/*": ["routes/*"],
-			"@layouts/*": ["layouts/*"],
-			"@components/*": ["components/*"],
-			"@pages/*": ["pages/*"],
-			"@hooks/*": ["hooks/*"],
-			"@utils/*": ["utils/*"],
-			"@libs/*": ["libs/*"],
-			"@services/*": ["services/*"],
-			"@store/*": ["store/*"],
-			"@types/*": ["types/*"]
+			"@/*": ["./src/*"],
+			"@routes/*": ["./src/routes/*"],
+			"@layouts/*": ["./src/layouts/*"],
+			"@components/*": ["./src/components/*"],
+			"@pages/*": ["./src/pages/*"],
+			"@utils/*": ["./src/utils/*"],
+			"@services/*": ["./src/services/*"],
+			"@store/*": ["./src/store/*"],
+			"@types/*": ["./src/types/*"]
 		}
 	},
 

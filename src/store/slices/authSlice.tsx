@@ -4,11 +4,15 @@ import {
   loginService,
   loginWithGGService,
   logoutService,
-  refreshTokenService,
 } from '@/services/authServices';
 import { sessionService } from '@/services/sessionServices';
 import type { IUserUpdate, User } from '@/types/User';
-import { updateAvt, updateProfile } from '@/services/userServices';
+import { getUserById, updateAvt, updateProfile } from '@/services/userServices';
+
+/** sessionStorage owns the persisted session; every login path goes through this helper. */
+const persistSession = (result: { token: string; refreshToken: string; user: User }) => {
+  sessionService.setSession(result.token, result.refreshToken, result.user);
+};
 
 const initialState: AuthState = {
   isAuth: false,
@@ -24,6 +28,7 @@ export const loginUser = createAsyncThunk(
   async (dataLogin: LoginRequest, { rejectWithValue }) => {
     try {
       const res = await loginService(dataLogin);
+      if (res.code === 1000) persistSession(res.result);
       return res;
     } catch (err: unknown) {
       if (err instanceof Error) return rejectWithValue(err.message);
@@ -36,6 +41,7 @@ export const loginUserWithGG = createAsyncThunk(
   async (ggToken: string, { rejectWithValue }) => {
     try {
       const res = await loginWithGGService(ggToken);
+      if (res?.code === 1000) persistSession(res.result);
       return res;
     } catch (err: unknown) {
       if (err instanceof Error) return rejectWithValue(err.message);
@@ -44,15 +50,27 @@ export const loginUserWithGG = createAsyncThunk(
   }
 );
 
-export const refreshToken = createAsyncThunk(
-  'auth/refreshToken',
-  async (_, { rejectWithValue }) => {
+/**
+ * Refresh the signed-in profile from the server (role/permissions/name/avatar) and keep
+ * sessionStorage in sync. A failed refresh keeps the current session instead of logging out.
+ */
+export const refreshCurrentUser = createAsyncThunk<User, void, { rejectValue: string }>(
+  'auth/refreshCurrentUser',
+  async (_, thunkAPI) => {
+    const current = (thunkAPI.getState() as { auth: AuthState }).auth.user;
+    if (!current?.id) return thunkAPI.rejectWithValue('Chưa đăng nhập');
     try {
-      const res = await refreshTokenService(sessionService.getToken() || '');
-      return res;
+      const res = await getUserById(current.id);
+      // A logout or a different login during the request must not resurrect the previous profile.
+      if (!sessionService.getToken() || String(sessionService.getUser()?.id) !== String(current.id)) {
+        return thunkAPI.rejectWithValue('Phiên đăng nhập đã thay đổi');
+      }
+      if (res.code !== 1000 || !res.result) {
+        return thunkAPI.rejectWithValue(res.message || 'Không tải được hồ sơ');
+      }
+      return res.result;
     } catch (err: unknown) {
-      if (err instanceof Error) return rejectWithValue(err.message);
-      return rejectWithValue('Refresh token thất bại');
+      return thunkAPI.rejectWithValue(err instanceof Error ? err.message : 'Không tải được hồ sơ');
     }
   }
 );
@@ -60,12 +78,14 @@ export const refreshToken = createAsyncThunk(
 export const logoutUser = createAsyncThunk<void, void, { rejectValue: string }>(
   'auth/logoutUser',
   async (_, { rejectWithValue }) => {
+    const token = sessionService.getToken() ?? '';
+    const refreshToken = sessionService.getRefreshToken() ?? undefined;
+    sessionService.clearSession();
     try {
-      await logoutService(sessionService.getToken() ?? '');
-      sessionService.clearSession();
+      await logoutService(token, refreshToken);
     } catch (err: unknown) {
       if (err instanceof Error) return rejectWithValue(err.message);
-      return rejectWithValue('Đăng xuất thành công');
+      return rejectWithValue('Đã xóa phiên đăng nhập trên thiết bị này; máy chủ chưa phản hồi.');
     }
   }
 );
@@ -78,10 +98,12 @@ export const uploadProfile = createAsyncThunk(
       const response = await updateProfile(arg.data, arg.userId);
 
       if (response.code === 1000) {
+        // Re-read the server profile so menus/guards see the latest role and permissions.
+        await thunkAPI.dispatch(refreshCurrentUser());
         return response.result;
       } else {
         // Nếu API trả về lỗi có cấu trúc
-        return thunkAPI.rejectWithValue('Cập nhật thông tin thất bại');
+        return thunkAPI.rejectWithValue(response.message || 'Cập nhật thông tin thất bại');
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -100,10 +122,12 @@ export const uploadAvatar = createAsyncThunk(
       const response = await updateAvt(arg.data, arg.userId);
 
       if (response.code === 1000) {
+        // Re-read the server profile so the new avatar and role data are authoritative.
+        await thunkAPI.dispatch(refreshCurrentUser());
         return response.result;
       } else {
         // Nếu API trả về lỗi có cấu trúc
-        return thunkAPI.rejectWithValue('Upload avatar thất bại');
+        return thunkAPI.rejectWithValue(response.message || 'Upload avatar thất bại');
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -117,7 +141,15 @@ export const uploadAvatar = createAsyncThunk(
 const authSlice = createSlice({
   name: 'auth',
   initialState,
-  reducers: {},
+  reducers: {
+    sessionRefreshed(state, action: PayloadAction<import('@/types/Auth').LoginResponse['result']>) {
+      state.isAuth = true;
+      state.token = action.payload.token;
+      state.user = action.payload.user;
+      state.expiryTime = action.payload.expiryTime;
+    },
+    sessionExpired() { return { ...initialState }; },
+  },
   extraReducers: (builder) => {
     builder
       // Login
@@ -127,10 +159,16 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
+        // A 2xx response with a non-success code must not open a session.
+        const result = action.payload?.code === 1000 ? action.payload.result : null;
+        if (!result) {
+          state.error = action.payload?.message || 'Đăng nhập thất bại';
+          return;
+        }
         state.isAuth = true;
-        state.user = action.payload?.result.user;
-        state.token = action.payload?.result.token;
-        state.expiryTime = action.payload?.result.expiryTime;
+        state.user = result.user;
+        state.token = result.token;
+        state.expiryTime = result.expiryTime;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -142,41 +180,28 @@ const authSlice = createSlice({
       })
       .addCase(loginUserWithGG.fulfilled, (state, action) => {
         state.loading = false;
+        const result = action.payload?.code === 1000 ? action.payload.result : null;
+        if (!result) {
+          state.error = action.payload?.message || 'Đăng nhập thất bại';
+          return;
+        }
         state.isAuth = true;
-        state.user = action.payload?.result.user;
-        state.token = action.payload?.result.token;
-        state.expiryTime = action.payload?.result.expiryTime;
+        state.user = result.user;
+        state.token = result.token;
+        state.expiryTime = result.expiryTime;
       })
       .addCase(loginUserWithGG.rejected, (state, action) => {
         state.loading = false;
         state.error = typeof action.payload === 'string' ? action.payload : 'Đăng nhập thất bại';
       })
-      // Logout
-      .addCase(logoutUser.fulfilled, (state) => {
-        state.isAuth = false;
-        state.user = null;
-        state.token = null;
-        state.expiryTime = null;
-        state.error = null;
-      })
-      .addCase(logoutUser.rejected, (state, action) => {
-        state.error = typeof action.payload === 'string' ? action.payload : 'Đăng xuất thất bại';
-      })
-
-      //refresh
-      .addCase(refreshToken.fulfilled, (state, action) => {
-        state.token = action.payload.result.token;
-        state.expiryTime = action.payload.result.expiryTime;
-        state.user = action.payload.result.user;
+      // Profile revalidation: keep the current session on failure instead of logging out.
+      .addCase(refreshCurrentUser.fulfilled, (state, action) => {
+        state.user = action.payload;
         state.isAuth = true;
+        sessionService.updateCurrentUser(action.payload.id, action.payload);
       })
-      .addCase(refreshToken.rejected, (state) => {
-        state.isAuth = false;
-        state.token = null;
-        state.user = null;
-        state.expiryTime = null;
-      })
-      //
+      // Logout
+      .addCase(logoutUser.pending, () => ({ ...initialState }))
       .addCase(uploadProfile.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -184,7 +209,7 @@ const authSlice = createSlice({
       // Khi upload thành công
       .addCase(uploadProfile.fulfilled, (state, action: PayloadAction<User>) => {
         state.loading = false;
-        if (state.user) {
+        if (state.user && String(state.user.id) === String(action.payload.id)) {
           state.user = action.payload;
         }
       })
@@ -194,23 +219,17 @@ const authSlice = createSlice({
         state.error =
           typeof action.payload === 'string' ? action.payload : 'Cập nhật thông tin thất bại';
       })
-      //
       .addCase(uploadAvatar.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(
         uploadAvatar.fulfilled,
-        (state, action: PayloadAction<User | { originalFileName: string; url: string }>) => {
+        (state, action) => {
           state.loading = false;
-          if (state.user) {
+          if (state.user && String(state.user.id) === String(action.meta.arg.userId)) {
             // So sánh nếu action.payload là object kiểu { originalFileName, url }
-            if ('url' in action.payload && 'originalFileName' in action.payload) {
-              state.user.avatar = action.payload.url;
-            } else {
-              // Nếu là User, thì dùng avatar từ user
-              state.user.avatar = action.payload.avatar;
-            }
+            state.user.avatar = action.payload.url;
           }
         }
       )
@@ -220,11 +239,8 @@ const authSlice = createSlice({
         state.error =
           typeof action.payload === 'string' ? action.payload : 'Upload avatar thất bại';
       });
-
-    //
   },
 });
 
+export const { sessionRefreshed, sessionExpired } = authSlice.actions;
 export default authSlice.reducer;
-
-// export const { updateUser, updateUserAvatar } = authSlice.actions;
