@@ -1,6 +1,7 @@
 interface Role {
   id: number;
   name: string;
-  description: string;
-  permissions: Permission[];
+  active?: boolean;
+  description?: string | null;
+  permissions: import('./Permission').Permission[];
 }
