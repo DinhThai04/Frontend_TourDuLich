@@ -1,134 +1,55 @@
 # SGU Tour — Frontend
 
-Ứng dụng React/TypeScript cho khách hàng và quản trị SGU Tour. Hướng tới laptop/PC; không đặt mục tiêu hoàn thiện giao diện mobile. Cập nhật theo source ngày **01/11/2026**; đây là hướng dẫn ứng dụng, thay cho README mẫu Vite cũ.
+Giao diện khách hàng và quản trị SGU Tour: tìm tour, đặt chỗ, thanh toán VNPay sandbox, quản lý tài khoản và tư vấn AI. Ứng dụng hướng tới laptop/PC; luồng MoMo chưa tích hợp đầy đủ.
 
-## Công nghệ và tính năng
+Công nghệ chính: React 19, TypeScript, Vite 7, Ant Design, Redux Toolkit và Tailwind CSS.
 
-React 19, TypeScript 5.8, Vite 7, React Router 7, Ant Design 5, Redux Toolkit/Redux Persist, Tailwind CSS 4, Axios và Socket.IO client.
+## Cài đặt và chạy
 
-- Trang chủ, tìm tour, chi tiết, lịch khởi hành, giá/ảnh/lịch trình và review.
-- Đăng ký, đăng nhập, Google khi có Client ID, hồ sơ, avatar và lịch sử booking/hóa đơn.
-- Nhập hành khách theo nhóm tuổi, xem tổng đúng giá backend, thanh toán VNPay sandbox và callback.
-- Yêu cầu dời lịch, phản hồi luồng dời do shop; quản trị tour/giá/lịch/chỗ, người dùng, role/quyền và đối soát theo quyền thực tế.
-- Chatbot Spring AI: tìm/so sánh/chi tiết tour, nhớ tiêu chí, chính sách và hỏi booking chính chủ. Trang `/policies` đọc cùng nguồn chính sách với chatbot.
+Yêu cầu Node.js tương thích Vite 7 (`^20.19.0 || >=22.12.0`) và npm. Backend cùng database phải được cấu hình theo [hướng dẫn hệ thống](../Backend_TourDuLich/docs/PROJECT.md).
 
-Giao diện/menu theo quyền không thay thế bảo vệ tại backend. Trang khuyến mãi và MoMo còn route/mã từ source trước, không được xem là luồng hoàn thiện tương đương VNPay.
-
-## Cài và chạy
-
-Node thỏa engine Vite 7 `^20.19.0 || >=22.12.0`, npm tương ứng. Tại thư mục Frontend_TourDuLich:
+Tại thư mục frontend, chạy bằng PowerShell:
 
 ```powershell
 npm ci
-# Chỉ copy nếu chưa có .env; sau đó điền giá trị cục bộ:
 if (-not (Test-Path -LiteralPath .env)) { Copy-Item .env.example .env }
+# Điền cấu hình cục bộ trước khi chạy:
 npm run dev
 ```
 
-Frontend mặc định `http://localhost:5173`. Nếu cổng bị chiếm, dừng đúng tiến trình; callback VNPay trong backend đang trỏ 5173 nên không tự dùng cổng Vite chuyển sang rồi coi là đã cấu hình xong. Kiểm tra nhanh Node, `.env` và cổng 5173 bằng script trong repo backend cạnh nó: `..\Backend_TourDuLich\scripts\check-env.ps1`.
+Mở `http://localhost:5173`. Cổng frontend phải khớp return URL VNPay trong backend; không tự dùng cổng khác khi 5173 đang bị chiếm.
 
-## Biến môi trường
+## Cấu hình
 
-```dotenv
-VITE_API_URL=/api/v1
-VITE_PAGE_SIZE=10
-VITE_GOOGLE_CLIENT_ID=
-VITE_SOCKET_URL=http://localhost:8099
-VITE_VNPAY_ALLOWED_HOSTS=sandbox.vnpayment.vn,pay.vnpayment.vn
-```
-
-| Biến | Ý nghĩa |
+| Biến | Giá trị / mục đích |
 |---|---|
-| VITE_API_URL | Đường dẫn gateway, mặc định `/api/v1`; dev proxy `/api` sang `http://localhost:8888`, production để tương đối cho Nginx |
-| VITE_PAGE_SIZE | Số dòng/trang của danh sách |
-| VITE_GOOGLE_CLIENT_ID | Chỉ cần khi dùng Google Sign-In |
-| VITE_SOCKET_URL | Socket.IO trong auth service; mặc định dev là `http://localhost:8099`, production dùng chính origin để Nginx proxy `/socket.io/` |
-| VITE_VNPAY_ALLOWED_HOSTS | Danh sách hostname (phẩy) mà redirect VNPay được phép trỏ tới; mặc định `sandbox.vnpayment.vn,pay.vnpayment.vn` |
+| `VITE_API_URL` | `/api/v1`; dev proxy `/api` tới gateway `http://localhost:8888` |
+| `VITE_PAGE_SIZE` | `10`; số dòng mỗi trang danh sách |
+| `VITE_GOOGLE_CLIENT_ID` | Client ID khi dùng Google Sign-In |
+| `VITE_SOCKET_URL` | Dev: `http://localhost:8099`; production để trống để dùng cùng origin |
+| `VITE_VNPAY_ALLOWED_HOSTS` | Host được phép redirect: `sandbox.vnpayment.vn,pay.vnpayment.vn` |
 
-Vite nạp các biến khi dev server khởi động/build; đổi `.env` cần restart dev server hoặc build lại. `VITE_*` là cấu hình được đưa ra trình duyệt: không đặt Groq key, SMTP password, Cloudinary secret hoặc key API mail vào đây.
+Đổi cấu hình cần restart dev server hoặc build lại. **Mọi biến `VITE_*` đều có thể xuất hiện trong trình duyệt**, không đặt khóa bí mật của Groq, SMTP, Cloudinary hay API nội bộ vào đây; không commit file chứa bí mật.
 
-Để dùng ứng dụng, cần DB đã import và backend phù hợp. [tổng quan hệ thống](../Backend_TourDuLich/docs/PROJECT.md) có service/cổng/thứ tự mở; [README database](../Backend_TourDuLich/data_seed/README.md) có tài khoản demo. Frontend không tự tạo database.
-
-## Cấu trúc source
-
-```text
-src/
-├── api/          # Axios/session refresh, Socket.IO
-├── assets/       # Logo SGU Tour, banner, ảnh tĩnh
-├── components/   # UI khách/admin, form, gallery và AI
-├── config/       # Quyền/menu/cấu hình dùng chung
-├── hooks/        # Hook dùng lại
-├── layouts/      # Layout chính và chi tiết tour
-├── libs/         # Tiện ích tích hợp/thư viện
-├── mocks/        # Dữ liệu/mock còn được lưu trong source
-├── pages/        # Trang public, auth, profile, booking, invoice, payment, admin, policies
-├── routes/       # AppRoutes, guard quyền và ScrollToTop
-├── services/     # Client gọi API theo nghiệp vụ
-├── store/        # Redux, persist
-├── types/        # Kiểu dữ liệu/response
-└── utils/        # Validation, ảnh, cache, giá, thời gian, hội thoại
-public/          # Favicon và tài nguyên phục vụ trực tiếp
-scripts/         # Bộ kiểm thử hồi quy Node
-```
-
-## Route chính
-
-| Route | Nội dung |
-|---|---|
-| `/` | Trang chủ và trợ lý AI |
-| `/tours`, `/tours/detail/:id` | Danh sách / chi tiết tour |
-| `/login`, `/register` | Xác thực |
-| `/booking`, `/invoice/booking/:id` | Nhập người đi / kiểm tra booking và thanh toán |
-| `/payment/vnpay/callback` | Kết quả VNPay, được xác minh ở backend |
-| `/profile` | Hồ sơ và lịch sử |
-| `/policies` | Chính sách hiện hành từ AI service |
-| `/admin/*` | Quản trị; cần ACCESS_ADMIN và quyền API tương ứng |
-
-Socket.IO dùng kết nối riêng tới auth, không dùng cổng n8n. AI gọi `/api/v1/ai` qua gateway, không gọi webhook n8n cũ. Hội thoại gắn với owner hiện tại và được đổi/reset khi đăng nhập/đăng xuất; dữ liệu phiên backend nằm trong RAM, hết hạn mặc định 30 phút.
-
-## Chất lượng và hiệu năng
-
-- Lazy load nhiều route/admin, tải chatbot khi cần và tối ưu import thư viện.
-- Ảnh Cloudinary có biến thể kích thước/chất lượng và lazy loading phù hợp; banner đã có WebP. Không tự sửa URL signed/authenticated không phù hợp.
-- Cache GET ngắn hạn, debounce/lọc và xử lý request cũ để giảm gọi trùng; dùng giá người lớn làm giá tham chiếu nhất quán.
-- ScrollToTop quản lý vị trí cuộn khi chuyển trang; hash anchor có xử lý riêng. Đây không phải reload toàn bộ website.
-- Session refresh gộp yêu cầu đồng thời, tránh phản hồi cũ khôi phục phiên sau logout/đổi tài khoản.
-
-Các mức tối ưu trên là cấu hình hiện hành trong source, không phải cam kết tốc độ trên mọi máy/network.
-
-## Kiểm tra, build
+## Kiểm tra và build
 
 ```powershell
 npm run lint
+npm test
 npm run build
 npm run preview
-npm test
 ```
 
-Build chạy `tsc -b && vite build`, xuất `dist/`. `npm test` chạy toàn bộ `scripts/test-*.mjs` qua Node test runner và trả mã lỗi khi có case hỏng. Workflow CI nằm ngay trong repo frontend tại `.github/workflows/frontend-ci.yml`: chạy `npm ci`, lint, build và test trên mỗi push/PR. Test dựa source/mock không thay thế một lượt E2E với DB/backend/VNPay thật; không đặt key provider vào test frontend.
+Build kiểm tra TypeScript và xuất `dist/`. Test dùng Node test runner, không thay thế kiểm thử E2E với backend và VNPay. Giữ `package-lock.json` để `npm ci` cài đúng dependency.
 
-`VITE_API_URL` mặc định là `/api/v1`; dev server proxy `/api` sang `http://localhost:8888`, còn build production phát request tương đối để Nginx proxy tiếp. Không cần nhúng `localhost` vào bundle.
+## Docker
 
-Giữ `package-lock.json` để `npm ci` tái lập dependency. Các script `test-*.mjs` là test được duy trì, không xóa như file tạm một phiên.
+Dockerfile build ứng dụng rồi phục vụ bằng Nginx; Nginx xử lý route SPA, proxy `/api/` tới gateway và `/socket.io/` tới auth service.
 
-## Docker/Nginx
+Dùng compose trong repo backend cạnh frontend để chạy cả hệ thống. Cấu hình `VITE_*` phải có **lúc build**, không phải lúc chạy container Nginx; Google Client ID được truyền qua build arg từ `GOOGLE_CLIENT_ID` của compose.
 
-Có Dockerfile build React bằng `npm ci` (dùng `package-lock.json`) rồi serve Nginx. `nginx.conf` fallback SPA về index.html, proxy `/api/` tới `api_gateway:8888` và `/socket.io/` tới `auth_service:8099`. Đặt `VITE_API_URL=/api/v1` **tại thời điểm build**; đổi environment ở container Nginx sau build không tự thay JavaScript đã đóng gói.
+## Tài liệu liên quan
 
-`.dockerignore` loại `.env`, nên `VITE_GOOGLE_CLIENT_ID` phải truyền qua build arg. Compose đã khai báo `build.args.VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-...}`, dùng chung biến `GOOGLE_CLIENT_ID` với auth_service để audience của token luôn khớp; đặt biến này khi chạy `docker compose build/up` thì nút Google mới xuất hiện.
-
-`docker-compose.yml` ở gốc repo backend dựng cả frontend, gateway và 7 service nghiệp vụ (tùy chọn `--profile search` / `--profile ai` / `--profile mail` cho n8n). MySQL vẫn chạy ngoài Docker; xem hướng dẫn ở [tổng quan hệ thống](../Backend_TourDuLich/docs/PROJECT.md).
-
-## Lỗi thường gặp
-
-| Biểu hiện | Kiểm tra |
-|---|---|
-| API 404 | VITE_API_URL có đúng `/api/v1`, method và route gateway không |
-| API 401/403 | Phiên/refresh, trạng thái tài khoản và quyền backend; không chỉ tên role trong UI |
-| Giá/lịch/ảnh không có | Backend tour/pricing/file, DB đã import và URL Cloudinary |
-| Google client_id trống | Điền VITE_GOOGLE_CLIENT_ID rồi restart Vite, hoặc dùng email/password |
-| AI lỗi/không thấy policy | Gateway và AI service; model cần key, FAQ/booking-help có luồng riêng |
-| Callback VNPay không quay lại | Frontend 5173 và return URL backend đang khớp hay không |
-| npm ci/build lỗi dependency | Kiểm tra Node/lock và cài lại theo lock; không xóa package-lock chỉ để né lỗi |
-
-Xem [AI](../Backend_TourDuLich/docs/ai/README.md), [mail/n8n](../Backend_TourDuLich/docs/mail/README.md) và [backend](../Backend_TourDuLich/README.md). README này không đưa giá trị `.env` thực tế vào tài liệu.
+- [Kiến trúc, backend và cách chạy Docker](../Backend_TourDuLich/docs/PROJECT.md)
+- [Database và tài khoản demo](../Backend_TourDuLich/data_seed/README.md)
+- [AI](../Backend_TourDuLich/docs/ai/README.md) · [Email/n8n](../Backend_TourDuLich/docs/mail/README.md)
