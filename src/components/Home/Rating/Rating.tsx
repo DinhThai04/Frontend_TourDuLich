@@ -1,8 +1,9 @@
 import Container from '@/components/Share/Container';
 import { getHighReviews } from '@/services/authServices';
-import type { ReviewResponse } from '@/types/Auth';
-import { Empty } from 'antd';
+import type { ReviewResponse } from '@/types/comment';
 import { useEffect, useState } from 'react';
+import ResponsiveImage from '@/components/Share/ResponsiveImage';
+import { formatDate } from '@/utils';
 
 const renderStars = (rating: number) => {
   const stars = [];
@@ -21,17 +22,24 @@ const renderStars = (rating: number) => {
 };
 
 const Rating = () => {
-  const [reviews, setReviews] = useState<ReviewResponse[]>();
+  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const getHighRating = async (size: number = 3) => {
-      const res = await getHighReviews(size);
-      if (res.code === 1000) {
-        setReviews(res.result);
+    const loadHighRatings = async () => {
+      try {
+        const res = await getHighReviews(3);
+        if (res.code === 1000) setReviews(res.result);
+      } catch {
+        // Section stays hidden; the tour pages still show their own reviews.
+      } finally {
+        setLoading(false);
       }
     };
 
-    getHighRating();
+    void loadHighRatings();
   }, []);
+
+  if (!loading && reviews.length === 0) return null;
 
   return (
     <div className="!mb-40">
@@ -52,41 +60,29 @@ const Rating = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* --- LẶP VÀ RENDER THẺ --- */}
           {/* 4. Lặp qua dữ liệu MỚI */}
-          {(reviews &&
-            reviews.map((review) => (
-              <div
-                key={review.id}
-                className="bg-white !p-6 rounded-lg shadow-lg transition-transform duration-300 hover:shadow-xl hover:-translate-y-1"
-              >
-                <div className="flex items-center !mb-4">
-                  <img
-                    src={review.user.avatar}
-                    alt={`Ảnh đại diện của ${review.user.username}`}
-                    className="w-16 h-16 rounded-full !mr-4 object-cover !border-2 !border-[#FFDA32]"
-                  />
-                  <div>
-                    <h4 className="text-xl font-bold text-gray-900">{review.user.username}</h4>
-                    {renderStars(review.rating)}
-                  </div>
+          {(reviews.map((review) => (
+            <div
+              key={review.id}
+              className="bg-white !p-6 rounded-lg shadow-lg transition-transform duration-300 hover:shadow-xl hover:-translate-y-1"
+            >
+              <div className="flex items-center !mb-4">
+                <ResponsiveImage
+                  src={review.user?.avatar}
+                  alt={`Ảnh đại diện của ${review.user?.username || 'khách hàng'}`}
+                  className="w-16 h-16 rounded-full !mr-4 object-cover !border-2 !border-[#FFDA32]"
+                  imageWidth={128} sizes="64px" width={64} height={64}
+                />
+                <div>
+                  <h4 className="text-xl font-bold text-gray-900">{review.user?.username || 'Ẩn danh'}</h4>
+                  {renderStars(review.rating)}
                 </div>
-                <p className="text-[#778088] italic">"{review.content}"</p>
-                <p className="text-right text-sm text-[#7BBCB0] mt-4 pt-4 border-t border-gray-100">
-                  {new Date(review.createdAt).toLocaleDateString('vi-VN', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                  })}
-                </p>
               </div>
-            ))) || (
-            <>
-              <div></div>
-              <div className="">
-                <Empty description="No rating found at this moment." />
-              </div>
-              <div></div>
-            </>
-          )}
+              <p className="text-[#778088] italic">"{review.content}"</p>
+              <p className="text-right text-sm text-[#7BBCB0] mt-4 pt-4 border-t border-gray-100">
+                {formatDate(review.createdAt)}
+              </p>
+            </div>
+          )))}
         </div>
       </Container>
     </div>

@@ -1,10 +1,12 @@
+import type { FormInstance } from 'antd';
+import type { PersonalFormValues } from '@/types/Booking';
 import { Form, Input, Select, DatePicker } from "antd";
 import { useEffect } from "react";
 import { sessionService } from "@/services/sessionServices";
 import dayjs from "dayjs";
 
-export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: any) => void; }) {
-  const [form] = Form.useForm();
+export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: FormInstance<PersonalFormValues>) => void; }) {
+  const [form] = Form.useForm<PersonalFormValues>();
 
   // expose form to parent
   useEffect(() => {
@@ -95,7 +97,7 @@ export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: any
           name="phone"
           rules={[
             { required: true, message: "Vui lòng nhập số điện thoại!" },
-            { pattern: /^\d{10}$/, message: "SĐT phải đủ 10 chữ số" },
+            { pattern: /^\d{9,11}$/, message: "SĐT phải có từ 9 đến 11 chữ số" },
           ]}
         >
           <Input placeholder="Nhập số điện thoại" />

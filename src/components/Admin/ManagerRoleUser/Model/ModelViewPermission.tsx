@@ -5,6 +5,7 @@ const { Text } = Typography;
 
 interface Permission {
   id: number;
+  code: string;
   name: string;
   apiPath: string;
   method: string;
@@ -33,9 +34,9 @@ const ModelViewPermission: React.FC<Props> = ({ open, onClose, viewingPermission
       onCancel={onClose}
       footer={null}
       width={700}
-      destroyOnClose
+      destroyOnHidden
       maskClosable={false}
-      maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.45)' }}
+      styles={{ mask: { backgroundColor: 'rgba(0, 0, 0, 0.45)' } }}
     >
       {!viewingPermission ? (
         <Text type="secondary">Không có dữ liệu quyền để hiển thị.</Text>
@@ -43,11 +44,14 @@ const ModelViewPermission: React.FC<Props> = ({ open, onClose, viewingPermission
         <Descriptions
           bordered
           column={1}
-          labelStyle={{ width: 160, fontWeight: 500 }}
-          contentStyle={{ background: '#fafafa' }}
+          styles={{ label: { width: 160, fontWeight: 500 }, content: { background: '#fafafa' } }}
         >
           <Descriptions.Item label="Tên quyền">
             <Text strong>{viewingPermission.name}</Text>
+          </Descriptions.Item>
+
+          <Descriptions.Item label="Mã quyền">
+            <Text code>{viewingPermission.code}</Text>
           </Descriptions.Item>
 
           <Descriptions.Item label="Module">

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Input, Select, Button, Row, Col, message } from 'antd';
-import { createPermission } from '@/services/permissionService';
+import { Modal, Form, Input, Select, Button, Row, Col } from 'antd';
+import type { PermissionFormValues } from '@/types/Permission';
 
 const { Option } = Select;
 
@@ -12,19 +12,23 @@ interface Role {
 interface AddNewPermissionProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: any) => void;
+  onSubmit: (values: PermissionFormValues) => Promise<void>;
   allRoles: Role[];
-  setIsAddNewPermission: (value: boolean) => void;
+  modules: string[];
+  saving: boolean;
+  canAssignRoles: boolean;
 }
 
 const AddNewPermission: React.FC<AddNewPermissionProps> = ({
   open,
   onClose,
   onSubmit,
-  // allRoles,
-  setIsAddNewPermission,
+  allRoles,
+  modules,
+  saving,
+  canAssignRoles,
 }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<PermissionFormValues>();
 
   useEffect(() => {
     if (open) {
@@ -32,23 +36,15 @@ const AddNewPermission: React.FC<AddNewPermissionProps> = ({
     }
   }, [open, form]);
 
-  const handleFinish = async (values: any) => {
-    onSubmit(values);
-    try {
-      let res = await createPermission(values);
-      if (res.code === 201) {
-        message.success('Thêm quyền thành công');
-        setIsAddNewPermission(false);
-        onClose();
-      }
-    } catch (error) {
-      message.error('Thêm quyền thất bại');
-    }
+  const handleFinish = async (values: PermissionFormValues) => {
+    // Enter in a field and the button both submit; the parent keeps `saving` for the whole write.
+    if (saving) return;
+    await onSubmit(values);
   };
 
   const handleCancel = () => {
+    if (saving) return;
     form.resetFields();
-    setIsAddNewPermission(false);
     onClose();
   };
 
@@ -58,11 +54,27 @@ const AddNewPermission: React.FC<AddNewPermissionProps> = ({
       open={open}
       onCancel={handleCancel}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
       centered
       width={700}
     >
       <Form layout="vertical" form={form} onFinish={handleFinish}>
+        <Form.Item
+          label="Mã quyền"
+          name="code"
+          normalize={(value: string) => value?.toUpperCase()}
+          extra="Mã là khóa phân quyền, không đổi được sau khi tạo."
+          rules={[
+            { required: true, message: 'Nhập mã quyền' },
+            {
+              pattern: /^[A-Z][A-Z0-9_]{1,99}$/,
+              message: 'Mã phải bắt đầu bằng chữ in hoa, chỉ gồm A-Z, 0-9 và dấu gạch dưới',
+            },
+          ]}
+        >
+          <Input placeholder="VD: TOURS_CREATE" />
+        </Form.Item>
+
         {/* Hàng 1 */}
         <Row gutter={16}>
           <Col span={12}>
@@ -93,20 +105,20 @@ const AddNewPermission: React.FC<AddNewPermissionProps> = ({
 
           <Col span={12}>
             <Form.Item label="Module" name="module" rules={[{ required: true }]}>
-              <Select placeholder="Chọn module">
-                <Option value="AUTH">AUTH</Option>
-                <Option value="USERS">USERS</Option>
-                <Option value="PERMISSIONS">PERMISSIONS</Option>
-                <Option value="ROLES">ROLES</Option>
-                <Option value="REVIEWS">REVIEWS</Option>
-                <Option value="BOOKINGS">BOOKINGS</Option>
-                <Option value="CUSTOMERS">CUSTOMERS</Option>
-                <Option value="TOURS">TOURS</Option>
-              </Select>
+              <Select
+                placeholder="Chọn module"
+                showSearch
+                options={modules.map(module => ({ value: module, label: module }))}
+              />
             </Form.Item>
           </Col>
         </Row>
 
+        {canAssignRoles && (
+          <Form.Item name="roles" label="Vai trò được cấp quyền" initialValue={[]}>
+            <Select mode="multiple" options={allRoles.map(role => ({ value: role.id, label: role.name }))} />
+          </Form.Item>
+        )}
         {/* Submit */}
         <Form.Item>
           <Row gutter={16} justify="end">
@@ -114,7 +126,7 @@ const AddNewPermission: React.FC<AddNewPermissionProps> = ({
               <Button onClick={handleCancel}>Hủy</Button>
             </Col>
             <Col>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={saving}>
                 Thêm mới
               </Button>
             </Col>

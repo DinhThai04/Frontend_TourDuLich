@@ -13,10 +13,6 @@ const AccountContent = ({ activeMenu }: IProps) => {
         return <Info />;
       case 'bookings':
         return <History />;
-      case 'favorites':
-      // return <Liked />;
-      case 'reviews':
-      // return <Rate />;
       default:
         return <p>Không có dữ liệu !!!</p>;
     }

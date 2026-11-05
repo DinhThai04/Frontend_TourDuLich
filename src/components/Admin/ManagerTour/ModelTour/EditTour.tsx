@@ -1,5 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Form, Input, InputNumber, Button, Select, Upload, Space, Card, Tooltip } from 'antd';
+import type { UploadFile } from 'antd';
+import type { ITour } from '@/types/Tour';
+import type { TourFormValues } from '@/types/adminForms';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Form, Input, InputNumber, Button, Select, Upload, Space, Card, Tooltip, message, Alert } from 'antd';
+import { imageFileError, imageBatchError } from '@/utils/tourMedia';
 import { UploadOutlined, SaveOutlined } from '@ant-design/icons';
 import type { ILocation, ITourPrice, IVehicle } from '@/types/Tour';
 import { getAllDepartures, getAllDestinations, getAllPrice, getAllVehicles } from '@/services/tourServices';
@@ -8,69 +12,53 @@ const { TextArea } = Input;
 const { Option } = Select;
 
 interface EditTourProps {
-  data?: any;
+  data?: ITour | null;
   isEdit?: boolean;
-  onSubmit?: (values: any) => void;
+  onSubmit?: (values: TourFormValues) => Promise<boolean | undefined> | boolean;
+  onSavingChange?: (saving: boolean) => void;
 }
 
-const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) => {
-  const [form] = Form.useForm();
+const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit, onSavingChange }) => {
+  const [form] = Form.useForm<TourFormValues>();
+  const [saving, setSaving] = useState(false);
+  const inFlight = React.useRef(false);
   const [departureList, setDepartureList] = useState<ILocation[]>([]);
   const [destinationList, setDestinationList] = useState<ILocation[]>([]);
   const [vehicleList, setVehicleList] = useState<IVehicle[]>([]);
   const [tourPriceList, setTourPriceList] = useState<ITourPrice[]>([]);
   const [deletedImageUrls, setDeletedImageUrls] = useState<string[]>([]);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
+  const [loadingReference, setLoadingReference] = useState(false);
 
-  const fetchDataDestinations = async () => {
-    try {
-      const res = await getAllDestinations();
-      if (res.code === 1000) {
-        setDestinationList(res.result);
-      }
-    } catch (error) {
-      console.error("Failed to fetch destinations combobox:", error);
-    }
-  }
-
-  const fetchDataDepartures = async () => {
-    try {
-      const res = await getAllDepartures();
-      if (res.code === 1000) {
-        setDepartureList(res.result);
-      }
-    } catch (error) {
-      console.error("Failed to fetch departures combobox:", error);
-    }
-  }
-
-  const fetchDataVehicles = async () => {
-    try {
-      const res = await getAllVehicles();
-      if (res.code === 1000) {
-        setVehicleList(res.result);
-      }
-    } catch (error) {
-      console.error("Failed to fetch vehicles combobox:", error);
-    }
-  }
-
-  const fetchDataTourPrice = async () => {
-    try {
-      const res = await getAllPrice();
-      if (res.code === 1000) {
-        setTourPriceList(res.result);
-      }
-    } catch (error) {
-      console.error("Failed to fetch tour price combobox:", error);
-    }
-  }
+  /**
+   * Four independent lookups: a failure in one must not blank the other selects, but it must be
+   * visible — otherwise the operator sees empty dropdowns with no hint that data failed to load.
+   */
+  const loadReferenceData = useCallback(async () => {
+    setLoadingReference(true);
+    setReferenceError(null);
+    const [destinations, departures, vehicles, prices] = await Promise.allSettled([
+      getAllDestinations(),
+      getAllDepartures(),
+      getAllVehicles(),
+      getAllPrice(),
+    ]);
+    const failed: string[] = [];
+    if (destinations.status === 'fulfilled' && destinations.value.code === 1000) setDestinationList(destinations.value.result);
+    else failed.push('điểm đến');
+    if (departures.status === 'fulfilled' && departures.value.code === 1000) setDepartureList(departures.value.result);
+    else failed.push('điểm khởi hành');
+    if (vehicles.status === 'fulfilled' && vehicles.value.code === 1000) setVehicleList(vehicles.value.result);
+    else failed.push('phương tiện');
+    if (prices.status === 'fulfilled' && prices.value.code === 1000) setTourPriceList(prices.value.result);
+    else failed.push('bảng giá');
+    setReferenceError(failed.length ? `Chưa tải được ${failed.join(', ')}. Kiểm tra kết nối rồi thử lại.` : null);
+    setLoadingReference(false);
+  }, []);
 
   useEffect(() => {
-    fetchDataDestinations();
-    fetchDataDepartures();
-    fetchDataVehicles();
-    fetchDataTourPrice();
-  }, []);
+    void loadReferenceData();
+  }, [loadReferenceData]);
 
   // Khi data thay đổi, set giá trị cho form
   useEffect(() => {
@@ -78,7 +66,7 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) =
       const initialFiles = data.imageIds?.map((url: string, index: number) => ({
         uid: `-${index}`,
         name: `image-${index}`,
-        status: 'done',
+        status: 'done' as const,
         url,
       }));
 
@@ -87,7 +75,6 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) =
         tourTitle: data.tourTitle,
         description: data.description,
         duration: data.duration,
-        basePrice: data.basePrice,
         departureLocationId: data.departureCity?.id,
         destinationLocationId: data.destinationCity?.id,
         vehicleId: data.vehicle?.id,
@@ -101,28 +88,35 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) =
     }
   }, [data, isEdit, form]);
 
-  const handleRemove = (file: any) => {
+  const handleRemove = (file: UploadFile) => {
     // Nếu file có url (là ảnh cũ từ server), thêm vào danh sách xóa
     if (file.url) {
-      setDeletedImageUrls(prev => [...prev, file.url]);
+      const url = file.url;
+      setDeletedImageUrls(prev => [...prev, url]);
     }
     return true; // Cho phép xóa
   };
 
-  const handleFinish = async (values: any) => {
+  const handleFinish = async (values: TourFormValues) => {
+    if (inFlight.current) return;
+    const imageError = imageBatchError(values.files);
+    if (imageError) { message.error(imageError); return; }
+    inFlight.current = true; setSaving(true); onSavingChange?.(true);
+    try {
     if (onSubmit) {
       await onSubmit({
         ...values,
         deletedImageUrls
       });
     }
+    } finally { inFlight.current = false; setSaving(false); onSavingChange?.(false); }
   };
 
 
   return (
     <Card
       title={"Chỉnh sửa Tour"}
-      bordered={false}
+      variant="borderless"
       style={{
         maxWidth: 800,
         margin: '0 auto',
@@ -130,10 +124,13 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) =
         borderRadius: 12,
       }}
     >
+      {referenceError && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={referenceError}
+        action={<Button size="small" onClick={() => void loadReferenceData()} loading={loadingReference}>Tải lại</Button>} />}
       <Form
         layout="vertical"
         form={form}
         onFinish={handleFinish}
+          disabled={saving}
       >
         <Form.Item
           label="Tên chương trình"
@@ -151,7 +148,11 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) =
           <Input placeholder="VD: Đà Nẵng - Hội An - Huế" />
         </Form.Item>
 
-        <Form.Item label="Mô tả" name="description">
+        <Form.Item
+          label="Mô tả"
+          name="description"
+          rules={[{ required: true, message: 'Vui lòng nhập mô tả tour!' }]}
+        >
           <TextArea rows={3} placeholder="Giới thiệu ngắn gọn về tour..." />
         </Form.Item>
 
@@ -196,7 +197,7 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) =
           >
             <Select placeholder="Chọn combo giá" optionLabelProp="label">
               {tourPriceList.map((item) => {
-                const label = `Người lớn: ${item.adultPrice.toLocaleString()} | Trẻ em: ${item.childPrice.toLocaleString()} | Em bé: ${item.toddlerPrice.toLocaleString()} | Sơ sinh: ${item.infantPrice.toLocaleString()} | Phụ thu: ${item.singleSupplementPrice.toLocaleString()}`;
+                const label = `Người lớn: ${item.adultPrice.toLocaleString()} | Trẻ em: ${item.childPrice.toLocaleString()} | Trẻ nhỏ: ${item.toddlerPrice.toLocaleString()} | Em bé: ${item.infantPrice.toLocaleString()} | Phụ thu: ${item.singleSupplementPrice.toLocaleString()}`;
 
                 return (
                   <Option
@@ -244,36 +245,25 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit }) =
             style={{ flex: 1 }}
             rules={[{ required: true, message: 'Nhập thời lượng tour!' }]}
           >
-            <InputNumber min={1} max={30} style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item 
-            label="Giá cơ bản (VNĐ)" 
-            name="basePrice" 
-            style={{ flex: 1 }}
-            rules={[{ required: true, message: 'Nhập giá cơ bản!' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(val) => val?.replace(/\$\s?|(,*)/g, '') as any}
-            />
+            <InputNumber min={1} max={30} precision={0} style={{ width: '100%' }} />
           </Form.Item>
         </Space>
 
         <Form.Item
           label="Hình ảnh tour"
           name="files"
+            extra="Tối đa 10 ảnh, 5 MB/ảnh (JPEG, PNG, WebP). Gỡ ảnh chỉ có hiệu lực sau khi lưu; ảnh vẫn được giữ trên Cloudinary."
           valuePropName="fileList"
           getValueFromEvent={(e) => e.fileList}
         >
-          <Upload listType="picture" beforeUpload={() => false} multiple onRemove={handleRemove}>
+            <Upload listType="picture" accept="image/jpeg,image/png,image/webp"
+              beforeUpload={file => { const error = imageFileError(file); if (error) { message.error(error); return Upload.LIST_IGNORE; } return false; }} multiple onRemove={handleRemove}>
             <Button icon={<UploadOutlined />}>Chọn ảnh</Button>
           </Upload>
         </Form.Item>
 
         <Form.Item style={{ textAlign: 'center', marginTop: 24 }}>
-          <Button type="primary" icon={<SaveOutlined />} htmlType="submit">
+            <Button type="primary" icon={<SaveOutlined />} htmlType="submit" loading={saving}>
             Cập nhật Tour
           </Button>
         </Form.Item>

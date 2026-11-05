@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Form,
@@ -16,13 +16,13 @@ import {
 } from 'antd';
 import { getPermissions } from '@/services/permissionService';
 import { createRole } from '@/services/rolesServices';
+import { isApiSuccess } from '@/utils/apiResult';
 
-const { Panel } = Collapse;
 const { Text } = Typography;
 
 interface Permission {
   name: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   enabled: boolean;
   id: number;
@@ -40,7 +40,10 @@ interface ModalAddNewRoleProps {
 }
 
 const ModalAddNewRole: React.FC<ModalAddNewRoleProps> = ({ open, setOpen, fetchRoles }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<Pick<Role, 'name' | 'description' | 'active'>>();
+  const [submitting, setSubmitting] = useState(false);
+  const [catalogueLoaded, setCatalogueLoaded] = useState(false);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
 
   // Dữ liệu mẫu nhóm quyền
 
@@ -61,24 +64,23 @@ const ModalAddNewRole: React.FC<ModalAddNewRoleProps> = ({ open, setOpen, fetchR
   const [dataPermissions, setDataPermissions] = useState<PermissionGroup[]>([]);
 
   const fetchPermissions = async () => {
+    setLoadingPermissions(true);
     try {
       const response = await getPermissions();
 
-      if (response.code === 200) {
+      if (isApiSuccess(response)) {
         const raw = response.result;
 
         // Group theo module
         const groups: Record<string, PermissionGroup> = {};
 
-        raw.forEach((item: any) => {
-          if (!groups[item.module]) {
-            groups[item.module] = {
-              name: item.module,
-              permissions: [],
-            };
-          }
+        raw.forEach((item) => {
+          const group = groups[item.module] ?? (groups[item.module] = {
+            name: item.module,
+            permissions: [],
+          });
 
-          groups[item.module].permissions.push({
+          group.permissions.push({
             name: item.name,
             method: item.method,
             path: item.apiPath,
@@ -91,41 +93,68 @@ const ModalAddNewRole: React.FC<ModalAddNewRoleProps> = ({ open, setOpen, fetchR
         const formatted = Object.values(groups);
 
         setDataPermissions(formatted);
+        setCatalogueLoaded(true);
+      } else {
+        message.error(response?.message || 'Lấy danh sách quyền thất bại');
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       message.error('Lấy danh sách quyền thất bại');
+    } finally {
+      setLoadingPermissions(false);
     }
   };
 
   useEffect(() => {
-    fetchPermissions();
-  }, []);
+    // Retry on each open so a failed first load does not silently create a role with no permissions.
+    if (open) void fetchPermissions();
+  }, [open]);
+
+  // Closing after cancel or a successful save must clear both fields and permission switches.
+  // Skip the first mount: the modal (and its Form) is not rendered yet, so resetFields would warn.
+  const openedOnce = useRef(false);
+  useEffect(() => {
+    if (open) {
+      openedOnce.current = true;
+      return;
+    }
+    if (!openedOnce.current) return;
+    form.resetFields();
+    setDataPermissions((prev) =>
+      prev.map((group) => ({
+        ...group,
+        permissions: group.permissions.map((permission) => ({ ...permission, enabled: false })),
+      }))
+    );
+  }, [open, form]);
+
   // Lưu vai trò
   const handleSubmit = async () => {
-    form.validateFields().then(async (values) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const values = await form.validateFields();
       const activePermissions = dataPermissions.flatMap((g) =>
         g.permissions.filter((p) => p.enabled)
       );
-      console.log('Vai trò mới:', {
-        ...values,
-        permissions: activePermissions,
-      });
 
-      let dataRole = {
+      const dataRole = {
         name: values.name,
         description: values.description,
         active: values.active,
         permissions: activePermissions,
       };
-      let res = await createRole(dataRole as any);
-      if (res.code === 201) {
-        message.success('Thêm vai trò thành công');
-        setOpen(false);
-        form.resetFields();
-        fetchRoles();
-      }
-    });
+      const res = await createRole(dataRole);
+      if (!isApiSuccess(res)) throw new Error(res?.message || 'Thêm vai trò thất bại');
+      message.success('Thêm vai trò thành công');
+      setOpen(false);
+      form.resetFields();
+      fetchRoles();
+    } catch (error) {
+      // Lỗi validate của AntD đã hiển thị tại field nên chỉ báo lỗi gọi API.
+      if (error instanceof Error) message.error(error.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -137,6 +166,9 @@ const ModalAddNewRole: React.FC<ModalAddNewRoleProps> = ({ open, setOpen, fetchR
       width={800}
       okText="Lưu"
       cancelText="Hủy"
+      confirmLoading={submitting}
+      okButtonProps={{ disabled: loadingPermissions || !catalogueLoaded }}
+      cancelButtonProps={{ disabled: submitting }}
     >
       <Form layout="vertical" form={form}>
         <Row gutter={16} align="middle">
@@ -175,38 +207,40 @@ const ModalAddNewRole: React.FC<ModalAddNewRoleProps> = ({ open, setOpen, fetchR
 
         <Divider />
         <h4>Quyền hạn</h4>
-        <Collapse accordion>
-          {dataPermissions.map((group, gi) => {
+        <Collapse
+          accordion
+          items={dataPermissions.map((group, gi) => {
             const allEnabled = group.permissions.every((p) => p.enabled);
 
-            return (
-              <Panel
-                key={group.name}
-                header={
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <strong>{group.name}</strong>
+            return {
+              key: group.name,
+              label: (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <strong>{group.name}</strong>
 
-                    {/* 🔥 SWITCH MASTER */}
-                    <Switch
-                      checked={allEnabled}
-                      onChange={(checked) => {
-                        const newData = [...dataPermissions];
-                        newData[gi].permissions = newData[gi].permissions.map((p) => ({
-                          ...p,
-                          enabled: checked,
-                        }));
-                        setDataPermissions(newData);
-                      }}
-                    />
-                  </div>
-                }
-              >
+                  {/* 🔥 SWITCH MASTER */}
+                  <Switch
+                    checked={allEnabled}
+                    onChange={(checked) => {
+                      const newData = [...dataPermissions];
+                      const group = newData[gi];
+                      if (!group) return;
+                      group.permissions = group.permissions.map((p) => ({
+                        ...p,
+                        enabled: checked,
+                      }));
+                      setDataPermissions(newData);
+                    }}
+                  />
+                </div>
+              ),
+              children: (
                 <Space direction="vertical" style={{ width: '100%' }} size="middle">
                   <div
                     style={{
@@ -268,10 +302,10 @@ const ModalAddNewRole: React.FC<ModalAddNewRoleProps> = ({ open, setOpen, fetchR
                     ))}
                   </div>
                 </Space>
-              </Panel>
-            );
+              ),
+            };
           })}
-        </Collapse>
+        />
       </Form>
     </Modal>
   );

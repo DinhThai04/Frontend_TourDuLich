@@ -8,10 +8,15 @@ import {
 } from '@ant-design/pro-components';
 import { Tag, Button, Space, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from '@ant-design/icons';
-import { getPermissions } from '@/services/permissionService';
+import { getPermissions, createPermission, updatePermission, deletePermission } from '@/services/permissionService';
+import { getRoles } from '@/services/rolesServices';
+import { isApiSuccess } from '@/utils/apiResult';
+import { useApiQuery } from '@/hooks';
 import AddNewPermission from './Model/AddNewPermisson';
 import EditPermission from './Model/EditPermission';
 import ModelViewPermission from './Model/ModelViewPermission';
+import type { PermissionFormValues, PermissionInput } from '@/types/Permission';
+import axios from 'axios';
 
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
@@ -24,9 +29,10 @@ interface Role {
 
 interface Permission {
   id: number;
+  code: string;
   name: string;
   apiPath: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   module: string;
   roles: Role[];
 }
@@ -34,93 +40,82 @@ interface Permission {
 // ==== Component ====
 const ManagerRoleUser: React.FC = () => {
   const actionRef = useRef<ActionType>(null);
-  const [data, setData] = useState<Permission[]>([]);
   const [openModal, setOpenModal] = useState(false); // modal edit
   const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
   const [isAddNewPermission, setIsAddNewPermission] = useState<boolean>(false); // modal add mới
   const [viewingPermission, setViewingPermission] = useState<Permission | null>(null);
   const [openView, setOpenView] = useState(false);
 
-  // Nếu sau này bạn có API lấy role thì thay vào đây
-  const [allRoles] = useState<Role[]>([
-    { id: 1, name: 'ADMIN' },
-    { id: 2, name: 'STAFF' },
-    { id: 3, name: 'USER' },
-  ]);
+  const [saving, setSaving] = useState(false);
+  const canListRoles = useHasPermission(ALL_PERMISSIONS.ROLES.GET_LIST);
+  const canAssignRoles = useHasPermission(ALL_PERMISSIONS.ROLES.UPDATE);
+  const showError = (error: unknown, fallback: string) => {
+    message.error(axios.isAxiosError(error) ? error.response?.data?.message || fallback : error instanceof Error ? error.message : fallback);
+  };
+  // Lấy vai trò hiện có từ database qua API.
+  const { data: allRoles = [] } = useApiQuery(
+    async () => {
+      const res = await getRoles();
+      if (!isApiSuccess(res) || !Array.isArray(res.result)) throw new Error('Không tải được vai trò');
+      return res.result;
+    },
+    { enabled: canListRoles, onError: (msg) => message.error(msg) },
+  );
 
   // ===== QUYỀN =====
   const canList = useHasPermission(ALL_PERMISSIONS.PERMISSIONS.GET_LIST);
   const canView = useHasPermission(ALL_PERMISSIONS.PERMISSIONS.GET_DETAIL);
   const canCreate = useHasPermission(ALL_PERMISSIONS.PERMISSIONS.CREATE);
-  const canUpdate = useHasPermission(ALL_PERMISSIONS.PERMISSIONS.UPDATE);
-  const canDelete = useHasPermission(ALL_PERMISSIONS.PERMISSIONS.DELETE);
+  const hasUpdatePermission = useHasPermission(ALL_PERMISSIONS.PERMISSIONS.UPDATE);
+  const canUpdate = hasUpdatePermission && canAssignRoles;
+  const hasDeletePermission = useHasPermission(ALL_PERMISSIONS.PERMISSIONS.DELETE);
+  const canDelete = hasDeletePermission && canAssignRoles;
 
-  const getPermissionsData = async () => {
-    if (!canList) {
-      setData([]);
-      return;
-    }
-
-    try {
+  const { data = [], refresh: reloadPermissions } = useApiQuery(
+    async () => {
       const response = await getPermissions();
-      if (response.code === 200) {
-        setData(response.result);
-      } else {
-        message.error('Lấy danh sách quyền thất bại');
-      }
-    } catch (error) {
-      console.error(error);
-      message.error('Lấy danh sách quyền thất bại');
-    }
+      if (!isApiSuccess(response)) throw new Error(response.message || 'Lấy danh sách quyền thất bại');
+      return response.result;
+    },
+    { enabled: canList, onError: (msg) => message.error(msg) },
+  );
+  // ProTable keeps the request closure from its first render; the ref keeps filtering on fresh rows.
+  const permissionsRef = useRef<Permission[]>(data);
+  permissionsRef.current = data;
+  useEffect(() => { actionRef.current?.reload(); }, [data]);
+  // Modules come from the database so the form can offer every module the backend actually uses.
+  const moduleOptions = Array.from(new Set(data.map((permission) => permission.module))).sort();
+
+  const handleDelete = async (id: number) => {
+    if (!canDelete || saving) return;
+    setSaving(true);
+    try {
+      const response = await deletePermission(id);
+      if (!isApiSuccess(response)) throw new Error(response.message || 'Xóa quyền thất bại');
+      await reloadPermissions();
+      message.success('Đã xóa quyền trong database');
+    } catch (error) { showError(error, 'Xóa quyền thất bại'); }
+    finally { setSaving(false); }
   };
 
-  useEffect(() => {
-    getPermissionsData();
-  }, [canList]);
-
-  const handleDelete = (id: number) => {
-    if (!canDelete) {
-      message.error('Bạn không có quyền xóa quyền này');
-      return;
-    }
-    // TODO: gọi API delete permission tại đây
-    setData((prev) => prev.filter((p) => p.id !== id));
-    message.success('Xóa quyền thành công');
-  };
-
-  const handleSubmit = (values: any) => {
-    const selectedRoles = allRoles.filter((r) => values.roles?.includes(r.id));
-
-    const newPermission: Permission = {
-      id: editingPermission ? editingPermission.id : Date.now(),
-      name: values.name,
-      apiPath: values.apiPath,
-      method: values.method,
-      module: values.module,
-      roles: selectedRoles,
+  const handleSubmit = async (values: PermissionFormValues) => {
+    if (saving || (editingPermission ? !canUpdate : !canCreate)) return;
+    const request: PermissionInput = {
+      name: values.name.trim(), apiPath: values.apiPath.trim(), method: values.method, module: values.module,
+      ...(editingPermission ? { id: editingPermission.id } : { code: values.code?.trim().toUpperCase() }),
+      ...(canAssignRoles ? { roleIds: values.roles ?? [] } : {}),
     };
-
-    if (editingPermission) {
-      if (!canUpdate) {
-        message.error('Bạn không có quyền cập nhật quyền');
-        return;
-      }
-      // TODO: gọi API update
-      setData((prev) => prev.map((p) => (p.id === editingPermission.id ? newPermission : p)));
-      message.success('Cập nhật quyền thành công');
-    } else {
-      if (!canCreate) {
-        message.error('Bạn không có quyền thêm quyền');
-        return;
-      }
-      // TODO: gọi API create
-      setData((prev) => [...prev, newPermission]);
-      message.success('Thêm quyền thành công');
-    }
-
-    setOpenModal(false);
-    setEditingPermission(null);
-    setIsAddNewPermission(false);
+    setSaving(true);
+    try {
+      const response = editingPermission ? await updatePermission(request) : await createPermission(request);
+      if (!isApiSuccess(response)) throw new Error(response.message || 'Lưu quyền thất bại');
+      await reloadPermissions();
+      message.success(editingPermission ? 'Đã cập nhật quyền trong database' : 'Đã thêm quyền vào database');
+      setOpenModal(false);
+      setEditingPermission(null);
+      setIsAddNewPermission(false);
+    } catch (error) { showError(error, 'Lưu quyền thất bại'); }
+    finally { setSaving(false); }
   };
 
   const columns: ProColumns<Permission>[] = [
@@ -134,6 +129,11 @@ const ManagerRoleUser: React.FC = () => {
       title: 'Tên quyền',
       dataIndex: 'name',
       filterSearch: true,
+    },
+    {
+      title: 'Mã quyền',
+      dataIndex: 'code',
+      render: (c) => <Tag color="geekblue">{c}</Tag>,
     },
     {
       title: 'API Path',
@@ -183,8 +183,10 @@ const ManagerRoleUser: React.FC = () => {
       render: (_, record) => (
         <Space>
           {canView && (
-            <EyeOutlined
-              style={{ color: '#1677ff', fontSize: 18, cursor: 'pointer' }}
+            <Button
+              type="text"
+              aria-label="Xem quyền"
+              icon={<EyeOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
               onClick={() => {
                 setViewingPermission(record);
                 setOpenView(true);
@@ -193,8 +195,10 @@ const ManagerRoleUser: React.FC = () => {
           )}
 
           {canUpdate && (
-            <EditOutlined
-              style={{ color: '#1677ff', fontSize: 18, cursor: 'pointer' }}
+            <Button
+              type="text"
+              aria-label="Sửa quyền"
+              icon={<EditOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
               onClick={() => {
                 setEditingPermission(record);
                 setOpenModal(true);
@@ -209,7 +213,11 @@ const ManagerRoleUser: React.FC = () => {
               cancelText="Hủy"
               onConfirm={() => handleDelete(record.id)}
             >
-              <DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />
+              <Button
+                type="text"
+                aria-label="Xóa quyền"
+                icon={<DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />}
+              />
             </Popconfirm>
           )}
         </Space>
@@ -232,12 +240,14 @@ const ManagerRoleUser: React.FC = () => {
         search={{ labelWidth: 'auto' }}
         pagination={{ pageSize: 5 }}
         request={async (params) => {
-          let keyword = params.name ? params.name.toLowerCase() : '';
-          let MethodName = params.method ? params.method.toLowerCase() : '';
-          let ModuleName = params.module ? params.module.toLowerCase() : '';
-          let filtered = data.filter(
+          const keyword = params.name ? params.name.toLowerCase() : '';
+          const CodeName = params.code ? params.code.toLowerCase() : '';
+          const MethodName = params.method ? params.method.toLowerCase() : '';
+          const ModuleName = params.module ? params.module.toLowerCase() : '';
+          const filtered = permissionsRef.current.filter(
             (item) =>
               item.name.toLowerCase().includes(keyword) &&
+              item.code.toLowerCase().includes(CodeName) &&
               item.method.toLowerCase().includes(MethodName) &&
               item.module.toLowerCase().includes(ModuleName)
           );
@@ -264,16 +274,20 @@ const ManagerRoleUser: React.FC = () => {
       />
 
       <AddNewPermission
+        saving={saving}
+        canAssignRoles={canAssignRoles}
         open={isAddNewPermission}
         onClose={() => {
           setIsAddNewPermission(false);
         }}
         onSubmit={handleSubmit}
         allRoles={allRoles}
-        setIsAddNewPermission={setIsAddNewPermission}
+        modules={moduleOptions}
       />
 
       <EditPermission
+        saving={saving}
+        canAssignRoles={canAssignRoles}
         open={openModal}
         onClose={() => {
           setOpenModal(false);
@@ -281,6 +295,7 @@ const ManagerRoleUser: React.FC = () => {
         }}
         editingPermission={editingPermission}
         allRoles={allRoles}
+        modules={moduleOptions}
         onSubmit={handleSubmit}
       />
 

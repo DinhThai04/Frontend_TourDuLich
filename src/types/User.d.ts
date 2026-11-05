@@ -1,4 +1,8 @@
+export type AccountStatus = 'ACTIVE' | 'LOCKED' | 'ARCHIVED';
+export interface AccountEvent { id: number; targetUserId: number; actorId: number; action: string; previousStatus: AccountStatus; newStatus: AccountStatus | null; reason: string; createdAt: string }
 export type User = {
+  status?: AccountStatus;
+  managementAllowed?: boolean;
   id: number;
   username: string;
   avatar?: string;

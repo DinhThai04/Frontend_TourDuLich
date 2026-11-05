@@ -1,13 +1,17 @@
-import React, { useEffect } from 'react';
+import type { IItinerary } from '@/types/Tour';
+import type { ItineraryFormValues } from '@/types/adminForms';
+import React, { useEffect, useState } from 'react';
 import { Form, Input, Select, Button } from 'antd';
+import { MEAL_OPTIONS } from './mealOptions';
 
 interface EditItineraryProps {
-  data?: any;
-  onSubmit?: (values: any) => void;
+  data?: IItinerary | null;
+  onSubmit?: (values: ItineraryFormValues) => void | Promise<void>;
 }
 
 const EditItinerary: React.FC<EditItineraryProps> = ({ data, onSubmit }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<ItineraryFormValues>();
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (data) {
@@ -21,9 +25,15 @@ const EditItinerary: React.FC<EditItineraryProps> = ({ data, onSubmit }) => {
     }
   }, [data, form]);
 
-  const handleFinish = (values: any) => {
-    console.log('Edit Itinerary:', values);
-    if (onSubmit) onSubmit(values);
+  const handleFinish = async (values: ItineraryFormValues) => {
+    // Enter in a field and the button both submit; a second write is never wanted.
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit?.(values);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -44,7 +54,11 @@ const EditItinerary: React.FC<EditItineraryProps> = ({ data, onSubmit }) => {
           <Input placeholder="Nhập tiêu đề lịch trình" size="large" />
         </Form.Item>
 
-        <Form.Item label="Mô tả" name="description">
+        <Form.Item
+          label="Mô tả"
+          name="description"
+          rules={[{ required: true, message: 'Vui lòng nhập mô tả lịch trình' }]}
+        >
           <Input.TextArea rows={4} placeholder="Nhập mô tả chi tiết" />
         </Form.Item>
 
@@ -54,16 +68,16 @@ const EditItinerary: React.FC<EditItineraryProps> = ({ data, onSubmit }) => {
           rules={[{ required: true, message: 'Vui lòng chọn bữa ăn' }]}
         >
           <Select placeholder="Chọn bữa ăn" size="large">
-            <Select.Option value="Sáng">Sáng</Select.Option>
-            <Select.Option value="Trưa">Trưa</Select.Option>
-            <Select.Option value="Tối">Tối</Select.Option>
-            <Select.Option value="Tối">Trưa, Chiều</Select.Option>
-            <Select.Option value="Sáng, Trưa, Tối">Sáng, Trưa, Chiều</Select.Option>
+            {MEAL_OPTIONS.map((meal) => (
+              <Select.Option key={meal} value={meal}>
+                {meal}
+              </Select.Option>
+            ))}
           </Select>
         </Form.Item>
 
         <Form.Item style={{ textAlign: 'right', marginTop: 16 }}>
-          <Button type="primary" htmlType="submit" size="large" style={{ minWidth: 140 }}>
+          <Button type="primary" htmlType="submit" size="large" style={{ minWidth: 140 }} loading={submitting}>
             Lưu thay đổi
           </Button>
         </Form.Item>

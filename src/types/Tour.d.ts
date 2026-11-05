@@ -1,4 +1,4 @@
-import type { AxiosResponse } from './comment';
+import type { ApiResponse } from './comment';
 
 export interface ICity {
   id: number;
@@ -43,6 +43,7 @@ export interface IItinerary {
   title: string;
   description: string;
   meal: string;
+  tourId: number;
 }
 
 export interface AddItineraryRequest {
@@ -57,7 +58,7 @@ export interface UpdateItineraryRequest {
   title?: string;
   description?: string;
   meal?: string;
-  tourId?: number;
+  tourId: number;
 }
 
 export interface IDepartureDate {
@@ -80,7 +81,7 @@ export interface IDepartureDate {
 export interface AddTourDepartureRequest {
   departureDate: string;
   returnDate: string;
-  availableSeats: number;
+  capacity: number;
   tourId: number;
 }
 
@@ -88,8 +89,10 @@ export interface UpdateTourDepartureRequest {
   id: number;
   departureDate?: string;
   returnDate?: string;
-  availableSeats?: number;
-  tourId: number;
+  capacity: number;
+  expectedVersion: number;
+  confirmCapacity: boolean;
+  tourId?: number;
 }
 
 export interface ITour {
@@ -101,6 +104,8 @@ export interface ITour {
   departures: IDepartureDate[];
   basePrice: number;
   imageIds: string[];
+  imageUploadStatus?: 'COMPLETE' | 'PENDING';
+  imageUploadMessage?: string;
   itineraries?: IItinerary[];
   departureCity: ICity;
   destinationCity: ICity;
@@ -115,7 +120,6 @@ export interface TourRequest {
   duration: number;
   departureLocationId: number;
   destinationLocationId: number;
-  basePrice: number;
   vehicleId: string;
   tourPriceId: number;
   files: File[];
@@ -129,7 +133,6 @@ export interface UpdateTourRequest {
   duration?: number;
   departureLocationId?: number;
   destinationLocationId?: number;
-  basePrice?: number;
   vehicleId?: string;
   tourPriceId?: number;
   url?: string[];
@@ -143,24 +146,19 @@ export interface ITourResponse {
 }
 
 export interface ITourDeparture {
-  id: int;
+  operationalStatus?: 'OPEN' | 'SUSPENDED' | 'REPLACEMENT_ONLY' | 'CANCELLED';
+  capacity?: number | null;
+  version?: number;
+  id: number;
   tourCode: string;
   departureDate: string;
   returnDate: string;
-  availableSeats: string;
-  tourId: string;
+  availableSeats: number;
+  tourId: number;
   tourPrice: ITourPrice;
 }
 
-export interface ITourDeparture {
-  id: string;
-  tourCode: string;
-  departureDate: string;
-  returnDate: string;
-  availableSeats: string;
-  tourId: string;
-  tourPrice: ITourPrice;
-}
+
 
 export interface ITourDepartureResponse {
   code: number;
@@ -174,15 +172,7 @@ export interface IDestination {
   img: string;
 }
 
-export interface ITourDeparture {
-  id: int;
-  tourCode: string;
-  departureDate: string;
-  returnDate: string;
-  availableSeats: string;
-  tourId: string;
-  tourPrice: ITourPrice;
-}
+
 
 export interface ILocation {
   id: number;
@@ -204,18 +194,12 @@ export interface UpdateLocationRequest {
   img?: File;
 }
 
-type ToursResponse = AxiosResponse<ITour[]>;
+type ToursResponse = ApiResponse<ITour[]>;
 
-type TourResponse = AxiosResponse<ITour>;
+type TourResponse = ApiResponse<ITour>;
 
-type TourDeparturesResponse = AxiosResponse<ITourDeparture[]>;
+type TourDeparturesResponse = ApiResponse<ITourDeparture[]>;
 
-type TourDepartureResponse = AxiosResponse<ITourDeparture>;
+type TourDepartureResponse = ApiResponse<ITourDeparture>;
 
-type ItineraryResponse = AxiosResponse<IItinerary[]>;
-
-export interface ITourDepartureResponse {
-  code: number;
-  message?: string;
-  result: ITourDeparture;
-}
+type ItineraryResponse = ApiResponse<IItinerary[]>;

@@ -1,184 +1,102 @@
 import { sessionService } from '@/services/sessionServices';
-import axios from 'axios';
+import { createTokenRefresh } from '@/utils/tokenRefresh';
+import type { LoginResponse } from '@/types/Auth';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 
-let persistorRef: any = null;
-export const injectPersistor = (persistor: any) => {
-  persistorRef = persistor;
+type SessionRequest = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+  _sessionToken?: string | null;
+  _sessionUserId?: string;
 };
+type SessionHooks = { refreshed: (result: LoginResponse['result']) => void; expired: () => void };
+let persistorRef: { purge(): Promise<unknown> } | null = null;
+let hooks: SessionHooks | null = null;
+export const injectPersistor = (persistor: { purge(): Promise<unknown> }) => { persistorRef = persistor; };
+export const injectSessionHooks = (callbacks: SessionHooks) => { hooks = callbacks; };
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+const publicAuth = /\/auth\/users\/(login|google|register|refresh|introspect|logout)(?:[?#]|$)/;
+const userId = () => String(sessionService.getUser()?.id ?? '');
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8888/api/v1',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  // Gửi cookie (httpOnly) cùng request nếu backend thiết lập Set-Cookie.
+  withCredentials: true,
+  // Backend calls fail fast (Feign 2s/4s, gateway 3s); this cap only stops a dead
+  // connection from hanging the UI forever, while still allowing slow uploads.
+  timeout: 60000,
 });
 
-let isRefreshing = false;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let failedQueue: any[] = [];
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else prom.resolve(token);
-  });
-  failedQueue = [];
+/** Where an expired session sends the visitor, keeping a `?return=` target already on the page. */
+export const loginTarget = (location: { pathname: string; search: string }) => {
+  const page = `${location.pathname}${location.search}`;
+  // A late 401 can fire while the visitor is already reading /login?return=…; that target must survive.
+  const carried = location.pathname === '/login' ? new URLSearchParams(location.search).get('return') : null;
+  // Only a same-origin absolute path may come back: '//host' leaves the site and '/login…' would loop.
+  const safe = (path: string | null): path is string =>
+    !!path && path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/\\') && !path.startsWith('/login');
+  const target = safe(carried) ? carried : safe(page) ? page : null;
+  return target ? `/login?return=${encodeURIComponent(target)}` : '/login';
 };
 
-// Interceptor request
-axiosClient.interceptors.request.use((config) => {
-  const token = sessionService.getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+/** Clear both storage layers and send the visitor to login; shared by every expiry path. */
+const endSession = async () => {
+  sessionService.clearSession();
+  hooks?.expired();
+  try { await persistorRef?.purge(); } catch { /* Session is already cleared. */ }
+  if (!sessionService.getToken()) {
+    // A hard navigation drops router state, so carry the page along as a validated query parameter.
+    window.location.assign(loginTarget(window.location));
   }
+};
+
+export const refreshSession = createTokenRefresh(async (refreshToken: string): Promise<LoginResponse> => {
+  try {
+    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/users/refresh`, { token: refreshToken }, { timeout: 15000 });
+    const result = response.data?.result;
+    if (response.data?.code !== 1000 || !result?.token || !result.refreshToken || !result.user?.id) throw new Error('Phản hồi làm mới phiên không hợp lệ');
+    // A response for an old account must not restore a session after logout/login.
+    if (sessionService.getRefreshToken() !== refreshToken) throw new Error('Phiên đăng nhập đã thay đổi');
+    sessionService.setSession(result.token, result.refreshToken, result.user);
+    hooks?.refreshed(result);
+    return response.data;
+  } catch (error) {
+    const rejected = !axios.isAxiosError(error) || [400, 401, 403].includes(error.response?.status ?? 0);
+    if (rejected && sessionService.getRefreshToken() === refreshToken) await endSession();
+    throw error;
+  }
+});
+
+axiosClient.interceptors.request.use((config: SessionRequest) => {
+  if (!publicAuth.test(config.url ?? '')) {
+    const token = sessionService.getToken();
+    config._sessionToken = token;
+    config._sessionUserId = userId();
+    if (token) config.headers.set('Authorization', `Bearer ${token}`);
+    else config.headers.delete('Authorization');
+  }
+  // Public auth routes keep a caller-provided Authorization header (Google ID token);
+  // no session token is attached to them, so a stale login can never leak in.
   return config;
 });
 
-// // Interceptor response
-// axiosClient.interceptors.response.use(
-//   (response) => response.data,
-//   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-//   async (error: AxiosError<any>) => {
-//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-//     const originalRequest: any = error.config;
-
-//     if (error.response?.status === 401 && !originalRequest._retry) {
-//       if (isRefreshing) {
-//         // Nếu đang refresh thì đợi
-//         return new Promise((resolve, reject) => {
-//           failedQueue.push({ resolve, reject });
-//         }).then((token) => {
-//           originalRequest.headers.Authorization = 'Bearer ' + token;
-//           return axiosClient(originalRequest);
-//         });
-//       }
-
-//       originalRequest._retry = true;
-//       isRefreshing = true;
-
-//       try {
-//         const token = sessionService.getToken();
-//         if (!token) {
-//           // sessionService.clearSession();
-//           return Promise.reject(error);
-//         }
-
-//         // Gọi API refresh token
-//         const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/users/refresh`, {
-//           token,
-//         });
-
-//         const newToken = res.data.result.token;
-//         const user = res.data.result.user;
-//         sessionService.setSession(newToken, user);
-
-//         processQueue(null, newToken);
-//         isRefreshing = false;
-
-//         originalRequest.headers.Authorization = 'Bearer ' + newToken;
-//         return axiosClient(originalRequest);
-//       } catch (err) {
-//         processQueue(err, null);
-//         isRefreshing = false;
-//         sessionService.clearSession();
-//         // window.location.href = "/login";
-//         return Promise.reject(err);
-//       }
-//     }
-
-//     return Promise.reject(error);
-//   }
-// );
-
-// export default axiosClient;
-// Interceptor response
-axiosClient.interceptors.response.use(
-  (response) => response.data,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // 1. Kiểm tra lỗi 401 và đảm bảo chưa retry lần nào
-    if (error.response?.status === 401 && !originalRequest?._retry) {
-      // LOG: Để kiểm tra xem code có chạy vào đây không
-      console.log('Interceptor: Phát hiện lỗi 401, bắt đầu xử lý...');
-
-      // 2. Trường hợp đang có một request khác đang refresh token
-      if (isRefreshing) {
-        console.log('Interceptor: Đang refresh, đưa request vào hàng đợi...');
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            // Cập nhật token mới cho request đang chờ
-            if (originalRequest.headers) {
-              originalRequest.headers['Authorization'] = 'Bearer ' + token;
-            }
-            return axiosClient(originalRequest);
-          })
-          .catch((err) => {
-            return Promise.reject(err);
-          });
-      }
-
-      // 3. Đánh dấu request này là đang retry và bật cờ refreshing
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const token = sessionService.getToken();
-
-        // Kiểm tra 1: Nếu không có token để gửi đi refresh
-        if (!token) {
-          console.warn('Interceptor: Không tìm thấy token trong storage => Logout');
-          sessionService.clearSession();
-          return Promise.reject(error);
-        }
-
-        // Gọi API refresh
-        // Lưu ý: Đảm bảo URL và Payload đúng với Backend yêu cầu
-        const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/users/refresh`, {
-          token,
-        });
-
-        // Kiểm tra 2: Log response để xem cấu trúc thực tế (QUAN TRỌNG)
-        console.log('Interceptor: Refresh API Response:', res.data);
-
-        // Sử dụng Optional Chaining (?.) để tránh crash code nếu cấu trúc sai
-        const newToken = res.data?.result?.token;
-        const user = res.data?.result?.user;
-
-        // Kiểm tra 3: Nếu API 200 OK nhưng không có token trong body
-        if (!newToken) {
-          console.error(
-            'Interceptor: API trả về 200 nhưng không tìm thấy token mới trong response'
-          );
-          // Tùy chọn: Có thể logout hoặc không, nhưng cần return lỗi để biết
-          throw new Error('Token structure mismatch');
-        }
-
-        sessionService.setSession(newToken, user);
-
-        processQueue(null, newToken);
-        isRefreshing = false;
-
-        originalRequest.headers.Authorization = 'Bearer ' + newToken;
-        return axiosClient(originalRequest);
-      } catch (err) {
-        // ...
-        sessionService.clearSession(); // Xóa token thường
-
-        // 3. Sử dụng biến đệm để gọi purge
-        if (persistorRef) {
-          console.log('Purging Redux Persist...');
-          await persistorRef.purge(); // Xóa sạch Redux Persist
-        }
-
-        window.location.href = '/login';
-        return Promise.reject(err);
-      }
-    }
-
-    // Trả về lỗi nếu không phải 401 hoặc đã retry rồi
-    return Promise.reject(error);
+axiosClient.interceptors.response.use(response => response.data, async error => {
+  const request = error.config as SessionRequest | undefined;
+  if (error.response?.status !== 401 || !request || request._retry || publicAuth.test(request.url ?? '')) throw error;
+  request._retry = true;
+  const usedToken = request._sessionToken;
+  const currentToken = sessionService.getToken();
+  const refreshToken = sessionService.getRefreshToken();
+  if (!usedToken || !currentToken || !refreshToken || request._sessionUserId !== userId()) {
+    // An expired access token without a refresh token can never recover; end it instead of looping errors.
+    // A request that never had a session stays a guest: the route guard owns that redirect.
+    if (usedToken && usedToken === currentToken && !refreshToken && request._sessionUserId === userId()) await endSession();
+    throw error;
   }
-);
+  // Late 401s can arrive after another request has already refreshed the same session.
+  const token = currentToken !== usedToken ? currentToken : (await refreshSession(refreshToken)).result.token;
+  if (sessionService.getToken() !== token || request._sessionUserId !== userId() || request.signal?.aborted) throw error;
+  request.headers.set('Authorization', `Bearer ${token}`);
+  return axiosClient(request);
+});
 export default axiosClient;

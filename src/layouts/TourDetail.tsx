@@ -5,12 +5,13 @@ import Schedule from '@/components/TourDetail/Schedule';
 import TourCard from '@/components/TourDetail/TourCard';
 import TourDetailCard from '@/components/TourDetail/TourDetailCard';
 import TourImages from '@/components/TourDetail/TourImage';
-import { Row, Col, Typography } from 'antd';
-import { useEffect, useRef, useState } from 'react';
+import { Alert, Button, Row, Col, Skeleton, Typography } from 'antd';
+import { lazy, useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { getRandom3Tour, getTourById } from '@/services/tourServices';
 import type { ITour } from '@/types/Tour';
-import Comment from '@/components/Comment/Comment';
+import DeferredSection from '@/components/Share/DeferredSection';
+const Comment = lazy(() => import('@/components/Comment/Comment'));
 
 const { Title } = Typography;
 
@@ -18,33 +19,12 @@ export default function TourDetail() {
   const [dataDetailtour, setDataDetailTour] = useState<ITour | null>(null);
   const [dataRandomTour, setDataRandomTour] = useState<ITour[]>([]);
   const [selectedDepartureId, setSelectedDepartureId] = useState<number | null>(null);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
   const { id } = useParams<{ id: string }>();
   const scheduleRef = useRef<HTMLDivElement>(null);
 
-  const fetchDataTourById = async () => {
-    if (!id) return;
-    try {
-      const res = await getTourById(Number(id));
-      if (res.code==1000){
-        setDataDetailTour(res.result);
-      }
-      
-    } catch (error) {
-      console.error("Failed to fetch tour:", error);
-    }
-  };
 
-  const fetchRandomTourData = async () => {
-    try {
-      const res = await getRandom3Tour();
-      if (res.code==1000){
-        setDataRandomTour(res.result);
-      }
-      
-    } catch (error) {
-      console.error("Failed to fetch tour:", error);
-    }
-  };
 
   const scrollToSchedule = () => {
     if (scheduleRef.current) {
@@ -56,19 +36,38 @@ export default function TourDetail() {
   };
   
   useEffect(() => {
-    fetchDataTourById();
-  }, [id]);
+    setSelectedDepartureId(null);
+    const controller = new AbortController();
+    setDataDetailTour(null);
+    setError(false);
+    if (id) void getTourById(Number(id), controller.signal).then(response => {
+      if (controller.signal.aborted) return;
+      if (response.code !== 1000) throw new Error('Tour unavailable');
+      setDataDetailTour(response.result);
+    }).catch(() => { if (!controller.signal.aborted) setError(true); });
+    return () => controller.abort();
+  }, [id, retry]);
 
   useEffect(() => {
-      fetchRandomTourData();
+    const controller = new AbortController();
+    setDataRandomTour([]);
+    void getRandom3Tour(id ? Number(id) : undefined, controller.signal).then(response => {
+      if (!controller.signal.aborted && response.code === 1000) setDataRandomTour(response.result);
+    }).catch(() => { /* Recommendations must not block the selected tour. */ });
+    return () => controller.abort();
+  }, [id]);
+
+  const handleSelectDeparture = useCallback((departureId: number | null) => {
+    setSelectedDepartureId(departureId);
   }, []);
 
-  const handleSelectDeparture = (departureId: number | null) => {
-    setSelectedDepartureId(departureId);
-  };
+  if (error) return <div className="max-w-3xl mx-auto !p-6"><Alert showIcon type="warning"
+    message="Chưa tải được thông tin tour" description="Tour có thể không còn hoặc kết nối đang gián đoạn."
+    action={<Button onClick={() => setRetry(value => value + 1)}>Thử lại</Button>} /></div>;
+  if (!dataDetailtour) return <div className="max-w-5xl mx-auto !p-6"><Skeleton active paragraph={{ rows: 12 }} /></div>;
 
   return (
-    <div style={{ padding: '24px 0' }}>
+    <div style={{ padding: '24px 12px' }}>
       <Row justify="center">
         <Col xs={24} md={22} lg={22} xl={20} xxl={16}>
           <Title level={4} style={{ marginBottom: 24, fontWeight: 700, padding: '0 12px' }}>
@@ -76,7 +75,7 @@ export default function TourDetail() {
           </Title>
 
           <Row gutter={24}>
-            <Col span={17}>
+            <Col xs={24} lg={17}>
               {dataDetailtour && <TourImages imageIds={dataDetailtour.imageIds} />}
               <div ref={scheduleRef}>
                 {dataDetailtour && (
@@ -86,12 +85,12 @@ export default function TourDetail() {
                   />
                 )}
               </div>
-              <AdditionalInfo />
+              <AdditionalInfo tour={dataDetailtour} />
               <Itinerary tourId={dataDetailtour?.id}/>
               <ImportantInfo />
             </Col>
 
-            <Col span={7}>
+            <Col xs={24} lg={7}>
               <div
                 style={{
                   position: 'sticky',
@@ -107,7 +106,7 @@ export default function TourDetail() {
               </div>
             </Col>
           </Row>
-          <Comment />
+          <DeferredSection height={400} label="đánh giá tour"><Comment /></DeferredSection>
           <Title
             level={3}
             style={{
@@ -123,7 +122,7 @@ export default function TourDetail() {
 
           <Row gutter={24} justify="space-between">
             {dataRandomTour.map((tour) => (
-              <Col key={tour.id} span={8}>
+              <Col key={tour.id} xs={24} md={12} lg={8}>
                 <TourCard tour={tour} />
               </Col>
             ))}

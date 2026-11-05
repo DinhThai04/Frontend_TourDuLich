@@ -1,4 +1,4 @@
-import type { UserResponse } from './comment';
+import type { ReviewResponse } from './comment';
 import type { User } from './User.d';
 
 export type AuthState = {
@@ -18,11 +18,8 @@ export type RegisterRequest = {
   username: string;
   password: string;
   email: string;
-  firstName: string;
-  lastName: string;
-  roleId: number;
-  dob?: string;
-  city?: string;
+  phone: string;
+  address: string;
 };
 
 export type LoginResponse = {
@@ -30,6 +27,8 @@ export type LoginResponse = {
   message?: string;
   result: {
     token: string;
+    /** Chỉ gửi tới /auth/users/refresh, không dùng cho request API thường. */
+    refreshToken: string;
     expiryTime: string;
     user: User;
   };
@@ -48,14 +47,6 @@ export type ChangePWReq = {
   oldPassword: string;
   newPassword: string;
   confirmPassword: string;
-  token: string;
 };
 
-export type ReviewResponse = {
-  id: number;
-  tourId: number;
-  user: UserResponse;
-  content: string;
-  rating: number;
-  createdAt: string;
-};
+export interface TourReviewsResponse { tourId: number; tourName: string; reviews: ReviewResponse[] }

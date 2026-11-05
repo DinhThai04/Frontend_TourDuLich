@@ -11,17 +11,17 @@ import { formatCurrencyVND } from '@/utils';
 import { useNavigate } from 'react-router-dom';
 import FALLBACK_IMAGE_URL from '@/assets/images/fallback.png';
 import dayjs from 'dayjs';
+import ResponsiveImage from '@/components/Share/ResponsiveImage';
 const { Text } = Typography;
 
 const List = ({ tours }: { tours: ITour[] | null }) => {
   const navigate = useNavigate();
-  console.log(tours);
   return (
     <div className="!p-4">
       {/* <Title level={2} className="text-center mb-8">
         Danh sách Tour nổi bật
       </Title> */}
-      <div className="flex flex-col gap-5 min-h-[600px] max-h-[600px] overflow-y-auto !pr-4">
+      <div className="flex flex-col gap-5">
         {tours && tours.length > 0 ? (
           tours.map((tour) => (
             <Card
@@ -31,12 +31,13 @@ const List = ({ tours }: { tours: ITour[] | null }) => {
               key={tour.id}
               className="rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
             >
-              <div className="flex flex-row gap-4">
-                <div className="w-1/3 flex-shrink-0 rounded-lg overflow-hidden">
-                  <img
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-full sm:w-1/3 flex-shrink-0 rounded-lg overflow-hidden">
+                  <ResponsiveImage
                     alt={tour.tourTitle}
                     src={(tour?.imageIds && tour.imageIds[0]) || FALLBACK_IMAGE_URL}
-                    className="w-full h-full object-cover"
+                    className="w-full h-[220px] sm:h-full object-cover"
+                    width={640} height={400}
                   />
                 </div>
                 <div className="flex-1 flex flex-col h-full">
@@ -51,7 +52,7 @@ const List = ({ tours }: { tours: ITour[] | null }) => {
                       </span>
                       <span className="font-[700]">{tour.departureCity.city}</span>
                     </span>
-                    <Space size="middle" className=" mb-4">
+                    <Space size="middle" wrap className=" mb-4">
                       <span>
                         <span className="!mr-2">
                           <ClockCircleOutlined className="!mr-1" />
@@ -115,7 +116,7 @@ const List = ({ tours }: { tours: ITour[] | null }) => {
           ))
         ) : (
           <div className="flex justify-center items-center h-full">
-            <Empty description="Không có x`i phù hợp" />
+            <Empty description="Không có tour phù hợp" />
           </div>
         )}
       </div>

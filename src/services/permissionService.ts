@@ -1,24 +1,24 @@
 import axiosClient from '@/api/axios';
-import type { AxiosResponse } from '@/types/comment';
-import type { Permission } from '@/types/Permission';
+import type { ApiResponse } from '@/types/comment';
+import type { PermissionInput, Permission } from '@/types/Permission';
 
-const getPermissions = (): Promise<AxiosResponse> => {
+const getPermissions = (): Promise<ApiResponse<Permission[]>> => {
   return axiosClient.get('auth/permissions/list');
 };
 
-const createPermission = async (permission: Permission): Promise<AxiosResponse> => {
+const createPermission = async (permission: PermissionInput): Promise<ApiResponse<Permission>> => {
   return axiosClient.post('auth/permissions', permission);
 };
 
-const updatePermission = async (permission: Permission): Promise<AxiosResponse> => {
+const updatePermission = async (permission: PermissionInput): Promise<ApiResponse<Permission>> => {
   return axiosClient.put('auth/permissions', permission);
 };
 
-const deletePermission = async (id: number): Promise<AxiosResponse> => {
+const deletePermission = async (id: number): Promise<ApiResponse<Permission>> => {
   return axiosClient.delete(`auth/permissions/${id}`);
 };
 
-const getPermissionById = async (id: number): Promise<AxiosResponse> => {
+const getPermissionById = async (id: number): Promise<ApiResponse<Permission>> => {
   return axiosClient.get(`auth/permissions/${id}`);
 };
 

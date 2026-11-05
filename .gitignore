@@ -25,3 +25,8 @@ dist-ssr
 
 .fake
 .env
+.env.*
+!.env.example
+
+# One-off verification output
+/test-summary.txt

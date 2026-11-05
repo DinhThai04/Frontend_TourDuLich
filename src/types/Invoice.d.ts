@@ -1,32 +1,27 @@
+import type { CustomerResponse } from './Booking';
+import type { ITourDeparture } from './Tour';
 export type InvoiceItem = {
   name: string;
   dob?: string;
   price: number;
 };
 
+export type PaymentQuote = {
+  /** Tổng tiền server sẽ thu (VND, dạng chuỗi số nguyên). */
+  amount: string;
+  unitPrices: Record<'ADULT' | 'CHILD' | 'TODDLER' | 'INFANT', string>;
+};
+
 interface InvoiceFormProps {
   account: { fullName: string; email: string; phone: string };
   customers?: CustomerResponse[];
   tourDeparture?: ITourDeparture;
-  onCreate: (paymentMethod: string, totalAmount: number) => Promise<void>;
+  quote?: PaymentQuote;
+  onCreate: (totalAmount: number) => Promise<void>;
 }
 
-export type InvoiceRequest = {
-  bookingId: string;
-  tourDepartureId: string;
-  listOfCustomers: CustomerReq
-};
-
-export type CustomerResponse = {
-  id?: string;
-  fullName?: string;
-  birthdate?: string;
-  gender?: string;
-  address?: string;
-  bookingType?: string;
-};
-
 export type InvoiceResponse = {
+  accountId?: string;
   id: string;
   userId?: string;
   bookingId?: string;
@@ -45,5 +40,6 @@ export type InvoiceResponse = {
   totalExtraFee?: string;
   totalBookingTourExpense?: string;
   paymentUrl?: string;
+  paymentQrBase64?: string;
   customerResponseList?: CustomerResponse[];
 };

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { errorMessage } from '@/utils/errors';
+import BookingChangesPanel from './BookingChangesPanel';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   Input,
   DatePicker,
@@ -13,24 +15,40 @@ import {
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import isBetween from 'dayjs/plugin/isBetween';
-dayjs.extend(isBetween);
 
 import { FileTextOutlined, UserOutlined } from '@ant-design/icons';
 
 import bookingServices from '@/services/bookingServices';
-import { getAllTourDeparture } from '@/services/tourServices';
+import { getAllTourDeparture, getTourDepartureById } from '@/services/tourServices';
 import invoiceServices from '@/services/invoiceServices';
 import { sessionService } from '@/services/sessionServices';
-import { formatDatetime, formatCurrencyVND } from '@/utils';
+import { formatDate, formatDatetime, formatCurrencyVND, isListCapped, toVietnamDate } from '@/utils';
+import { passengerLabel } from '@/utils/booking';
+import { settledRows } from '@/utils/settledRows';
+import { paymentMethodLabel } from '@/utils/adminInvoices';
 
 import type { BookingResponse, CustomerResponse } from '@/types/Booking';
 import type { ITourDeparture } from '@/types/Tour';
 import type { InvoiceResponse } from '@/types/Invoice';
-// import type { UserResponse } from "@/types/comment";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+
+/** The bulk departure list is capped; top up the caller's own bookings one by one without a request storm. */
+const MAX_DEPARTURE_LOOKUPS = 50;
+
+// Compare calendar days in Vietnam time; parsing naive backend timestamps as browser-local
+// would shift the day for users outside UTC+7 and hide bookings from a picked date.
+const VIETNAM_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const vietnamDay = (value: string) => {
+  const parsed = toVietnamDate(value);
+  return parsed ? VIETNAM_DAY.format(parsed) : '';
+};
 
 type BookingWithFullInfo = BookingResponse & {
   userName?: string;
@@ -51,6 +69,8 @@ export default function History() {
 
   const [bookingData, setBookingData] = useState<BookingWithFullInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCapped, setIsCapped] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<BookingWithFullInfo | null>(null);
   const [openedModal, setOpenedModal] = useState<'booking' | 'invoice' | null>(null);
@@ -58,32 +78,52 @@ export default function History() {
   /** ======================================================
    * FETCH DATA (dùng useCallback để tránh re-render không cần thiết)
    * ====================================================== */
+  // Mount, the retry button, the change panel and a cancelled booking can all refresh at once, so only
+  // the newest response may repaint; a slow earlier reply must not overwrite newer bookings.
+  const fetchId = useRef(0);
   const fetchAllData = useCallback(async () => {
+    const current = ++fetchId.current;
     try {
       setIsLoading(true);
+      setLoadError(null);
 
-      const [bookingRes, departureRes, customerRes, invoiceRes, userSession] = await Promise.all([
-        bookingServices.getAll(),
+      // This page is self-service. A staff account also holds the global read permissions, so
+      // without mine=true it would receive the newest rows of everybody and then filter its own out.
+      const [bookingRes, departureRes, customerRes, invoiceRes, userSessionRes] = await Promise.allSettled([
+        bookingServices.getAll({ mine: true }),
         getAllTourDeparture(),
-        bookingServices.getAllCustomers(),
-        invoiceServices.getAll(),
+        bookingServices.getAllCustomers({ mine: true }),
+        invoiceServices.getAll({ mine: true }),
         sessionService.getUser(),
       ]);
 
+      const userSession = userSessionRes.status === 'fulfilled' ? userSessionRes.value : null;
       if (!userSession) throw new Error('Không tìm thấy người dùng!');
 
-      const success =
-        bookingRes.code === 1000 &&
-        departureRes.code === 1000 &&
-        customerRes.code === 1000 &&
-        invoiceRes.code === 1000;
+      // Only the booking list is essential; decorations degrade to empty instead of blanking history.
+      if (bookingRes.status === 'rejected' || bookingRes.value.code !== 1000) {
+        throw new Error('Lỗi API, không thể tải dữ liệu!');
+      }
 
-      if (!success) throw new Error('Lỗi API, không thể tải dữ liệu!');
+      const bookings: BookingResponse[] = bookingRes.value.result || [];
+      const departures: ITourDeparture[] = settledRows(departureRes);
+      const customers: CustomerResponse[] = settledRows(customerRes);
+      const invoices: InvoiceResponse[] = settledRows(invoiceRes);
 
-      const bookings: BookingResponse[] = bookingRes.result || [];
-      const departures: ITourDeparture[] = departureRes.result || [];
-      const customers: CustomerResponse[] = customerRes.result || [];
-      const invoices: InvoiceResponse[] = invoiceRes.result || [];
+      const ownBookings = bookings.filter((item) => String(item.accountId) === String(userSession.id));
+      const knownDepartureIds = new Set(departures.map((item) => String(item.id)));
+      const missingDepartureIds = [
+        ...new Set(ownBookings.map((item) => item.tourDepartureId).filter((id): id is string => !!id)),
+      ].filter((id) => !knownDepartureIds.has(id));
+      const lookups = missingDepartureIds.slice(0, MAX_DEPARTURE_LOOKUPS);
+      if (lookups.length > 0) {
+        const resolved = await Promise.allSettled(lookups.map((id) => getTourDepartureById(Number(id))));
+        resolved.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value?.code === 1000 && result.value.result) {
+            departures.push(result.value.result);
+          }
+        });
+      }
 
       const merged: BookingWithFullInfo[] = bookings.map((booking) => ({
         ...booking,
@@ -102,12 +142,21 @@ export default function History() {
         return String(item.accountId) === String(userSession.id);
       });
 
-      console.log(listOfBookingsByCurrentUser);
+      if (fetchId.current !== current) return;
       setBookingData(listOfBookingsByCurrentUser);
-    } catch (err: any) {
-      message.error(err.message || 'Lỗi tải dữ liệu!');
+      // The list endpoints return at most LIST_PAGE_SIZE rows; warn instead of hiding older records.
+      setIsCapped(
+        isListCapped(bookings) ||
+          isListCapped(customers) ||
+          missingDepartureIds.length > MAX_DEPARTURE_LOOKUPS,
+      );
+    } catch (err: unknown) {
+      if (fetchId.current !== current) return;
+      const text = errorMessage(err, 'Lỗi tải dữ liệu!');
+      setLoadError(text);
+      message.error(text);
     } finally {
-      setIsLoading(false);
+      if (fetchId.current === current) setIsLoading(false);
     }
   }, []);
 
@@ -125,15 +174,19 @@ export default function History() {
     return bookingData.filter((record) => {
       const matchesId = record.id.toString().includes(searchBookingId.trim());
 
-      const matchesStatus = bookingStatus ? record.status === bookingStatus : true;
+      const matchesStatus = !bookingStatus || (bookingStatus === 'PAID'
+        ? record.invoice?.status === 'PAID'
+        : bookingStatus === 'UNPAID'
+          ? ['PENDING_PAYMENT', 'CONFIRMED'].includes(record.status ?? '') && record.invoice?.status !== 'PAID'
+          : bookingStatus === 'CLOSED'
+            ? ['CANCELLED', 'EXPIRED', 'UNCONFIRMED'].includes(record.status ?? '')
+            : record.status === bookingStatus);
 
       const matchesDate = dateRange
-        ? dayjs(record.createdAt).isBetween(
-            dateRange[0].startOf('day'),
-            dateRange[1].endOf('day'),
-            'day',
-            '[]'
-          )
+        ? (() => {
+            const day = vietnamDay(String(record.createdAt));
+            return !!day && day >= dateRange[0].format('YYYY-MM-DD') && day <= dateRange[1].format('YYYY-MM-DD');
+          })()
         : true;
 
       return matchesId && matchesStatus && matchesDate;
@@ -143,9 +196,26 @@ export default function History() {
   /** ======================================================
    * HELPERS
    * ====================================================== */
+  // Mirrors the invoice page's entry conditions so the payment CTA never leads to a dead end.
+  const canResumePayment = (record: BookingWithFullInfo) =>
+    ['PENDING_PAYMENT', 'CONFIRMED'].includes(record.status ?? '') &&
+    !!record.reservationStatus &&
+    !['PAID', 'EXPIRED', 'CANCELLED'].includes(record.reservationStatus) &&
+    record.invoice?.status !== 'PAID';
+
+  // Mirrors BookingLifecycleService.cancel: paid bookings and closed holds must not offer "Hủy".
+  const canCancel = (record: BookingWithFullInfo) =>
+    ['PENDING_PAYMENT', 'CONFIRMED'].includes(record.status ?? '') &&
+    record.reservationStatus !== 'PAID' &&
+    !['CANCELLED', 'EXPIRED'].includes(record.reservationStatus ?? '') &&
+    record.invoice?.status !== 'PAID';
+
   const renderStatus = (status: string) => {
     const STATUS_MAP: Record<string, { color: string; label: string }> = {
+      PENDING_PAYMENT: { color: 'orange', label: 'Chờ thanh toán' },
       CONFIRMED: { color: 'green', label: 'Đã đặt tour' },
+      CANCELLED: { color: 'red', label: 'Đã hủy' },
+      EXPIRED: { color: 'red', label: 'Đã hết hạn' },
       UNCONFIRMED: { color: 'red', label: 'Đã hủy' },
     };
 
@@ -156,12 +226,14 @@ export default function History() {
   const renderCustomerList = (customers?: CustomerResponse[]) => {
     if (!customers || customers.length === 0) return <i>Không có khách hàng</i>;
 
+    const isMale = (gender?: string) => ['true', 'male', '1'].includes(String(gender).toLowerCase());
+
     return (
       <div className="space-y-1">
         {customers.map((c) => (
           <div key={c.id}>
-            • <b>{c.fullName}</b> ({String(c.gender) === 'true' ? 'Nam' : 'Nữ'}) — {c.dateOfBirth} —{' '}
-            {c.bookingType}
+            • <b>{c.fullName}</b> ({isMale(c.gender) ? 'Nam' : 'Nữ'}) —{' '}
+            {c.dateOfBirth ? formatDate(c.dateOfBirth) : '—'} — {passengerLabel(c.bookingType)}
             <span className="text-gray-500"> — {c.address}</span>
           </div>
         ))}
@@ -196,14 +268,21 @@ export default function History() {
     {
       title: 'Trạng thái',
       dataIndex: 'status',
-      render: renderStatus,
+      render: (status: string, record: BookingWithFullInfo) => (
+        <>{record.reservationStatus === 'CHECKOUT' ? <Tag color="orange">Chờ thanh toán ngay</Tag>
+          : record.reservationStatus === 'EXPIRED' ? <Tag color="red">Hết hạn thanh toán</Tag> : renderStatus(status)}{status === 'CONFIRMED' && (
+          <Tag color={record.invoice?.status === 'PAID' ? 'green' : 'orange'}>
+            {record.invoice?.status === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+          </Tag>
+        )}</>
+      ),
       width: '15%',
     },
     {
       title: 'Thao tác',
       key: 'action',
       width: '15%',
-      render: (_: any, record: BookingResponse) => (
+      render: (_: unknown, record: BookingResponse) => (
         <>
           <Button type="link" onClick={() => openModal('booking', record)}>
             Chi tiết
@@ -211,7 +290,7 @@ export default function History() {
           <Button type="link" onClick={() => openModal('invoice', record)}>
             Hóa đơn
           </Button>
-          <Button type="link" danger onClick={() => handleDeleteBooking(Number(record.id))}>
+          <Button type="link" danger disabled={!canCancel(record)} onClick={() => handleDeleteBooking(Number(record.id))}>
             Hủy
           </Button>
         </>
@@ -249,16 +328,17 @@ export default function History() {
       async onOk() {
         try {
           setIsLoading(true);
-          const res = await bookingServices.updateStatus(id);
+          const res = await bookingServices.delete(id);
 
           if (res?.code === 1000) {
             message.success('Hủy booking thành công!');
-            fetchAllData(); // refresh list
+            // Awaited so the spinner only drops once the refreshed list is on screen.
+            await fetchAllData();
           } else {
             message.error('Không thể hủy booking!');
           }
         } catch (err) {
-          message.error('Lỗi khi hủy booking!');
+          message.error(errorMessage(err, 'Lỗi khi hủy booking!'));
         } finally {
           setIsLoading(false);
         }
@@ -275,6 +355,18 @@ export default function History() {
         <FileTextOutlined /> Lịch sử đặt chỗ
       </h3>
 
+      <BookingChangesPanel onChanged={() => void fetchAllData()} />
+      {isCapped && (
+        <div className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Danh sách chỉ hiển thị tối đa 500 bản ghi gần nhất. Vui lòng liên hệ hỗ trợ nếu cần xem booking cũ hơn.
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <span>{loadError}</span>
+          <Button size="small" onClick={() => void fetchAllData()}>Thử lại</Button>
+        </div>
+      )}
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Input
@@ -285,7 +377,7 @@ export default function History() {
 
         <RangePicker
           value={filterState.dateRange}
-          onChange={(range) => setFilterState({ ...filterState, dateRange: range as any })}
+          onChange={(range) => setFilterState({ ...filterState, dateRange: range?.[0] && range[1] ? [range[0], range[1]] : null })}
           className="w-full"
         />
 
@@ -295,9 +387,9 @@ export default function History() {
           value={filterState.bookingStatus}
           onChange={(val) => setFilterState({ ...filterState, bookingStatus: val })}
         >
-          <Option value="CONFIRMED">Đã thanh toán</Option>
-          <Option value="UNCONFIRMED">Chưa thanh toán</Option>
-          <Option value="CANCELLED">Đã hủy</Option>
+          <Option value="PAID">Đã thanh toán</Option>
+          <Option value="UNPAID">Chưa thanh toán</Option>
+          <Option value="CLOSED">Đã hủy / hết hạn</Option>
         </Select>
       </div>
 
@@ -339,10 +431,13 @@ export default function History() {
               <Descriptions.Item label="Trạng thái">
                 {renderStatus(String(selectedBooking.status))}
               </Descriptions.Item>
+              {selectedBooking.paymentDeadline && <Descriptions.Item label="Hạn thanh toán">
+                {formatDatetime(selectedBooking.paymentDeadline)}
+              </Descriptions.Item>}
             </Descriptions>
 
             <div className="text-right">
-              {selectedBooking.status === 'UNCONFIRMED' ? (
+              {canResumePayment(selectedBooking) ? (
                 <Button type="primary" onClick={goToPayment}>
                   Thanh toán ngay
                 </Button>
@@ -365,11 +460,32 @@ export default function History() {
           </span>
         }
       >
-        {selectedBooking?.invoice?.status !== 'PAID' ? (
-          <Empty description="Chưa có hóa đơn cho booking này." />
+        {!selectedBooking?.invoice ? (
+          <>
+            <Empty
+              description={
+                selectedBooking && canResumePayment(selectedBooking)
+                  ? 'Chưa thanh toán. Vui lòng tiếp tục thanh toán để hoàn tất đặt tour.'
+                  : ['CANCELLED', 'EXPIRED'].includes(selectedBooking?.status ?? '')
+                    ? 'Booking đã hủy hoặc hết hạn nên không có hóa đơn thanh toán.'
+                    : 'Chưa có hóa đơn thanh toán cho booking này.'
+              }
+            />
+            {selectedBooking && canResumePayment(selectedBooking) && (
+              <Button type="primary" onClick={goToPayment}>Tiếp tục thanh toán</Button>
+            )}
+          </>
         ) : (
           <Descriptions bordered column={1} size="small" className="mb-4">
             <Descriptions.Item label="Mã hóa đơn">{selectedBooking.invoice.id}</Descriptions.Item>
+
+            <Descriptions.Item label="Trạng thái">
+              <Tag color={selectedBooking.invoice.status === 'PAID' ? 'green' : selectedBooking.invoice.status === 'REFUNDED' ? 'blue' : 'default'}>
+                {selectedBooking.invoice.status === 'PAID' ? 'Đã thanh toán'
+                  : selectedBooking.invoice.status === 'REFUNDED' ? 'Đã hoàn tiền'
+                    : selectedBooking.invoice.status || 'Không xác định'}
+              </Tag>
+            </Descriptions.Item>
 
             <Descriptions.Item label="Ngày tạo">
               {formatDatetime(String(selectedBooking.invoice.dayOfPay))}
@@ -379,12 +495,12 @@ export default function History() {
               {renderCustomerList(selectedBooking.listOfCustomers)}
             </Descriptions.Item>
 
-            <Descriptions.Item label="Tổng số tiền đã thanh toán">
+            <Descriptions.Item label="Tổng tiền hóa đơn">
               {formatCurrencyVND(Number(selectedBooking.invoice.totalBookingTourExpense))}
             </Descriptions.Item>
 
             <Descriptions.Item label="Phương thức thanh toán">
-              {String(selectedBooking.invoice.paymentMethodId) === '1' ? 'VNPAY' : 'Tiền mặt'}
+              {paymentMethodLabel(selectedBooking.invoice.paymentMethodId)}
             </Descriptions.Item>
           </Descriptions>
         )}

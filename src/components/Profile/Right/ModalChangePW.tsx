@@ -1,10 +1,12 @@
 import { changePW } from '@/services/authServices';
-import type { RootState } from '@/store';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useAppDispatch } from '@/store/hooks';
 import { logoutUser } from '@/store/slices/authSlice';
+import { errorMessage } from '@/utils/errors';
 import { LockOutlined } from '@ant-design/icons';
 import { Button, Form, Input, message, Modal } from 'antd';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+interface PasswordFormValues { currentPassword: string; newPassword: string; confirmPassword: string }
 
 interface IProps {
   visible: boolean;
@@ -12,26 +14,28 @@ interface IProps {
 }
 
 const ModalChangePW = ({ visible, onClose }: IProps) => {
-  const { token } = useAppSelector((state: RootState) => state.auth);
-
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<PasswordFormValues>();
   const dispatch = useAppDispatch();
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: PasswordFormValues) => {
+    // Enter in a field and the button both submit; a second password change is never wanted.
+    if (submitting) return;
     if (!values.currentPassword || !values.newPassword || !values.confirmPassword) {
       message.info('Vui lòng điền đầy đủ các trường');
       return;
     }
+    setSubmitting(true);
 
     const currentPassword = values.currentPassword || '';
     const newPassword = values.newPassword || '';
     const confirmPassword = values.confirmPassword || '';
 
+    // The authenticated session is the credential; the server identifies the user from it.
     const dataChangPW = {
       oldPassword: currentPassword,
       newPassword,
       confirmPassword,
-      token: token ?? '',
     };
 
     try {
@@ -39,13 +43,17 @@ const ModalChangePW = ({ visible, onClose }: IProps) => {
 
       if (res.code === 1000) {
         message.success('Cập nhật mật khẩu thành công! Vui lòng đăng nhập lại');
-        dispatch(logoutUser());
+        // Chờ thunk gọi xong /auth/users/logout để token cũ bị thu hồi phía server;
+        // không await thì chuyển trang có thể bỏ luôn request thu hồi.
+        const result = await dispatch(logoutUser());
+        if (logoutUser.rejected.match(result)) message.warning(result.payload ?? 'Đã xóa phiên trên thiết bị này; máy chủ chưa phản hồi.');
       } else {
-        message.error('Cập nhật thất bại.');
+        message.error(res.message || 'Cập nhật thất bại.');
       }
     } catch (error) {
-      console.log(error);
-      message.error('Cập nhật thất bại.');
+      message.error(errorMessage(error, 'Cập nhật thất bại.'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -62,7 +70,7 @@ const ModalChangePW = ({ visible, onClose }: IProps) => {
       onCancel={onClose}
       footer={null}
       centered
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} className="!space-y-4">
         <Form.Item
@@ -76,7 +84,7 @@ const ModalChangePW = ({ visible, onClose }: IProps) => {
         <Form.Item
           label="Mật khẩu mới"
           name="newPassword"
-          rules={[{ required: true, message: 'Vui lòng nhập mật khẩu mới' }]}
+          rules={[{ required: true, min: 8, message: 'Mật khẩu mới cần ít nhất 8 ký tự' }, { validator: (_, value: string) => !value || new TextEncoder().encode(value).length <= 72 ? Promise.resolve() : Promise.reject(new Error('Mật khẩu tối đa 72 byte UTF-8')) }]}
         >
           <Input.Password prefix={<LockOutlined />} placeholder="Nhập mật khẩu mới" />
         </Form.Item>
@@ -101,7 +109,7 @@ const ModalChangePW = ({ visible, onClose }: IProps) => {
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" onClick={() => form.submit()} block>
+          <Button type="primary" onClick={() => form.submit()} loading={submitting} block>
             Xác nhận
           </Button>
         </Form.Item>

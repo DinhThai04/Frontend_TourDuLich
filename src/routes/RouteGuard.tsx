@@ -1,35 +1,14 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAppSelector } from '@/store/hooks';
-import type { RootState } from '@/store';
-
-type IRouteGuardProps = {
-  isPrivate?: boolean; // true = chỉ cho login vào, false = chỉ cho chưa login vào
-  redirectPath?: string; // đường dẫn fallback (mặc định là "/")
-  roles?: string[]; // nếu truyền, chỉ cho các role này vào
-};
-
-export default function RouteGuard({ isPrivate, redirectPath = '/', roles }: IRouteGuardProps) {
-  const { isAuth, user } = useAppSelector((state: RootState) => state.auth);
-
-  // 1. Route chỉ dành cho user đã đăng nhập
-  if (isPrivate === true && !isAuth) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // 2. Route chỉ dành cho user chưa đăng nhập (guest)
-  if (isPrivate === false && isAuth) {
-    return <Navigate to={redirectPath} replace />;
-  }
-
-  // 3. Nếu có truyền roles → chỉ cho đúng role vào (VD: Admin, Nhân Viên)
-  if (roles && roles.length > 0) {
-    const userRoleName = user?.role?.name;
-
-    // Nếu chưa login hoặc role không khớp → đá ra ngoài
-    if (!userRoleName || !roles.includes(userRoleName)) {
-      return <Navigate to={redirectPath} replace />;
-    }
-  }
-
+import { hasPermission, type RequiredPermission } from '@/config/access';
+type Props = { isPrivate?: boolean; redirectPath?: string; requiredPermission?: RequiredPermission };
+export default function RouteGuard({ isPrivate, redirectPath = '/', requiredPermission }: Props) {
+  const { isAuth, user } = useAppSelector(state => state.auth);
+  const location = useLocation();
+  // Login sends the visitor back here after authentication; the path is re-validated there.
+  const attemptedPath = `${location.pathname}${location.search}${location.hash}`;
+  if (isPrivate === true && !isAuth) return <Navigate to="/login" replace state={{ from: attemptedPath }} />;
+  if (isPrivate === false && isAuth) return <Navigate to={redirectPath} replace />;
+  if (requiredPermission && !hasPermission(user, requiredPermission)) return <Navigate to={redirectPath} replace />;
   return <Outlet />;
 }

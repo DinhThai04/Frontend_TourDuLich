@@ -1,13 +1,9 @@
-// @/components/PopularTours.tsx (File component chính của bạn)
-
-import Slider from 'react-slick';
-import 'slick-carousel/slick/slick.css';
-import 'slick-carousel/slick/slick-theme.css';
+import Slider from '@/components/Share/TourSlider';
 import Container from '@/components/Share/Container';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { Button, Empty } from 'antd'; //
+import { Alert, Button, Empty, Skeleton } from 'antd';
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { getAllTours } from '@/services/tourServices';
+import { searchTours } from '@/services/tourServices';
 import type { ITour } from '@/types/Tour';
 import { useNavigate } from 'react-router-dom';
 import TourCard from './TourCard'; //
@@ -21,8 +17,10 @@ const CustomArrow: React.FC<CustomArrowProps> = ({ onClick, direction }) => {
   // ... (Code CustomArrow của bạn giữ nguyên)
   const isPrev = direction === 'prev';
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
+      aria-label={isPrev ? 'Tour trước' : 'Tour kế tiếp'}
       className={`
         absolute top-[40%] -translate-y-1/2 z-10
         flex items-center justify-center
@@ -33,26 +31,31 @@ const CustomArrow: React.FC<CustomArrowProps> = ({ onClick, direction }) => {
       `}
     >
       {isPrev ? <LeftOutlined /> : <RightOutlined />}
-    </div>
+    </button>
   );
 };
 
 const PopularTours = () => {
   // 🌟 TỐI ƯU 5: Thêm state cho Loading và Error
   const [tours, setTours] = useState<ITour[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   const navigate = useNavigate();
 
-  const getTours = useCallback(async () => {
-    const res = await getAllTours();
-    if (res.code === 1000) {
-      setTours(res.result.slice(0, 6));
-    }
-  }, []);
-
   useEffect(() => {
-    getTours();
-  }, [getTours]);
+    const controller = new AbortController();
+    setLoading(true); setError(false);
+    void searchTours(new URLSearchParams({ page: '0', size: '6', sort: 'newest' }), controller.signal)
+      .then(res => {
+        if (controller.signal.aborted) return;
+        if (res.code !== 1000) throw new Error('Catalog unavailable');
+        setTours(res.result.content);
+      }).catch(() => { if (!controller.signal.aborted) setError(true); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [retry]);
 
   const handleBooking = useCallback(
     (id: number) => {
@@ -102,8 +105,10 @@ const PopularTours = () => {
 
   // 🌟 TỐI ƯU 9: Tách logic render nội dung slider
   const renderSliderContent = () => {
+    if (loading) return <Skeleton active paragraph={{ rows: 5 }} />;
+    if (error) return <Alert type="warning" message="Chưa tải được tour nổi bật" action={<Button onClick={() => setRetry(value => value + 1)}>Thử lại</Button>} />;
     if (!tours || tours.length === 0) {
-      return <Empty description="No popular tours found at this moment." />;
+      return <Empty description="Chưa có tour để hiển thị" />;
     }
 
     return (

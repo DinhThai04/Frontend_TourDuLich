@@ -1,22 +1,33 @@
-import React from 'react';
+import { imageFileError } from '@/utils/tourMedia';
+import { message } from 'antd';
+import type { UploadChangeParam, UploadFile } from 'antd/es/upload/interface';
+import type { LocationFormValues } from '@/types/adminForms';
+import React, { useState } from 'react';
 import { Form, Input, Button, Select, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 const { Option } = Select;
 
 interface AddLocationProps {
-  onSubmit?: (values: any) => void;
+  onSubmit?: (values: LocationFormValues) => Promise<void> | void;
 }
 
 const AddLocation: React.FC<AddLocationProps> = ({ onSubmit }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<LocationFormValues>();
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleFinish = (values: any) => {
-    if (onSubmit) onSubmit(values);
-    form.resetFields();
+  const handleFinish = async (values: LocationFormValues) => {
+    // Enter in a field and the button both submit; a second write is never wanted.
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit?.(values);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Hàm chuẩn hóa value cho Upload component trong Form
-  const normFile = (e: any) => {
+  const normFile = (e: UploadChangeParam<UploadFile> | UploadFile[]) => {
     if (Array.isArray(e)) {
       return e;
     }
@@ -65,8 +76,8 @@ const AddLocation: React.FC<AddLocationProps> = ({ onSubmit }) => {
             name="img"
             listType="picture"
             maxCount={1}
-            beforeUpload={() => false} // Quan trọng: Chặn auto upload để gửi cùng form submit
-            accept="image/*"
+            beforeUpload={file => { const error = imageFileError(file); if (error) { message.error(error); return Upload.LIST_IGNORE; } return false; }} // Quan trọng: Chặn auto upload để gửi cùng form submit
+            accept="image/jpeg,image/png,image/webp"
           >
             <Button icon={<UploadOutlined />}>Chọn ảnh từ máy tính</Button>
           </Upload>
@@ -74,7 +85,7 @@ const AddLocation: React.FC<AddLocationProps> = ({ onSubmit }) => {
         {/* -------------------------------- */}
 
         <Form.Item style={{ textAlign: 'right', marginTop: 16 }}>
-          <Button type="primary" htmlType="submit" size="large" style={{ minWidth: 140 }}>
+          <Button type="primary" htmlType="submit" size="large" loading={submitting} style={{ minWidth: 140 }}>
             Thêm điểm đến
           </Button>
         </Form.Item>

@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.github
+.env
+.env.*
+!.env.example
+# .gitignore cho phép file override cá nhân (*.local); chúng không được vào build context.
+*.local
+*.log
+.idea
+.vscode
+.DS_Store

@@ -8,26 +8,12 @@ import ModalAddNewRole from './ModelRole/ModalAddNewRole';
 import ModelEditRole from './ModelRole/ModelEditRole';
 import ModelViewRole from './ModelRole/ModelViewRole';
 import { getRoles, deleteRole } from '@/services/rolesServices';
+import { isApiSuccess } from '@/utils/apiResult';
+import { errorMessage } from '@/utils/errors';
 import { toast } from 'react-toastify';
 
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
-
-interface Permission {
-  id: number;
-  name: string;
-  apiPath: string;
-  method: string;
-  module: string;
-}
-
-interface Role {
-  role_id: number;
-  name: string;
-  description?: string;
-  permissions: Permission[];
-  active: boolean;
-}
 
 const ManagerRoleTour: React.FC = () => {
   const actionRef = useRef<ActionType>(null);
@@ -37,6 +23,7 @@ const ManagerRoleTour: React.FC = () => {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [openView, setOpenView] = useState(false);
   const [viewingRole, setViewingRole] = useState<Role | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // ========= QUYỀN =========
   const canList = useHasPermission(ALL_PERMISSIONS.ROLES.GET_LIST);
@@ -54,18 +41,21 @@ const ManagerRoleTour: React.FC = () => {
       toast.error('Bạn không có quyền xóa vai trò');
       return;
     }
+    if (deletingId !== null) return;
 
+    setDeletingId(id);
     try {
       const res = await deleteRole(id);
-      if (res.code === 200) {
+      if (isApiSuccess(res)) {
         toast.success('Xóa vai trò thành công');
         reloadTable();
       } else {
         toast.error(res.message || 'Xóa vai trò thất bại');
       }
     } catch (error) {
-      console.error(error);
-      toast.error('Xóa vai trò thất bại');
+      toast.error(errorMessage(error, 'Xóa vai trò thất bại'));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -126,8 +116,10 @@ const ManagerRoleTour: React.FC = () => {
       render: (_, record) => (
         <Space>
           {canView && (
-            <EyeOutlined
-              style={{ color: '#1677ff', fontSize: 18, cursor: 'pointer' }}
+            <Button
+              type="text"
+              aria-label="Xem vai trò"
+              icon={<EyeOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
               onClick={() => {
                 setViewingRole(record);
                 setOpenView(true);
@@ -136,8 +128,10 @@ const ManagerRoleTour: React.FC = () => {
           )}
 
           {canUpdate && (
-            <EditOutlined
-              style={{ color: '#1677ff', fontSize: 18, cursor: 'pointer' }}
+            <Button
+              type="text"
+              aria-label="Sửa vai trò"
+              icon={<EditOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
               onClick={() => {
                 setEditingRole(record);
                 setOpenEdit(true);
@@ -150,9 +144,14 @@ const ManagerRoleTour: React.FC = () => {
               title="Bạn có chắc muốn xóa vai trò này?"
               okText="Xóa"
               cancelText="Hủy"
-              onConfirm={() => handleDelete(record.role_id)}
+              okButtonProps={{ loading: deletingId === record.id, disabled: deletingId !== null }}
+              onConfirm={() => handleDelete(record.id)}
             >
-              <DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />
+              <Button
+                type="text"
+                aria-label="Xóa vai trò"
+                icon={<DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />}
+              />
             </Popconfirm>
           )}
         </Space>
@@ -170,7 +169,7 @@ const ManagerRoleTour: React.FC = () => {
       <ProTable<Role>
         headerTitle="Quản Lý Vai Trò"
         columns={columns}
-        rowKey="role_id"
+        rowKey="id"
         actionRef={actionRef}
         search={{ labelWidth: 'auto' }}
         pagination={{ pageSize: 5 }}
@@ -183,7 +182,7 @@ const ManagerRoleTour: React.FC = () => {
 
             setLoading(true);
             const res = await getRoles();
-            if (res.code !== 200) {
+            if (!isApiSuccess(res)) {
               return { data: [], success: false, total: 0 };
             }
 
@@ -191,7 +190,12 @@ const ManagerRoleTour: React.FC = () => {
 
             const nameKeyword = (params.name || '').toLowerCase().trim();
             const descKeyword = (params.description || '').toLowerCase().trim();
-            const statusFilter = params.active as boolean | undefined;
+            // ProTable select filters arrive as the string keys "true"/"false", not booleans.
+            const rawStatus = params.active;
+            const statusFilter =
+              rawStatus === undefined || rawStatus === null || rawStatus === ''
+                ? undefined
+                : String(rawStatus) === 'true';
 
             let filtered = all;
 
@@ -220,8 +224,7 @@ const ManagerRoleTour: React.FC = () => {
               success: true,
               total: filtered.length,
             };
-          } catch (error) {
-            console.error(error);
+          } catch {
             message.error('Lấy danh sách vai trò thất bại');
             return { data: [], success: false, total: 0 };
           } finally {

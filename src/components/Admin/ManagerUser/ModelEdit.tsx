@@ -1,4 +1,3 @@
-// src/pages/admin/users/components/UserDetailModal.tsx
 import React from 'react';
 import { Modal, Button, Descriptions } from 'antd';
 import type { User } from '@/types/User.d';
@@ -27,6 +26,8 @@ const UserDetailModal: React.FC<Props> = ({ open, user, onClose }) => {
             <img
               src={user.avatar}
               alt="avatar"
+              loading="lazy"
+              decoding="async"
               style={{ width: 100, height: 100, marginBottom: 16 }}
             />
           )}

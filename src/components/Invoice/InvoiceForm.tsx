@@ -1,62 +1,47 @@
+import type { CustomerResponse } from '@/types/Booking';
+import type { ColumnsType } from 'antd/es/table';
 import {
   Card,
   Typography,
   Table,
-  Select,
-  Form,
   Button,
   Modal,
   Descriptions,
   Divider,
   Alert,
 } from 'antd';
-import { useMemo } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatCurrencyVND, formatDatetime } from '@/utils';
+import { formatCurrencyVND, formatDate, formatDatetime } from '@/utils';
+import { passengerLabel } from '@/utils/booking';
 // import type { CustomerResponse } from "@/types/Booking";
 // import type { ITourDeparture } from "@/types/Tour";
 import type { InvoiceFormProps } from '@/types/Invoice';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
-
-// interface InvoiceFormProps {
-//   account: { fullName: string; email: string; phone: string };
-//   customers?: CustomerResponse[];
-//   tourDeparture?: ITourDeparture;
-//   onCreate: (paymentMethod: string, totalAmount: number) => Promise<void>;
-// }
 
 export default function InvoiceForm({
   account,
-  customers,
+  customers = [],
   tourDeparture,
+  quote,
   onCreate,
 }: InvoiceFormProps) {
-  const [form] = Form.useForm();
   const navigate = useNavigate();
-  // const [loading, setLoading] = useState(false);
-  const loading = false; // CMT tạm để build
+  const [loading, setLoading] = useState(false);
+  // Giá do server tính; giao diện chỉ hiển thị để tránh lệch với số tiền thực thu.
+  const totalAmount = Number(quote?.amount ?? 0);
 
-  /** 🔹 Tính tổng tiền khách hàng */
-  const baseAmount = useMemo(() => {
-    if (!customers || !tourDeparture?.tourPrice) return 0;
-    const priceMap: Record<string, number> = {
-      ADULT: tourDeparture.tourPrice.adultPrice || 0,
-      CHILD: tourDeparture.tourPrice.childPrice || 0,
-      TODDLER: tourDeparture.tourPrice.toddlerPrice || 0,
-      INFANT: tourDeparture.tourPrice.infantPrice || 0,
-    };
-    return customers.reduce((sum, c) => sum + (priceMap[c.bookingType || ''] || 0), 0);
-  }, [customers, tourDeparture]);
+  // The confirm dialog is a portal outside this card, so `loading` alone cannot stop a second one.
+  const confirmOpen = useRef(false);
 
-  const totalAmount = useMemo(
-    () => baseAmount + (tourDeparture?.tourPrice.singleSupplementPrice || 0),
-    [baseAmount, tourDeparture]
-  );
-
-  /** 🔹 Submit handler */
-  const handleSubmit = async (values: { paymentMethod: string }) => {
+  const handleSubmit = async () => {
+    if (confirmOpen.current) return;
+    if (!customers.length || !quote || totalAmount <= 0) {
+      Modal.error({ title: 'Chưa thể thanh toán', content: 'Chưa tải được hành khách hoặc giá thanh toán.' });
+      return;
+    }
+    confirmOpen.current = true;
     Modal.confirm({
       title: 'Xác nhận thanh toán',
       content: (
@@ -70,35 +55,31 @@ export default function InvoiceForm({
       okText: 'Thanh toán',
       cancelText: 'Hủy',
       async onOk() {
-        await onCreate(values.paymentMethod, totalAmount);
+        confirmOpen.current = false;
+        setLoading(true);
+        try { await onCreate(totalAmount); }
+        finally { setLoading(false); }
       },
+      onCancel: () => { confirmOpen.current = false; },
     });
   };
 
-  const columns = [
-    { title: 'STT', render: (_: any, __: any, i: number) => i + 1 },
+  const columns: ColumnsType<CustomerResponse> = [
+    { title: 'STT', render: (_: unknown, __: CustomerResponse, i: number) => i + 1 },
     { title: 'Tên khách hàng', dataIndex: 'fullName' },
-    { title: 'Ngày sinh', dataIndex: 'dateOfBirth' },
+    { title: 'Ngày sinh', dataIndex: 'dateOfBirth', render: (v: string) => (v ? formatDate(v) : '—') },
     {
       title: 'Thể loại',
       dataIndex: 'bookingType',
-      render: (v: string) =>
-        ({ ADULT: 'Người lớn', CHILD: 'Trẻ em', TODDLER: 'Em bé', INFANT: 'Trẻ sơ sinh' })[v] ||
-        '--',
+      render: (v: string) => passengerLabel(v),
     },
     { title: 'Địa chỉ', dataIndex: 'address' },
     {
       title: 'Giá tour',
       dataIndex: 'bookingType',
       render: (type: string | number) => {
-        const map: Record<string, number | undefined> = {
-          ADULT: tourDeparture?.tourPrice.adultPrice,
-          CHILD: tourDeparture?.tourPrice.childPrice,
-          TODDLER: tourDeparture?.tourPrice.toddlerPrice,
-          INFANT: tourDeparture?.tourPrice.infantPrice,
-        };
-        const price = map[String(type)];
-        return price ? formatCurrencyVND(price) : '--';
+        const price = quote?.unitPrices[String(type) as keyof typeof quote.unitPrices];
+        return price != null ? formatCurrencyVND(Number(price)) : '--';
       },
     },
   ];
@@ -129,15 +110,22 @@ export default function InvoiceForm({
             <Descriptions.Item label="Ngày về">
               {formatDatetime(tourDeparture.returnDate)}
             </Descriptions.Item>
-            <Descriptions.Item label="Giá vé người lớn">
-              {formatCurrencyVND(tourDeparture.tourPrice.adultPrice)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Giá vé trẻ em">
-              {formatCurrencyVND(tourDeparture.tourPrice.childPrice)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Phụ phí">
-              {formatCurrencyVND(tourDeparture.tourPrice.singleSupplementPrice)}
-            </Descriptions.Item>
+            {/* Pricing may be unavailable while the departure itself is still readable. */}
+            {tourDeparture.tourPrice ? (
+              <>
+                <Descriptions.Item label="Giá vé người lớn">
+                  {formatCurrencyVND(tourDeparture.tourPrice.adultPrice)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Giá vé trẻ em">
+                  {formatCurrencyVND(tourDeparture.tourPrice.childPrice)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Giá phòng đơn tham khảo (chưa áp dụng)">
+                  {formatCurrencyVND(tourDeparture.tourPrice.singleSupplementPrice)}
+                </Descriptions.Item>
+              </>
+            ) : (
+              <Descriptions.Item label="Giá vé">Đang cập nhật</Descriptions.Item>
+            )}
           </Descriptions>
         </section>
       ) : (
@@ -150,19 +138,13 @@ export default function InvoiceForm({
         dataSource={customers}
         columns={columns}
         pagination={false}
-        rowKey={(r) => `${r.fullName}-${r.birthdate}`}
+        rowKey={(r) => String(r.id)}
         size="small"
       />
 
       <Divider />
       <Title level={5}>Tổng thanh toán hóa đơn</Title>
       <Descriptions bordered size="small" column={1}>
-        <Descriptions.Item label="Tổng tiền tour">
-          {formatCurrencyVND(baseAmount)}
-        </Descriptions.Item>
-        <Descriptions.Item label="Phụ phí">
-          {formatCurrencyVND(Number(tourDeparture?.tourPrice.singleSupplementPrice))}
-        </Descriptions.Item>
         <Descriptions.Item label="Tổng cộng">
           <Text strong type="success" style={{ fontSize: 16 }}>
             {formatCurrencyVND(totalAmount)}
@@ -171,27 +153,21 @@ export default function InvoiceForm({
       </Descriptions>
 
       <Divider />
-      <Form form={form} onFinish={handleSubmit} layout="vertical">
-        <Form.Item
-          label="Phương thức thanh toán"
-          name="paymentMethod"
-          rules={[{ required: true, message: 'Vui lòng chọn phương thức thanh toán' }]}
-        >
-          <Select placeholder="Chọn phương thức thanh toán">
-            <Option value="cash">Tiền mặt</Option>
-            {/* <Option value="momo">Ví MoMo</Option> */}
-            <Option value="vnpay">VN Pay</Option>
-          </Select>
-        </Form.Item>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="Thanh toán trực tuyến qua VNPay"
+        description="Hóa đơn được tạo tự động sau khi VNPay xác nhận giao dịch thành công."
+      />
 
-        <Button type="primary" className="bg-[#7BBCB0]!" htmlType="submit" block size="large">
-          Thanh toán
-        </Button>
+      <Button type="primary" className="bg-[#7BBCB0]!" block size="large" loading={loading} disabled={!customers.length || !quote || totalAmount <= 0} onClick={handleSubmit}>
+        Thanh toán
+      </Button>
 
-        <Button type="text" block size="large" onClick={() => navigate('/')}>
-          Quay về trang chủ
-        </Button>
-      </Form>
+      <Button type="text" block size="large" onClick={() => navigate('/')}>
+        Quay về trang chủ
+      </Button>
     </Card>
   );
 }

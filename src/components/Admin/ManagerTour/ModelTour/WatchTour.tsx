@@ -1,3 +1,5 @@
+import type { TourFormValues } from '@/types/adminForms';
+import type { ITour } from '@/types/Tour';
 import React, { useEffect, useState } from 'react';
 import { Form, Card, Image, Tag, Row, Col, Divider } from 'antd';
 import { EnvironmentOutlined, CarOutlined, DollarOutlined, CalendarOutlined } from '@ant-design/icons';
@@ -5,11 +7,11 @@ import type { ILocation, ITourPrice, IVehicle } from '@/types/Tour';
 import { getAllDepartures, getAllDestinations, getAllPrice, getAllVehicles } from '@/services/tourServices';
 
 interface WatchTourProps {
-  data?: any;
+  data?: ITour | null;
 }
 
 const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<TourFormValues & Pick<ITour, 'basePrice'>>();
   const [departureList, setDepartureList] = useState<ILocation[]>([]);
   const [destinationList, setDestinationList] = useState<ILocation[]>([]);
   const [vehicleList, setVehicleList] = useState<IVehicle[]>([]);
@@ -21,9 +23,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
       if (res.code === 1000) {
         setDestinationList(res.result);
       }
-    } catch (error) {
-      console.error("Failed to fetch destinations combobox:", error);
-    }
+    } catch { /* Không cần xử lý thêm */ }
   }
 
   const fetchDataDepartures = async () => {
@@ -32,9 +32,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
       if (res.code === 1000) {
         setDepartureList(res.result);
       }
-    } catch (error) {
-      console.error("Failed to fetch departures combobox:", error);
-    }
+    } catch { /* Không cần xử lý thêm */ }
   }
 
   const fetchDataVehicles = async () => {
@@ -43,9 +41,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
       if (res.code === 1000) {
         setVehicleList(res.result);
       }
-    } catch (error) {
-      console.error("Failed to fetch vehicles combobox:", error);
-    }
+    } catch { /* Không cần xử lý thêm */ }
   }
 
   const fetchDataTourPrice = async () => {
@@ -54,9 +50,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
       if (res.code === 1000) {
         setTourPriceList(res.result);
       }
-    } catch (error) {
-      console.error("Failed to fetch tour price combobox:", error);
-    }
+    } catch { /* Không cần xử lý thêm */ }
   }
 
   useEffect(() => {
@@ -111,19 +105,25 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
     }).format(amount);
   };
 
+  // The tour response already carries its price; the reference list may still be loading or fail.
+  const priceDetail = data?.tourPrice ? getTourPriceInfo(data.tourPrice.id) ?? data.tourPrice : null;
+  const priceText = (value?: number | null) => (value == null ? '—' : formatCurrency(value));
+
   return (
     <Card
-      bordered={false}
+      variant="borderless"
       style={{
         maxWidth: 1000,
         margin: '0 auto',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
         borderRadius: 12,
       }}
-      headStyle={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        borderRadius: '12px 12px 0 0',
+      styles={{
+        header: {
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          borderRadius: '12px 12px 0 0',
+        },
       }}
     >
       {/* Thông tin cơ bản */}
@@ -192,7 +192,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
           <Card 
             size="small" 
             style={{ textAlign: 'center', height: '100%' }}
-            bodyStyle={{ padding: '16px 8px' }}
+            styles={{ body: { padding: '16px 8px' } }}
           >
             <EnvironmentOutlined style={{ fontSize: '24px', color: '#52c41a', marginBottom: 8 }} />
             <div style={{ fontWeight: '600', color: '#52c41a' }}>Điểm khởi hành</div>
@@ -206,7 +206,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
           <Card 
             size="small" 
             style={{ textAlign: 'center', height: '100%' }}
-            bodyStyle={{ padding: '16px 8px' }}
+            styles={{ body: { padding: '16px 8px' } }}
           >
             <EnvironmentOutlined style={{ fontSize: '24px', color: '#fa541c', marginBottom: 8 }} />
             <div style={{ fontWeight: '600', color: '#fa541c' }}>Điểm đến</div>
@@ -220,7 +220,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
           <Card 
             size="small" 
             style={{ textAlign: 'center', height: '100%' }}
-            bodyStyle={{ padding: '16px 8px' }}
+            styles={{ body: { padding: '16px 8px' } }}
           >
             <CarOutlined style={{ fontSize: '24px', color: '#722ed1', marginBottom: 8 }} />
             <div style={{ fontWeight: '600', color: '#722ed1' }}>Phương tiện</div>
@@ -234,7 +234,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
           <Card 
             size="small" 
             style={{ textAlign: 'center', height: '100%' }}
-            bodyStyle={{ padding: '16px 8px' }}
+            styles={{ body: { padding: '16px 8px' } }}
           >
             <CalendarOutlined style={{ fontSize: '24px', color: '#1890ff', marginBottom: 8 }} />
             <div style={{ fontWeight: '600', color: '#1890ff' }}>Thời lượng</div>
@@ -248,10 +248,10 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
           <Card 
             size="small" 
             style={{ textAlign: 'center', height: '100%' }}
-            bodyStyle={{ padding: '16px 8px' }}
+            styles={{ body: { padding: '16px 8px' } }}
           >
             <DollarOutlined style={{ fontSize: '24px', color: '#faad14', marginBottom: 8 }} />
-            <div style={{ fontWeight: '600', color: '#faad14' }}>Giá cơ bản</div>
+            <div style={{ fontWeight: '600', color: '#faad14' }}>Giá người lớn</div>
             <div style={{ marginTop: 8, fontSize: '16px', fontWeight: '500', color: '#cf1322' }}>
               {data?.basePrice ? formatCurrency(data.basePrice) : 'N/A'}
             </div>
@@ -269,13 +269,13 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
               </div>
             }
           >
-            {data?.tourPrice ? (
+            {priceDetail ? (
               <div style={{ lineHeight: '2' }}>
-                <div>👤 Người lớn: <strong>{formatCurrency(getTourPriceInfo(data.tourPrice.id)?.adultPrice || 0)}</strong></div>
-                <div>🧒 Trẻ em: <strong>{formatCurrency(getTourPriceInfo(data.tourPrice.id)?.childPrice || 0)}</strong></div>
-                <div>👶 Em bé: <strong>{formatCurrency(getTourPriceInfo(data.tourPrice.id)?.toddlerPrice || 0)}</strong></div>
-                <div>🍼 Sơ sinh: <strong>{formatCurrency(getTourPriceInfo(data.tourPrice.id)?.infantPrice || 0)}</strong></div>
-                <div>🏨 Phụ thu: <strong>{formatCurrency(getTourPriceInfo(data.tourPrice.id)?.singleSupplementPrice || 0)}</strong></div>
+                <div>👤 Người lớn: <strong>{priceText(priceDetail.adultPrice)}</strong></div>
+                <div>🧒 Trẻ em: <strong>{priceText(priceDetail.childPrice)}</strong></div>
+                <div>👶 Trẻ nhỏ: <strong>{priceText(priceDetail.toddlerPrice)}</strong></div>
+                <div>🍼 Em bé: <strong>{priceText(priceDetail.infantPrice)}</strong></div>
+                <div>🏨 Phụ thu: <strong>{priceText(priceDetail.singleSupplementPrice)}</strong></div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: '#999' }}>Chưa có thông tin giá</div>
@@ -298,7 +298,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
               <Col xs={12} sm={8} md={6} key={index}>
                 <Card
                   size="small"
-                  bodyStyle={{ padding: 8 }}
+                  styles={{ body: { padding: 8 } }}
                   hoverable
                   cover={
                     <Image

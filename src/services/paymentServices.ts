@@ -1,16 +1,22 @@
 import axiosClient from '@/api/axios';
-import type { PaymentRequest } from '@/types/Payment';
-import type { AxiosResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/comment';
+import type { PaymentQuote } from '@/types/Invoice';
 
-const PAYMENT_API = '/payment/vnpay';
-console.log(PAYMENT_API); // log để build
 const paymentServices = {
-  create: (data: PaymentRequest): Promise<AxiosResponse<string>> => {
-    return axiosClient.post('/payment/vnpay', data);
+  /** Giá server tính cho booking, dùng để hiển thị và làm expectedAmount. */
+  quote: (bookingId: number): Promise<ApiResponse<PaymentQuote>> => {
+    return axiosClient.get(`/payment/vnpay/bookings/${bookingId}/quote`);
   },
 
-  get: (callbackUrl: string): Promise<AxiosResponse> => {
-    return axiosClient.get(callbackUrl);
+  create: (data: { bookingId: number; expectedAmount: string }): Promise<string> => {
+    return axiosClient.post('/payment/vnpay/bookings', data);
+  },
+
+  get: (
+    callbackUrl: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<ApiResponse<Record<string, unknown> | string>> => {
+    return axiosClient.get(callbackUrl, { signal: options?.signal });
   },
 };
 

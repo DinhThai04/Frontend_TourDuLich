@@ -1,8 +1,8 @@
-import Slider, { type Settings } from 'react-slick';
-import vou1 from '@/assets/images/sl1.jpg';
-import vou2 from '@/assets/images/sl2.jpg';
-import vou3 from '@/assets/images/sl3.jpg';
-import vou4 from '@/assets/images/sl4.jpg';
+import Slider, { type Settings } from '@/components/Share/TourSlider';
+import vou1 from '@/assets/images/sl1-optimized.webp';
+import vou2 from '@/assets/images/sl2-optimized.webp';
+import vou3 from '@/assets/images/sl3-optimized.webp';
+import vou4 from '@/assets/images/sl4-optimized.webp';
 
 const VouchersSlider: React.FC = () => {
   const settings: Settings = {
@@ -41,6 +41,7 @@ const VouchersSlider: React.FC = () => {
               src={img}
               alt={`Vou ${index + 1}`}
               className="w-[100%] h-[240px] rounded-xl object-cover"
+              loading="lazy" decoding="async" width={960} height={640}
             />
           </div>
         ))}

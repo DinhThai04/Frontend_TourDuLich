@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { hasPermission } from '@/config/access';
+import React, { useState, useEffect } from 'react';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  BugOutlined,
   UserOutlined,
   GlobalOutlined,
   ScheduleOutlined,
@@ -23,6 +23,9 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { RootState } from '@/store';
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { logoutUser } from '@/store/slices/authSlice';
+import brand from '@/assets/branding/sgu-tour-header.svg';
+import brandIcon from '@/assets/branding/sgu-tour-icon.svg';
+import { Bounce, ToastContainer } from 'react-toastify';
 
 const { Content, Sider } = Layout;
 
@@ -38,47 +41,11 @@ const AdminSidebar: React.FC = () => {
     setActiveMenu(location.pathname || '/admin');
   }, [location.pathname]);
 
-  const permissions = user?.role?.permissions || [];
-  const isAdmin = user?.role?.name === 'ADMIN';
-
-  // Tạo Set permission từ role (giả sử backend trả về method + apiPath)
-  const userPermissionSet = useMemo(() => {
-    return new Set(permissions.map((p: any) => `${p.method?.toUpperCase()}:${p.apiPath}`));
-  }, [permissions]);
-
-  // Lấy list permission theo module (hoặc nhiều module)
-  const getPermissionListByModules = (modules: string | string[]) => {
-    const moduleArr = Array.isArray(modules) ? modules : [modules];
-    const list: { method: string; apiPath: string }[] = [];
-
-    moduleArr.forEach((m) => {
-      const modulePerms = (ALL_PERMISSIONS as any)[m];
-      if (modulePerms) {
-        Object.values(modulePerms).forEach((perm: any) => {
-          list.push({ method: perm.method, apiPath: perm.apiPath });
-        });
-      }
-    });
-
-    return list;
-  };
-
-  // Check xem user có quyền với 1 hoặc nhiều module không
-  const hasPermissionForModules = (modules: string | string[]) => {
-    if (isAdmin) return true; // ADMIN full quyền
-
-    const perms = getPermissionListByModules(modules);
-    return perms.some((perm) =>
-      userPermissionSet.has(`${perm.method?.toUpperCase()}:${perm.apiPath}`)
-    );
-  };
-
-  // Xây menu theo quyền
-  // Xây menu theo quyền
+  // Xây menu theo đúng quyền mà từng route yêu cầu, tránh hiện mục rồi bị chặn khi bấm.
   const menuItems: MenuProps['items'] = [];
 
   // Quản lý người dùng (module USERS)
-  if (hasPermissionForModules('USERS')) {
+  if (hasPermission(user, ALL_PERMISSIONS.USERS.GET_LIST)) {
     menuItems.push({
       key: '/admin/managerUser',
       icon: <UserOutlined />,
@@ -90,14 +57,16 @@ const AdminSidebar: React.FC = () => {
   const tourChildren: MenuProps['items'] = [];
 
   // Danh sách tour
-  if (hasPermissionForModules('TOURS')) {
+  if (hasPermission(user, ALL_PERMISSIONS.TOURS.GET_LIST)) {
     tourChildren.push({
       key: '/admin/managerTour/list',
       icon: <UnorderedListOutlined />,
       label: <Link to="/admin/managerTour/list">Danh sách tour</Link>,
     });
 
-    // Nếu bạn muốn mục "Giá" cũng thuộc module TOURS:
+  }
+
+  if (hasPermission(user, ALL_PERMISSIONS.PRICE.GET_LIST)) {
     tourChildren.push({
       key: '/admin/managerTour/price',
       icon: <MoneyCollectOutlined />,
@@ -106,7 +75,7 @@ const AdminSidebar: React.FC = () => {
   }
 
   // Ngày khởi hành
-  if (hasPermissionForModules('TOUR_DEPARTURES')) {
+  if (hasPermission(user, ALL_PERMISSIONS.TOUR_DEPARTURES.GET_LIST)) {
     tourChildren.push({
       key: '/admin/managerTour/tourDeparture',
       icon: <CalendarOutlined />,
@@ -115,7 +84,7 @@ const AdminSidebar: React.FC = () => {
   }
 
   // Lịch trình
-  if (hasPermissionForModules('ITINERARIES')) {
+  if (hasPermission(user, ALL_PERMISSIONS.ITINERARIES.GET_BY_TOUR)) {
     tourChildren.push({
       key: '/admin/managerTour/itinerary',
       icon: <FieldTimeOutlined />,
@@ -124,7 +93,7 @@ const AdminSidebar: React.FC = () => {
   }
 
   // Địa điểm
-  if (hasPermissionForModules('LOCATIONS')) {
+  if (hasPermission(user, ALL_PERMISSIONS.LOCATIONS.GET_DESTINATIONS)) {
     tourChildren.push({
       key: '/admin/managerTour/destination',
       icon: <EnvironmentOutlined />,
@@ -133,7 +102,7 @@ const AdminSidebar: React.FC = () => {
   }
 
   // Đánh giá tour
-  if (hasPermissionForModules('REVIEWS')) {
+  if (hasPermission(user, ALL_PERMISSIONS.REVIEWS.GET_LIST)) {
     tourChildren.push({
       key: '/admin/managerTour/reviews',
       icon: <StarOutlined />,
@@ -152,13 +121,15 @@ const AdminSidebar: React.FC = () => {
   }
 
   // ================== BOOKING / HÓA ĐƠN ==================
-  if (hasPermissionForModules('BOOKINGS')) {
+  if (hasPermission(user, ALL_PERMISSIONS.BOOKINGS.GET_ALL)) {
     menuItems.push({
       key: '/admin/managerBooking',
       icon: <ScheduleOutlined />,
       label: <Link to="/admin/managerBooking">Quản lý đặt chỗ</Link>,
     });
 
+  }
+  if (hasPermission(user, ALL_PERMISSIONS.INVOICES.GET_ALL)) {
     menuItems.push({
       key: '/admin/managerInvoice',
       icon: <GiftOutlined />,
@@ -167,7 +138,13 @@ const AdminSidebar: React.FC = () => {
   }
 
   // Quản lý quyền hạn (PERMISSIONS)
-  if (hasPermissionForModules('PERMISSIONS')) {
+  if (hasPermission(user, ALL_PERMISSIONS.PAYMENT_RECONCILIATION.GET_LIST)) {
+    menuItems.push({ key: '/admin/paymentReconciliation', icon: <MoneyCollectOutlined />,
+      label: <Link to="/admin/paymentReconciliation">Đối soát thanh toán</Link> });
+  }
+
+  // Quản lý quyền hạn (PERMISSIONS)
+  if (hasPermission(user, ALL_PERMISSIONS.PERMISSIONS.GET_LIST)) {
     menuItems.push({
       key: '/admin/managerRole',
       icon: <UsergroupAddOutlined />,
@@ -176,7 +153,7 @@ const AdminSidebar: React.FC = () => {
   }
 
   // Quản lý vai trò (ROLES)
-  if (hasPermissionForModules('ROLES')) {
+  if (hasPermission(user, ALL_PERMISSIONS.ROLES.GET_LIST)) {
     menuItems.push({
       key: '/admin/role',
       icon: <SafetyOutlined />,
@@ -196,10 +173,12 @@ const AdminSidebar: React.FC = () => {
         <Button
           type="text"
           style={{ cursor: 'pointer', right: 15 }}
-          onClick={() => {
-            dispatch(logoutUser());
-            message.success('Đăng xuất thành công');
+          onClick={async () => {
+            const result = await dispatch(logoutUser());
             navigate('/login');
+            // The local session is always cleared; warn only when the server did not revoke the tokens.
+            if (logoutUser.rejected.match(result)) message.warning(result.payload ?? 'Đã xóa phiên trên thiết bị này; máy chủ chưa phản hồi.');
+            else message.success('Đăng xuất thành công');
           }}
         >
           Đăng xuất
@@ -210,6 +189,9 @@ const AdminSidebar: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh', position: 'relative' }}>
+      <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false}
+        newestOnTop={false} closeOnClick={false} rtl={false} pauseOnFocusLoss draggable
+        pauseOnHover theme="light" transition={Bounce} />
       {/* Sidebar */}
       <Sider
         theme="light"
@@ -221,14 +203,16 @@ const AdminSidebar: React.FC = () => {
       >
         <div
           style={{
-            height: 32,
+            height: 56,
             margin: 16,
             textAlign: 'center',
             fontWeight: 'bold',
             color: '#1890ff',
           }}
         >
-          <BugOutlined /> {!collapsed && 'Hệ Thống Quản Trị'}
+          <Link to="/" aria-label="Trang chủ SGU Tour" title="Hệ thống quản trị SGU Tour" style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={collapsed ? brandIcon : brand} alt="SGU Tour" style={{ display: 'block', width: collapsed ? 40 : 190, maxWidth: '100%', height: 'auto', maxHeight: 56 }} />
+          </Link>
         </div>
         <Menu
           selectedKeys={[activeMenu]}
@@ -283,77 +267,51 @@ const AdminSidebar: React.FC = () => {
             }}
             className="custom-scrollbar"
           >
-            {location.pathname === '/' ? (
-              <div
-                style={{
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  fontSize: '2rem',
-                  fontWeight: 'bold',
-                  color: '#1890ff',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'inline-block',
-                    animation: 'marquee 12s linear infinite',
-                  }}
-                >
-                  🚀 Chào mừng bạn đến với trang quản trị – Quản lý dữ liệu dễ dàng 🚀
-                </div>
-                <style>
-                  {`
-                    @keyframes marquee {
-                      0% { transform: translateX(100%); }
-                      100% { transform: translateX(-100%); }
-                    }
+            <style>
+              {`
+                .custom-scrollbar {
+                  scrollbar-width: none !important;
+                  -ms-overflow-style: none !important;
+                }
 
-                    .custom-scrollbar {
-                      scrollbar-width: none !important;
-                      -ms-overflow-style: none !important;
-                    }
+                .custom-scrollbar::-webkit-scrollbar {
+                  display: none !important;
+                  width: 0 !important;
+                  height: 0 !important;
+                }
 
-                    .custom-scrollbar::-webkit-scrollbar {
-                      display: none !important;
-                      width: 0 !important;
-                      height: 0 !important;
-                    }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                  display: none !important;
+                }
 
-                    .custom-scrollbar::-webkit-scrollbar-track {
-                      display: none !important;
-                    }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                  display: none !important;
+                }
 
-                    .custom-scrollbar::-webkit-scrollbar-thumb {
-                      display: none !important;
-                    }
+                .ant-modal-wrap {
+                  overflow: auto !important;
+                }
 
-                    .ant-modal-wrap {
-                      overflow: auto !important;
-                    }
+                .ant-modal-mask {
+                  position: fixed !important;
+                  background-color: rgba(0, 0, 0, 0.5) !important;
+                }
 
-                    .ant-modal-mask {
-                      position: fixed !important;
-                      background-color: rgba(0, 0, 0, 0.5) !important;
-                    }
+                .ant-modal {
+                  position: fixed !important;
+                }
 
-                    .ant-modal {
-                      position: fixed !important;
-                    }
+                body.ant-scrolling-effect {
+                  overflow: auto !important;
+                  padding-right: 0 !important;
+                }
 
-                    body.ant-scrolling-effect {
-                      overflow: auto !important;
-                      padding-right: 0 !important;
-                    }
-
-                    .ant-modal-open {
-                      overflow: auto !important;
-                    }
-                  `}
-                </style>
-              </div>
-            ) : (
-              <Outlet />
-            )}
+                .ant-modal-open {
+                  overflow: auto !important;
+                }
+              `}
+            </style>
+            <Outlet />
           </div>
         </Content>
       </Layout>

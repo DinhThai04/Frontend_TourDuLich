@@ -17,14 +17,17 @@ export interface ReviewResponse {
   rating: number;
   createdAt: string;
 }
-export interface AxiosResponse<T = any> {
+
+/** Envelope returned by the backend after the axios response interceptor unwraps `data`. */
+export interface ApiResponse<T = unknown> {
   result: T;
   message: string;
   code: number;
 }
+
 export interface CreateCommentRequest {
   tourId: number;
   content: string;
   rating: number;
-  userId: number;
+  userId?: number;
 }
