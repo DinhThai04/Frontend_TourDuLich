@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Route, BrowserRouter, Routes } from 'react-router-dom';
+import { Route, createBrowserRouter, RouterProvider, Routes } from 'react-router-dom';
 import MainLayout from '@layouts/MainLayout';
 import Home from '@pages/Home/page';
 const About = lazy(() => import('@pages/About'));
@@ -35,9 +35,9 @@ import ScrollToTop from './ScrollToTop';
 import { AiConversationProvider } from '@/components/AI/AiConversationProvider';
 const PoliciesPage = lazy(() => import('@/pages/Policies/PoliciesPage'));
 
-export default function AppRoutes() {
+function RouteContent() {
   return (
-      <BrowserRouter>
+      <>
         <ScrollToTop />
         <AiConversationProvider>
         <Suspense fallback={<div role="status" style={{ padding: 32 }}>Đang tải trang…</div>}>
@@ -96,6 +96,12 @@ export default function AppRoutes() {
         </Routes>
         </Suspense>
         </AiConversationProvider>
-      </BrowserRouter>
+      </>
   );
+}
+
+const router = createBrowserRouter([{ path: "*", element: <RouteContent /> }]);
+
+export default function AppRoutes() {
+  return <RouterProvider router={router} />;
 }

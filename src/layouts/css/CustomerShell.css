@@ -1,0 +1,51 @@
+.customer-header-shell{position:sticky;top:0;z-index:110;background:white}
+.customer-navbar{background:#fff;border-bottom:1px solid #e3ebe6;box-shadow:0 2px 12px #173c3305}
+.customer-navbar.is-compact{box-shadow:0 4px 16px #173c330c}
+.customer-navbar .customer-nav-inner{display:flex;align-items:center;gap:32px;min-height:84px;padding:12px 24px;transition:min-height .35s,padding .35s}
+.customer-navbar.is-compact .customer-nav-inner{min-height:72px;padding-block:8px}
+.customer-brand{display:flex;align-items:center;width:180px;flex:0 0 auto;min-width:0}
+.customer-brand img{width:100%;height:auto;display:block}
+.customer-primary-nav{display:flex;align-items:center;gap:28px;margin-left:auto}
+.customer-primary-nav>a,.customer-support{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;color:#36564a;font-size:14px;font-weight:600;padding:10px 0;border:0;border-bottom:2px solid transparent;background:none;cursor:pointer;transition:color .25s,border-color .25s}
+.customer-primary-nav>a[aria-current=page],.customer-support.is-active{color:#21776d;border-bottom-color:#21776d}
+.customer-primary-nav>a:hover,.customer-support:hover{color:#21776d}
+.customer-support .anticon{font-size:10px}
+.customer-nav-actions{display:flex;align-items:center;gap:16px;flex:0 0 auto}
+.customer-login{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 16px;border-radius:8px;background:#21776d;color:white!important;font-weight:600;font-size:14px;white-space:nowrap;transition:background .25s,box-shadow .25s}
+.customer-login:hover{background:#195f56;box-shadow:0 4px 12px #21776d22}
+.customer-account{padding:2px;background:none;border:0;border-radius:50%;cursor:pointer}
+.customer-navbar .customer-mobile-menu{display:none}
+.customer-header-steps{display:flex;align-items:center;justify-content:center;list-style:none;gap:20px;padding:0;margin:0;flex:1;min-width:0}
+.customer-header-steps li{display:flex;align-items:center;gap:7px;color:#7b8982;font-size:12px;white-space:nowrap}
+.customer-header-steps li+li::before{content:'›';margin-right:12px;color:#a6bab0}
+.customer-header-steps li>span{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:#edf3ef;font-size:11px}
+.customer-header-steps .is-current{color:#21776d}
+.customer-header-steps [aria-current=step]{font-weight:700}
+.customer-header-steps .is-current>span{background:#21776d;color:white}
+.customer-back-tour{display:inline-flex;align-items:center;gap:6px;color:#21776d;font-size:13px;white-space:nowrap}
+.customer-payment-label{margin-inline:auto;font-size:15px;font-weight:600;color:#36564a}
+.customer-shell :is(a,button):focus-visible{outline:2px solid #529889;outline-offset:4px}
+.customer-assistant[hidden]{display:none!important}
+.customer-assistant .chatbot-toggle-container{bottom:var(--assistant-bottom,24px);transition:bottom .2s ease}
+.customer-assistant .chatbot-floating-container{z-index:1001}
+.customer-chat-context{font-size:12px;color:#27655b;padding:8px 12px;background:#eaf4ed;border-bottom:1px solid #dce9df;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+@media(max-width:860px){
+.customer-navbar .customer-nav-inner{gap:12px;min-height:68px;padding:8px 16px}
+.customer-navbar.is-compact .customer-nav-inner{min-height:64px}
+.customer-brand{width:144px;margin-right:auto}
+.customer-primary-nav{display:none}
+.customer-navbar .customer-mobile-menu{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding-inline:10px}
+.customer-nav-actions{gap:10px}
+.customer-login{font-size:12px;padding:8px 11px;min-height:36px}
+.customer-navbar--checkout .customer-nav-inner{flex-wrap:wrap;gap:8px 12px;padding-bottom:10px}
+.customer-header-steps{order:3;flex:1 0 100%;gap:10px;justify-content:center}
+.customer-header-steps li{font-size:11px;gap:5px}
+.customer-header-steps li+li::before{margin-right:4px}
+.customer-back-tour{font-size:11px}
+}
+@media(max-width:360px){.customer-brand{width:112px}.customer-nav-actions{gap:6px}.customer-navbar .customer-mobile-menu{padding-inline:8px}.customer-mobile-menu .anticon{display:none}.customer-payment-label{font-size:12px}}
+@media(max-width:520px){
+.customer-assistant .chatbot-floating-container{inset:auto 8px 8px;width:calc(100vw - 16px);height:min(680px,calc(100dvh - 16px));border-radius:16px}
+.customer-assistant .chatbot-toggle-container{right:16px;bottom:var(--assistant-bottom,16px)}
+}
+@media(prefers-reduced-motion:reduce){.customer-nav-inner,.customer-login,.customer-support,.customer-assistant .chatbot-toggle-container{transition:none}}

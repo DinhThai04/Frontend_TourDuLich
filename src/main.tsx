@@ -1,12 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App, { AppConfiguration } from './App';
 import ErrorBoundary from '@/components/Share/ErrorBoundary';
 import { store, persistor } from '@/store/index';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { ConfigProvider } from 'antd';
-import viVN from 'antd/locale/vi_VN';
 import '@ant-design/v5-patch-for-react-19';
 import 'antd/dist/reset.css';
 import './index.css';
@@ -15,7 +14,7 @@ import './index.css';
 // Give that root the app locale and register holderRender (otherwise antd warns that
 // static functions cannot consume context).
 ConfigProvider.config({
-  holderRender: (children) => <ConfigProvider locale={viVN}>{children}</ConfigProvider>,
+  holderRender: (children) => <AppConfiguration>{children}</AppConfiguration>,
 });
 
 // Import hàm inject vừa tạo

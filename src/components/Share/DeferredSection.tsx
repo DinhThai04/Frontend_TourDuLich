@@ -17,7 +17,7 @@ export default function DeferredSection({ children, height, label, id }: { child
     return () => observer.disconnect();
   }, [visible]);
   const placeholder = <div role="status" aria-label={`Đang tải ${label}`} style={{ minHeight: height }} />;
-  return <div ref={target} id={id} style={{ minHeight: height, scrollMarginTop: '88px' }}>
-    {visible ? <Suspense fallback={placeholder}>{children}</Suspense> : placeholder}
+  return <div ref={target} id={id} style={{ minHeight: visible ? undefined : height, scrollMarginTop: '88px' }}>
+    {visible ? <Suspense fallback={placeholder}><div className="journey-section-enter">{children}</div></Suspense> : placeholder}
   </div>;
 }
