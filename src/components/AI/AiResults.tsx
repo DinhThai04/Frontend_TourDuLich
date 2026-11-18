@@ -31,10 +31,12 @@ const tourLink = (id: number) => `/tours/detail/${id}`;
 export default function AiResults({
   result,
   onSuggest,
+  onOpenSchedule,
   disabled,
 }: {
   result: AiResult;
   onSuggest: (text: string) => void;
+  onOpenSchedule?: () => void;
   disabled: boolean;
 }) {
   return (
@@ -96,6 +98,17 @@ export default function AiResults({
             </button>
           ))}
         </div>
+      )}
+      {result.tourOverview && (
+        <section className="ai-detail" aria-label="Thông tin tour đang xem">
+          {result.tourOverview.departures?.nextAt && (
+            <div>Khởi hành gần nhất trong khoảng hỏi: {formatDatetime(result.tourOverview.departures.nextAt)}</div>
+          )}
+          <small>Dữ liệu kiểm tra: {formatDatetime(result.tourOverview.dataAsOf)}</small>
+          <Link to={`${tourLink(result.tourOverview.tourId)}#lich-khoi-hanh`} onClick={event => {
+            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onOpenSchedule?.();
+          }}>Xem lịch và số chỗ trên trang tour</Link>
+        </section>
       )}
       {result.detail && (
         <section className="ai-detail" aria-label="Lịch trình tour">

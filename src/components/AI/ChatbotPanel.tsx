@@ -1,3 +1,4 @@
+import { chatPrompts, type ChatPageContext } from './chatPageContext';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, Input, Spin, Tooltip } from 'antd';
 import { SendOutlined, MinusOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -9,7 +10,7 @@ import AiResults from './AiResults';
 import logo from '../../assets/branding/sgu-tour-icon.svg';
 import '../../layouts/css/ChatbotWidget.css';
 
-export default function ChatbotPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export default function ChatbotPanel({ isOpen, onClose, context = { kind: 'general' } }: { isOpen: boolean; onClose: () => void; context?: ChatPageContext }) {
   const [input, setInput] = useState('');
   const [, tick] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -37,12 +38,17 @@ export default function ChatbotPanel({ isOpen, onClose }: { isOpen: boolean; onC
     );
     return () => window.clearTimeout(timer);
   }, [view.retryAt]);
-  const tooLong = [...input.trim()].length > 2000;
+  const scopeMessage = (text: string) => {
+    if (context.kind === 'checkout' && context.bookingId && !/booking\s*#?\s*\d+/i.test(text)) return `Về booking #${context.bookingId}: ${text}`;
+    return text;
+  };
+  const tooLong = [...scopeMessage(input.trim())].length > 2000;
   const blocked = view.busy || view.expired || (!!view.pending && view.retryable);
   const send = (text = input) => {
-    if (blocked || !text.trim() || [...text.trim()].length > 2000) return;
+    const scoped = scopeMessage(text.trim());
+    if (blocked || !text.trim() || [...scoped].length > 2000) return;
     setInput('');
-    void conversation.send(text);
+    void conversation.send(scoped, context.kind === 'tour' ? context.tourId : undefined);
   };
   return (
     <section className="chatbot-floating-container" role="dialog" aria-label="Trợ lý SGU Tour">
@@ -50,7 +56,7 @@ export default function ChatbotPanel({ isOpen, onClose }: { isOpen: boolean; onC
         <img src={logo} alt="" />
         <div className="chatbot-heading">
           <strong>Trợ lý SGU Tour</strong>
-          <small>Tư vấn tour, giá tham khảo và lịch trình</small>
+          <small>{context.kind === 'checkout' ? 'Hỗ trợ đặt tour và thanh toán' : 'Tư vấn tour, giá tham khảo và lịch trình'}</small>
         </div>
         <Tooltip title="Bắt đầu chat mới">
           <Button
@@ -70,6 +76,7 @@ export default function ChatbotPanel({ isOpen, onClose }: { isOpen: boolean; onC
           onClick={() => onClose()}
         />
       </div>
+      {context.kind === 'tour' && <div className="customer-chat-context" title={context.tourTitle}>Đang xem: {context.tourTitle || `Tour #${context.tourId}`}</div>}
       <div
         ref={bodyRef}
         className="chatbot-body"
@@ -78,13 +85,17 @@ export default function ChatbotPanel({ isOpen, onClose }: { isOpen: boolean; onC
         aria-relevant="additions"
         aria-busy={view.busy}
       >
+        {(view.messages.length <= 1 || context.kind === 'checkout') && <div className="journey-chat-prompts" aria-label="Gợi ý bắt đầu">
+          <p>{context.kind === 'checkout' ? 'Bạn cần hỗ trợ bước nào?' : 'Bạn muốn tìm hiểu điều gì?'}</p>
+          {chatPrompts(context).map(prompt => <button type="button" key={prompt} disabled={blocked} onClick={() => send(prompt)}>{prompt}</button>)}
+        </div>}
         {view.messages.map((message) => (
           <div key={message.id} className={`chat-row chat-row-${message.role}`}>
             <div className={`chat-bubble chat-bubble-${message.role}`}>
               <span className="chat-sender">{message.role === 'user' ? 'Bạn' : 'SGU Tour'}</span>
               <p className="chat-text">{message.text}</p>
               {message.result && (
-                <AiResults result={message.result} onSuggest={send} disabled={blocked} />
+                <AiResults result={message.result} onSuggest={send} onOpenSchedule={onClose} disabled={blocked} />
               )}
               {message.bookingHelp && (
                 <div className="ai-booking-help">
@@ -150,7 +161,7 @@ export default function ChatbotPanel({ isOpen, onClose }: { isOpen: boolean; onC
           disabled={blocked}
           maxLength={2000}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="Bạn muốn đi đâu, ngân sách bao nhiêu?"
+          placeholder={context.kind === 'checkout' ? 'Bạn cần hỗ trợ về đặt tour hoặc thanh toán?' : 'Bạn muốn đi đâu, ngân sách bao nhiêu?'}
           autoSize={{ minRows: 1, maxRows: 3 }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') onClose();

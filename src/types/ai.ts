@@ -96,6 +96,13 @@ export type AiResult = AiSession & {
     suggestedReplies: string[];
   } | null;
   detail: AiDetail | null;
+  tourOverview?: {
+    tourId: number;
+    title: string;
+    referenceAdultPriceVnd: number | null;
+    departures: { scheduled: boolean; nextAt: string | null } | null;
+    dataAsOf: string;
+  } | null;
   comparison: AiComparison | null;
   policy: AiPolicy | null;
   searchSummary: {
@@ -106,7 +113,7 @@ export type AiResult = AiSession & {
     dataAsOf: string;
   } | null;
 };
-export type AiChatRequest = { conversationId: string; requestId: string; message: string };
+export type AiChatRequest = { conversationId: string; requestId: string; message: string; selectedTourId?: number };
 export type AiMessage = {
   id: string;
   role: 'user' | 'bot';

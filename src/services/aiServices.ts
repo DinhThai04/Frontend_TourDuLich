@@ -157,6 +157,25 @@ export function decodeAiResult(value: unknown): AiResult {
         }),
       };
     }),
+    tourOverview: nullable(data.tourOverview ?? null, (v) => {
+      const overview = object(v);
+      const price = nullable(overview.referenceAdultPriceVnd, number);
+      const departures = nullable(overview.departures, (value) => {
+        const departure = object(value);
+        const scheduled = bool(departure.scheduled);
+        const nextAt = nullable(departure.nextAt, timestamp);
+        if (!scheduled && nextAt !== null) throw invalid();
+        return { scheduled, nextAt };
+      });
+      if (price === null && departures === null) throw invalid();
+      return {
+        tourId: number(overview.tourId, 1),
+        title: text(overview.title, 400),
+        referenceAdultPriceVnd: price,
+        departures,
+        dataAsOf: timestamp(overview.dataAsOf),
+      };
+    }),
     comparison: nullable(data.comparison, (v) => {
       const c = object(v);
       return {
@@ -194,9 +213,10 @@ export function decodeAiResult(value: unknown): AiResult {
       };
     }),
   };
-  const payloads = [result.detail, result.comparison, result.policy].filter(Boolean).length;
+  const payloads = [result.detail ?? result.tourOverview, result.comparison, result.policy].filter(Boolean).length;
   if (
     (result.status === 'ANSWER' ? payloads !== 1 : payloads !== 0) ||
+    (result.detail && result.tourOverview && result.detail.tourId !== result.tourOverview.tourId) ||
     (result.status === 'ANSWER' && result.tours.length)
   )
     throw invalid();
