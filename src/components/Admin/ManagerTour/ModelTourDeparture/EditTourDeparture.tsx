@@ -25,7 +25,7 @@ export default function EditTourDeparture({ data, onReload, onSubmit, onSavingCh
     try { await onReload(); }
     finally { inFlight.current = false; setSaving(false); onSavingChange?.(false); }
   }
-  return <Card title={`Sức chứa và lịch ${data.tourCode}`}>
+  return <Card className="journey-modal-form">
     <Descriptions column={2} size="small" bordered items={[
       { key: 'paid', label: 'Đã thanh toán', children: data.paidSeats }, { key: 'held', label: 'Đang giữ', children: data.heldSeats },
       { key: 'remaining', label: 'Còn có thể đặt', children: data.availableSeats }, { key: 'version', label: 'Phiên bản', children: data.version },

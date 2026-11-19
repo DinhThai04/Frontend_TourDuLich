@@ -24,12 +24,12 @@ const AddPrice: React.FC<AddPriceProps> = ({ onSubmit }) => {
 
   return (
     <Card
-      title="🗺️ Thêm giá tour"
+      className="journey-modal-form"
       variant="borderless"
       style={{
         maxWidth: 600,
         margin: '0 auto',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        boxShadow: 'none',
         borderRadius: 12,
       }}
     >

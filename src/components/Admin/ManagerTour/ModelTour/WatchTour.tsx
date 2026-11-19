@@ -133,9 +133,9 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
             <Tag color="blue" style={{ fontSize: '14px', padding: '4px 12px' }}>
               Tên chương trình
             </Tag>
-            <div style={{ 
-              fontSize: '18px', 
-              fontWeight: '600', 
+            <div style={{
+              fontSize: '18px',
+              fontWeight: '600',
               marginTop: 8,
               padding: '12px',
               background: '#f8f9fa',
@@ -152,9 +152,9 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
             <Tag color="green" style={{ fontSize: '14px', padding: '4px 12px' }}>
               Tiêu đề tour
             </Tag>
-            <div style={{ 
-              fontSize: '16px', 
-              fontWeight: '500', 
+            <div style={{
+              fontSize: '16px',
+              fontWeight: '500',
               marginTop: 8,
               padding: '12px',
               background: '#f8f9fa',
@@ -170,7 +170,7 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
             <Tag color="orange" style={{ fontSize: '14px', padding: '4px 12px' }}>
               Mô tả tour
             </Tag>
-            <div style={{ 
+            <div style={{
               marginTop: 8,
               padding: '16px',
               background: '#fff9f0',
@@ -189,8 +189,8 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
       {/* Thông tin chi tiết */}
       <Row gutter={[24, 16]}>
         <Col xs={24} sm={12} md={8}>
-          <Card 
-            size="small" 
+          <Card
+            size="small"
             style={{ textAlign: 'center', height: '100%' }}
             styles={{ body: { padding: '16px 8px' } }}
           >
@@ -203,8 +203,8 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
         </Col>
 
         <Col xs={24} sm={12} md={8}>
-          <Card 
-            size="small" 
+          <Card
+            size="small"
             style={{ textAlign: 'center', height: '100%' }}
             styles={{ body: { padding: '16px 8px' } }}
           >
@@ -217,8 +217,8 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
         </Col>
 
         <Col xs={24} sm={12} md={8}>
-          <Card 
-            size="small" 
+          <Card
+            size="small"
             style={{ textAlign: 'center', height: '100%' }}
             styles={{ body: { padding: '16px 8px' } }}
           >
@@ -231,8 +231,8 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card 
-            size="small" 
+          <Card
+            size="small"
             style={{ textAlign: 'center', height: '100%' }}
             styles={{ body: { padding: '16px 8px' } }}
           >
@@ -245,8 +245,8 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card 
-            size="small" 
+          <Card
+            size="small"
             style={{ textAlign: 'center', height: '100%' }}
             styles={{ body: { padding: '16px 8px' } }}
           >
@@ -259,8 +259,8 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
         </Col>
 
         <Col xs={24} sm={24} md={12}>
-          <Card 
-            size="small" 
+          <Card
+            size="small"
             style={{ height: '100%' }}
             title={
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -286,12 +286,12 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
 
       {/* Hình ảnh tour */}
       <Divider />
-      
+
       <div style={{ marginBottom: 16 }}>
         <Tag color="purple" style={{ fontSize: '14px', padding: '4px 12px', marginBottom: 16 }}>
           Hình ảnh tour
         </Tag>
-        
+
         {data?.imageIds && data.imageIds.length > 0 ? (
           <Row gutter={[16, 16]}>
             {data.imageIds.map((url: string, index: number) => (
@@ -304,8 +304,8 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
                     <Image
                       src={url}
                       alt={`Tour image ${index + 1}`}
-                      style={{ 
-                        height: 120, 
+                      style={{
+                        height: 120,
                         objectFit: 'cover',
                         borderRadius: '6px'
                       }}
@@ -315,9 +315,9 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
                     />
                   }
                 >
-                  <div style={{ 
-                    textAlign: 'center', 
-                    fontSize: '12px', 
+                  <div style={{
+                    textAlign: 'center',
+                    fontSize: '12px',
                     color: '#666',
                     padding: '4px 0'
                   }}>
@@ -328,9 +328,9 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
             ))}
           </Row>
         ) : (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '40px', 
+          <div style={{
+            textAlign: 'center',
+            padding: '40px',
             background: '#fafafa',
             borderRadius: '8px',
             border: '2px dashed #d9d9d9'

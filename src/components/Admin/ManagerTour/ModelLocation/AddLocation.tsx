@@ -40,10 +40,9 @@ const AddLocation: React.FC<AddLocationProps> = ({ onSubmit }) => {
         padding: 24,
         background: '#fff',
         borderRadius: 8,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: 'none',
       }}
     >
-      <h2 style={{ marginBottom: 20, color: '#1890ff' }}>Thêm điểm đến mới</h2>
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         <Form.Item
           label="Tên điểm đến"
@@ -59,8 +58,8 @@ const AddLocation: React.FC<AddLocationProps> = ({ onSubmit }) => {
           rules={[{ required: true, message: 'Vui lòng chọn loại điểm' }]}
         >
           <Select placeholder="Chọn loại điểm" size="large">
-            <Option value="DEPARTURE">DEPARTURE</Option>
-            <Option value="DESTINATION">DESTINATION</Option>
+            <Option value="DEPARTURE">Điểm khởi hành</Option>
+            <Option value="DESTINATION">Điểm đến</Option>
           </Select>
         </Form.Item>
 

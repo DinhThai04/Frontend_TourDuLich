@@ -45,7 +45,7 @@ const EditPrice: React.FC<EditPriceProps> = ({ data, onSubmit }) => {
       style={{
         maxWidth: 600,
         margin: '0 auto',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: 'none',
         borderRadius: 12,
       }}
     >

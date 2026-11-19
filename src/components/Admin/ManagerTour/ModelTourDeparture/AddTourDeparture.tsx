@@ -17,7 +17,7 @@ export default function AddTourDeparture({ onSubmit, onSavingChange }: Props) {
     } catch (error) { message.error(error instanceof Error ? error.message : 'Chưa lưu được lịch'); }
     finally { inFlight.current = false; setSaving(false); onSavingChange?.(false); }
   }
-  return <Card title="Thêm lịch khởi hành">
+  return <Card className="journey-modal-form">
     <Form form={form} layout="vertical" onFinish={finish} disabled={saving}>
       <Form.Item name="departureDate" label="Ngày khởi hành" rules={[{ required: true }]}><DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} /></Form.Item>
       <Form.Item

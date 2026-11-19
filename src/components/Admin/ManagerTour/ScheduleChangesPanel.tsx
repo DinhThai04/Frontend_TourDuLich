@@ -140,7 +140,8 @@ export default function ScheduleChangesPanel({ tourId, onChanged }: { tourId: nu
         {refund && r.status === 'SUPPORT_REQUIRED' && Boolean(r.refund_requested) && <Button danger onClick={() => choose(r, 'REFUND')}>Ghi nhận hoàn tiền</Button>}
       </Space> },
     ]} expandable={{ expandedRowRender: r => <><p>{r.reason}</p>{r.refund_reference && <p>Hoàn tiền: {formatCurrencyVND(Number(r.refund_amount))} — {r.refund_reference}</p>}<ul>{r.events?.map((e, i) => <li key={i}>{dayjs(e.created_at).format('HH:mm DD/MM/YYYY')} — tài khoản #{e.actor_id} — {changeStatus(e.action).label}: {e.note}</li>)}</ul></> }} />
-    <Modal title="Sự cố khiến chuyến cũ không thể khởi hành" open={open} onCancel={() => setOpen(false)} footer={null} maskClosable={!busy} closable={!busy} width={760}>
+    <Modal centered
+        title="Sự cố khiến chuyến cũ không thể khởi hành" open={open} onCancel={() => setOpen(false)} footer={null} maskClosable={!busy} closable={!busy} width={760}>
       <Form form={form} layout="vertical" onValuesChange={() => setPreview(null)}>
         <Form.Item name="sourceId" label="Lịch cũ" rules={[{ required: true }]}><Select options={departures.map(d => ({ value: Number(d.id), label: `${d.tourCode} — ${dayjs(d.departureDate).format('HH:mm DD/MM/YYYY')}` }))} /></Form.Item>
         <Form.Item name="reasonCode" label="Nguyên nhân bắt buộc" rules={[{ required: true }]}><Select options={[{ value: 'NATURAL_DISASTER', label: 'Thiên tai' }, { value: 'OFFICIAL_SAFETY_RESTRICTION', label: 'Hạn chế an toàn từ cơ quan có thẩm quyền' }, { value: 'UNAVOIDABLE_TRANSPORT_DISRUPTION', label: 'Gián đoạn vận chuyển bất khả kháng' }]} /></Form.Item>
@@ -151,10 +152,11 @@ export default function ScheduleChangesPanel({ tourId, onChanged }: { tourId: nu
         <Form.Item name="capacity" label="Sức chứa lịch thay thế đã được xác nhận" rules={[{ required: true }]}><InputNumber min={1} max={32767} precision={0} /></Form.Item>
         <Form.Item name="originalCannotDepart" valuePropName="checked" rules={[{ validator: (_, v) => v ? Promise.resolve() : Promise.reject(new Error('Cần xác nhận điều kiện bắt buộc')) }]}><Checkbox>Tôi xác nhận chuyến cũ không thể khởi hành, bằng chứng đã được kiểm tra và lịch thay thế có thể phục vụ.</Checkbox></Form.Item>
         <Space><Button loading={busy} onClick={() => void prepare()}>Kiểm tra ảnh hưởng</Button>{preview && <Button danger loading={busy} onClick={() => void saveProposal()}>Xác nhận dừng lịch cũ và gửi đề xuất</Button>}</Space>
-        {preview && <Alert className="mt-3" type="warning" message={`${preview.bookingCount} booking bị ảnh hưởng; ${preview.occupiedSeats} chỗ đã chiếm. Chưa có thay đổi dữ liệu cho đến khi xác nhận.`} />}
+        {preview && <Alert className="mt-3" type="warning" message={`${preview.bookingCount} đơn sẽ nhận đề xuất dời lịch. Hiện có ${preview.occupiedSeats} chỗ đã đặt hoặc đang giữ.`} description="Các lượt giữ chỗ không có đề xuất sẽ hết hạn theo hạn gốc khi giao dịch đã được kiểm tra." />}
       </Form>
     </Modal>
-    <Modal title={`Booking #${action?.row.booking_id} — ${action?.name || ''}`} open={!!action} onCancel={() => setAction(null)} onOk={() => void saveAction()} confirmLoading={busy} maskClosable={!busy} closable={!busy} cancelButtonProps={{ disabled: busy }}>
+    <Modal centered
+        title={`Booking #${action?.row.booking_id} — ${action?.name || ''}`} open={!!action} onCancel={() => setAction(null)} onOk={() => void saveAction()} confirmLoading={busy} maskClosable={!busy} closable={!busy} cancelButtonProps={{ disabled: busy }}>
       <Form form={actionForm} layout="vertical">
         {action?.name === 'RECORD_REFUND_REQUEST' && <Alert type="warning" message="Cần ghi rõ bằng chứng khách đã yêu cầu hoàn tiền qua kênh hỗ trợ. Đây chưa phải xác nhận đã hoàn tiền." />}
         {action?.name === 'RECORD_CONSENT' && <Alert type="warning" message="Chỉ ghi nhận sau khi khách đã đồng ý thực tế với đúng lịch đề xuất. Cần nêu kênh liên hệ, thời điểm và bằng chứng xác nhận. Không dùng việc khách chưa phản hồi." />}

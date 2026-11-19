@@ -67,6 +67,12 @@ const ManagerTourList: React.FC = () => {
       if (res.code !== 1000) throw new Error(res.message || 'Chưa tạo được tour');
       await refresh();
       if (res.result.imageUploadStatus === 'PENDING') {
+        if (!canUpdate) {
+          setPendingCreatedTour(null);
+          setOpen(false);
+          message.warning('Tour đã được tạo. Nhờ nhân viên có quyền chỉnh sửa tour bổ sung ảnh.');
+          return true;
+        }
         setPendingCreatedTour(res.result);
         message.warning(res.result.imageUploadMessage || 'Tour đã tạo, vui lòng thử tải lại ảnh');
         return false;
@@ -305,7 +311,7 @@ const ManagerTourList: React.FC = () => {
         onCancel={() => setOpen(false)}
         footer={null}
         destroyOnHidden
-        style={{ top: 40 }}
+        centered
         width={900}
       >
         <AddNewTour onSubmit={handleAdd} pendingTour={pendingCreatedTour} onSavingChange={setSavingCreate}
@@ -325,7 +331,7 @@ const ManagerTourList: React.FC = () => {
         }}
         footer={null}
         destroyOnHidden
-        style={{ top: 40 }}
+        centered
         width={900}
       >
         <EditTour data={selectedTour} isEdit={true} onSubmit={handleEdit} onSavingChange={setSavingEdit} />
@@ -339,7 +345,7 @@ const ManagerTourList: React.FC = () => {
         }}
         footer={null}
         destroyOnHidden
-        style={{ top: 40 }}
+        centered
         width={900}
       >
         <WatchTour data={selectedTour} />

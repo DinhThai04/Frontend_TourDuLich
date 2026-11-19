@@ -110,8 +110,10 @@ export default function ManagerTourDeparture() {
     <ProTable<ITourDeparture> columns={columns} rowKey="id" dataSource={data} loading={loading} search={false} headerTitle="Lịch khởi hành và sức chứa"
       toolBarRender={() => [<Button key="reload" disabled={tourId == null} onClick={() => void refresh()}>Tải lại</Button>, ...(canCreate ? [<Button key="add" type="primary" disabled={!tourId} icon={<PlusOutlined />} onClick={() => setOpenAdd(true)}>Thêm lịch</Button>] : [])]}
       pagination={{ pageSize: 5 }} />
-    <Modal title="Thêm lịch khởi hành" open={openAdd} onCancel={() => setOpenAdd(false)} closable={!saving} maskClosable={!saving} keyboard={!saving} footer={null} destroyOnHidden width={650}><AddTourDeparture onSubmit={create} onSavingChange={setSaving} /></Modal>
-    <Modal title="Quản lý sức chứa/lịch" open={!!selected} onCancel={() => { capacityRequest.current += 1; setSelected(null); }} closable={!saving} maskClosable={!saving} keyboard={!saving} footer={null} destroyOnHidden width={750}>
+    <Modal centered
+        title="Thêm lịch khởi hành" open={openAdd} onCancel={() => setOpenAdd(false)} closable={!saving} maskClosable={!saving} keyboard={!saving} footer={null} destroyOnHidden width={650}><AddTourDeparture onSubmit={create} onSavingChange={setSaving} /></Modal>
+    <Modal centered
+        title="Quản lý sức chứa/lịch" open={!!selected} onCancel={() => { capacityRequest.current += 1; setSelected(null); }} closable={!saving} maskClosable={!saving} keyboard={!saving} footer={null} destroyOnHidden width={750}>
       {selected && <EditTourDeparture data={selected} onSubmit={update} onReload={() => loadCapacity(selected.id)} onSavingChange={setSaving} />}
     </Modal>
     {tourId && <ScheduleChangesPanel tourId={tourId} onChanged={() => void refresh()} />}
