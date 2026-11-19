@@ -77,7 +77,7 @@ export default function LoginPage() {
           <Link to="/" aria-label="Trang chủ SGU Tour" style={{ display: 'block', maxWidth: 280, margin: '0 auto 20px' }}>
             <img src={brand} alt="SGU Tour — Hành trình bắt đầu từ đây" style={{ display: 'block', width: '100%', height: 'auto' }} />
           </Link>
-          <Typography.Title level={3} className="text-center !text-[#7BBCB0]">
+          <Typography.Title level={3} className="text-center !text-[#21776D]">
             Đăng nhập
           </Typography.Title>
 
@@ -102,20 +102,20 @@ export default function LoginPage() {
               label="Mật khẩu"
               rules={[{ required: true, message: 'Nhập mật khẩu!' }]}
             >
-              <Input.Password prefix={<LockOutlined />} placeholder="Nhập password" />
+              <Input.Password prefix={<LockOutlined />} placeholder="Nhập mật khẩu" />
             </Form.Item>
 
             <Form.Item>
               <Button
                 type="primary"
                 htmlType="submit"
-                className="w-full !mb-[8px] !bg-[#7BBCB0]"
+                className="w-full !mb-[8px] !bg-[#21776D]"
                 loading={loading}
               >
                 Đăng nhập
               </Button>
 
-              <Divider plain>hoặc</Divider>
+              {import.meta.env.VITE_GOOGLE_CLIENT_ID && <Divider plain>hoặc</Divider>}
 
               <Space direction="vertical" className="w-full">
                 {import.meta.env.VITE_GOOGLE_CLIENT_ID && <Suspense fallback={null}>
@@ -128,7 +128,7 @@ export default function LoginPage() {
                 <Button
                   type="link"
                   onClick={() => navigate('/register')}
-                  className="!p-0 !text-[#7BBCB0]"
+                  className="!p-0 !text-[#21776D]"
                 >
                   Đăng kí ngay
                 </Button>
@@ -136,7 +136,7 @@ export default function LoginPage() {
               <Button
                 type="link"
                 onClick={() => navigate('/')}
-                className="w-full text-center !my-0 !mx-auto !text-[#7BBCB0]"
+                className="w-full text-center !my-0 !mx-auto !text-[#21776D]"
               >
                 Về trang chủ
               </Button>

@@ -72,7 +72,7 @@ const Info = () => {
           <Input disabled />
         </Form.Item>
 
-        <Form.Item label="Username" name="username">
+        <Form.Item label="Tên tài khoản" name="username">
           <Input disabled />
         </Form.Item>
 
