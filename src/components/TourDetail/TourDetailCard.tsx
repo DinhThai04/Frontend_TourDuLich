@@ -72,7 +72,7 @@ export default function TourDetailCard({
       <Title
         level={3}
         style={{
-          color: '#E01600',
+          color: '#155e54',
           margin: '8px 0',
           fontWeight: 700,
           display: 'flex',
@@ -83,7 +83,7 @@ export default function TourDetailCard({
         {tourData?.basePrice ? formatCurrencyVND(tourData.basePrice) : 'Đang cập nhật'}
         <span style={{ fontSize: 14, fontWeight: 500, color: '#555' }}>/ Khách</span>
       </Title>
-      {/* 
+      {/*
       <div style={{ display: "flex", justifyContent: "center" }}>
         <Tag
           color="#FFDBE1"
@@ -92,12 +92,12 @@ export default function TourDetailCard({
             alignItems: "flex-start",
             gap: 4,
             width: "100%",
-            color: "#E01600",
+            color: "#155e54",
             fontSize: 10,
             fontWeight: 500,
             whiteSpace: "normal",
             padding: "4px 8px",
-            margin: 0,        
+            margin: 0,
           }}
         >
           <span style={{ fontSize: 15 }}>🎁</span>
@@ -191,8 +191,8 @@ export default function TourDetailCard({
         <div style={{ marginTop: 16, display: 'flex', gap: '8px' }}>
           {/* <Button
             style={{
-              color: "#E01600",              
-              border: "1px solid #E01600",           
+              color: "#155e54",
+              border: "1px solid #155e54",
               fontWeight: 500,
               fontSize: 12,
               width: "100%"
@@ -204,7 +204,7 @@ export default function TourDetailCard({
             icon={<CalendarOutlined />}
             disabled={detailLoading || !dataDetailTourDeparture}
             style={{
-              backgroundColor: '#E01600',
+              backgroundColor: '#155e54',
               color: '#fff',
               border: 'none',
               fontWeight: 500,

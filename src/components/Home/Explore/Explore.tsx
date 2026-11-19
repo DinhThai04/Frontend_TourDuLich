@@ -3,89 +3,38 @@ import { getRandom7Destinations } from '@/services/tourServices';
 import type { ILocation } from '@/types/Tour';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Slider, { type Settings } from '@/components/Share/TourSlider';
 import ResponsiveImage from '@/components/Share/ResponsiveImage';
-import { errorMessage } from '@/utils/errors';
-import { message } from 'antd';
+import { Alert, Button, Empty, Skeleton } from 'antd';
+import HomeRail from '../HomeRail';
 
-const VouchersSlider: React.FC = () => {
-  const settings: Settings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 3,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 3000,
-    arrows: false,
-    responsive: [
-      { breakpoint: 1024, settings: { slidesToShow: 2 } },
-      { breakpoint: 768, settings: { slidesToShow: 1 } },
-    ],
-  };
-
-  const [destinations, setDestination] = useState<ILocation[]>();
-
-  const get7Destinations = async () => {
-    try {
-      const res = await getRandom7Destinations();
-      if (res.code === 1000) setDestination(res.result);
-      // Báo lỗi có cấu trúc (code !== 1000) cũng phải hiện, nếu không slider vĩnh viễn trống mà không ai biết.
-      else message.error(res.message || 'Không tải được điểm đến nổi bật.');
-    } catch (error) {
-      message.error(errorMessage(error, 'Không tải được điểm đến nổi bật.'));
-    }
-  };
-  const destinationPath = (city: string) => {
-    const params = new URLSearchParams();
-    params.set('dest', city);
-    return `/tours/search?${params.toString()}`;
-  };
-
+export default function Explore() {
+  const [destinations, setDestinations] = useState<ILocation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    get7Destinations();
-  }, []);
-  return (
-    <div className="py-10  !mb-20">
-      <Container>
-        {/* Title */}
-        <div className="!mb-3">
-          <h2 className="text-[32px] font-bold text-[#7BBCB0] mb-2 uppercase">ĐỊA ĐIỂM HẤP DẪN</h2>
-          <div className="w-[60px] h-1 bg-[#FFDA32] rounded"></div>
-        </div>
-
-        {/* Description */}
-        <p className="text-[18px] leading-relaxed text-[#778088] mb-6 max-w-[720px]">
-          Khám phá các chuyến đi độc quyền của chúng tôi với mức giá vô cùng hợp lý.
-        </p>
-
-        <Slider {...settings} className="w-full">
-          {destinations &&
-            destinations.length > 0 &&
-            destinations.map((dest, index) => (
-              <Link
-                key={dest.city || index}
-                to={destinationPath(dest.city)}
-                aria-label={`Xem tour đến ${dest.city}`}
-                className="!px-[10px] cursor-pointer"
-              >
-                <div className="relative w-full h-[240px] rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
-                  <ResponsiveImage
-                    src={dest.img}
-                    alt={`Ảnh điểm đến ${dest.city}`}
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    width={640} height={400}
-                  />
-                  <div className="absolute bottom-0 left-0 w-full text-center text-white text-[18px] font-semibold uppercase !p-3 bg-gradient-to-t from-[rgba(0,0,0,0.85)] to-transparent">
-                    {dest.city}
-                  </div>
-                </div>
-              </Link>
-            ))}
-        </Slider>
-      </Container>
+    let active = true;
+    setLoading(true); setError(false);
+    void getRandom7Destinations().then(res => {
+      if (!active) return;
+      if (res.code !== 1000) throw new Error('Destinations unavailable');
+      setDestinations(res.result);
+    }).catch(() => { if (active) setError(true); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [retry]);
+  return <section className={`home-section home-destinations ${destinations.length === 1 ? 'home-destinations--single' : ''}`}>
+    <Container><div className="home-destinations-layout"><div className="home-section-heading">
+      <p className="home-eyebrow">BẠN MUỐN ĐI ĐÂU?</p><h2>Điểm đến hấp dẫn</h2>
+      <p>Chọn nơi bạn muốn đến, xem các tour phù hợp rồi chọn lịch khởi hành.</p>
+      <Link to="/tours" className="home-text-link">Xem tất cả hành trình <span aria-hidden="true">→</span></Link>
     </div>
-  );
-};
-
-export default VouchersSlider;
+    {loading ? <Skeleton active /> : error ? <Alert type="warning" showIcon message="Chưa tải được điểm đến" action={<Button onClick={() => setRetry(value => value + 1)}>Thử lại</Button>} /> : destinations.length === 0 ? <Empty description="Chưa có điểm đến để giới thiệu" /> : <HomeRail label="Điểm đến" delay={3800} destinations>{destinations.map(dest => {
+      const params = new URLSearchParams({ dest: dest.city });
+      return <Link key={dest.id ?? dest.city} to={`/tours/search?${params.toString()}`} className="home-destination-card" aria-label={`Xem tour đến ${dest.city}`}>
+        <ResponsiveImage src={dest.img} alt={`Điểm đến ${dest.city}`} width={640} height={400} className="home-destination-photo" />
+        <div className="home-destination-caption"><h3>{dest.city}</h3><span>Xem tour tại {dest.city} <span aria-hidden="true">→</span></span></div>
+      </Link>;
+    })}</HomeRail>}
+    </div></Container>
+  </section>;
+}

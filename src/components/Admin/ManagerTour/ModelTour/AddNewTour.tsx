@@ -70,12 +70,12 @@ const AddNewTour: React.FC<AddTourProps> = ({ onSubmit, pendingTour, onSavingCha
 
   return (
     <Card
-      title="Thêm Tour Mới"
+      className="journey-modal-form"
       variant="borderless"
       style={{
         maxWidth: 800,
         margin: '0 auto',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: 'none',
         borderRadius: 12,
       }}
     >

@@ -197,6 +197,7 @@ const ManagerInvoice: React.FC = () => {
       />
 
       <Modal
+        centered
         title="Chi tiết hóa đơn"
         open={isModalVisible}
         onCancel={handleModalClose}

@@ -81,7 +81,7 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit, onS
         tourPriceId: data.tourPrice?.id,
         files: initialFiles,
       });
-      setDeletedImageUrls([]); 
+      setDeletedImageUrls([]);
     } else {
       form.resetFields();
       setDeletedImageUrls([]);
@@ -120,7 +120,7 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit, onS
       style={{
         maxWidth: 800,
         margin: '0 auto',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: 'none',
         borderRadius: 12,
       }}
     >
@@ -239,9 +239,9 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit, onS
             </Select>
           </Form.Item>
 
-          <Form.Item 
-            label="Thời lượng (ngày)" 
-            name="duration" 
+          <Form.Item
+            label="Thời lượng (ngày)"
+            name="duration"
             style={{ flex: 1 }}
             rules={[{ required: true, message: 'Nhập thời lượng tour!' }]}
           >

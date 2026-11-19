@@ -79,7 +79,7 @@ const ManagerReviewTour: React.FC = () => {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 16 }}>Danh sách Review theo Tour</h2>
+      <h2 style={{ marginBottom: 16 }}>Đánh giá theo tour</h2>
       {loadError && (
         <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
       )}

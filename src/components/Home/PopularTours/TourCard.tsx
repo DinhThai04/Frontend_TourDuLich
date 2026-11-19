@@ -5,7 +5,6 @@ import {
   EnvironmentOutlined,
   CalendarOutlined,
   FieldTimeOutlined,
-  NumberOutlined,
 } from '@ant-design/icons';
 import { Button } from 'antd';
 import dayjs from 'dayjs';
@@ -23,7 +22,7 @@ const TourCard: React.FC<TourCardProps> = ({ tour, onBooking }) => {
 
   return (
     <div className="!py-2 !px-[8px]">
-      <div className="shadow-xl rounded-2xl overflow-hidden bg-white">
+      <div className="journey-tour-card rounded-2xl overflow-hidden bg-white">
         <div className="relative">
           <ResponsiveImage
             src={imageUrl}
@@ -34,12 +33,10 @@ const TourCard: React.FC<TourCardProps> = ({ tour, onBooking }) => {
         </div>
 
         <div className="!p-[16px]">
-          <h3 className="text-[18px] font-[600] !mb-0 h-[54px] overflow-hidden">
+          <h3 title={tour.tourTitle} className="text-[18px] font-[600] !mb-0 h-[54px] overflow-hidden">
             {tour.tourTitle}
           </h3>
-          <p className="!px-0 !py-[4px] truncate">
-            <NumberOutlined /> <b>ID:</b> {tour.id}
-          </p>
+
           <p className="!px-0 !py-[4px] truncate">
             <EnvironmentOutlined /> <b>Khởi hành từ:</b> {tour.departureCity.city}
           </p>
@@ -58,15 +55,15 @@ const TourCard: React.FC<TourCardProps> = ({ tour, onBooking }) => {
           </p>
 
           <div className="!mt-[12px] flex justify-between items-center">
-            <span className="text-[18px] font-bold text-[#FFDA32]">
+            <span className="text-[18px] font-bold text-[#155e54]">
               {formatCurrencyVND(tour.basePrice)}
             </span>
             <Button
               type="primary"
-              className="!bg-[#7BBCB0] !font-bold"
+              className="!bg-[#21776D] !font-bold"
               onClick={() => onBooking(tour.id)}
             >
-              Đặt ngay
+              Xem chuyến đi
             </Button>
           </div>
         </div>

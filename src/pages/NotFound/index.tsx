@@ -10,7 +10,7 @@ const NotFoundPage = () => {
       title="404"
       subTitle="Trang bạn tìm kiếm không tồn tại hoặc đã bị di chuyển."
       extra={
-        <Button type="primary" className="bg-[#7BBCB0]!" onClick={() => navigate('/')}>
+        <Button type="primary" className="bg-[#21776D]!" onClick={() => navigate('/')}>
           Về trang chủ
         </Button>
       }

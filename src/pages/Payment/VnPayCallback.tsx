@@ -1,3 +1,4 @@
+import JourneySteps from '@/components/Share/JourneySteps';
 import { useEffect, useState } from 'react';
 import { Spin, Card, Result, Button, Descriptions } from 'antd';
 import axios from 'axios';
@@ -133,6 +134,7 @@ function BookingVnPayCallback() {
 
   if (loading) return <div style={{ padding: '5rem', textAlign: 'center' }}><Spin /><p>Đang xác thực giao dịch...</p></div>;
   return <div style={{ padding: '24px' }}>
+    <JourneySteps current={payment ? 2 : 1} />
     <Result status={payment ? 'success' : refunded ? 'info' : 'error'}
       title={payment ? 'Thanh toán thành công!' : refunded ? 'Đã ghi nhận hoàn tiền' : 'Chưa hoàn tất thanh toán'}
       subTitle={payment ? `Mã giao dịch: ${payment.orderId}` : error}
@@ -140,7 +142,7 @@ function BookingVnPayCallback() {
         {!payment && !refunded && retryable && <Button type="primary" onClick={retry} style={{ marginRight: 8 }}>Thử lại</Button>}
         <Button href="/profile">Lịch sử đặt tour</Button>
       </>} />
-    {payment && <Card title="Thông tin giao dịch"><Descriptions bordered column={1}>
+    {payment && <Card className="journey-ticket" title="Biên nhận thanh toán"><p className="journey-eyebrow">SGU TOUR · GIAO DỊCH ĐÃ XÁC MINH</p><Descriptions bordered column={1}>
       <Descriptions.Item label="Số tiền">{formatCurrencyVND(Number(payment.amount))}</Descriptions.Item>
       <Descriptions.Item label="Mã giao dịch VNPay">{payment.transactionNo}</Descriptions.Item>
       <Descriptions.Item label="Ngân hàng">{payment.bankCode}</Descriptions.Item>

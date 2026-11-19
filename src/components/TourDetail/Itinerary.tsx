@@ -45,7 +45,7 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
         level={4}
         style={{ textAlign: 'center', marginTop: 38, marginBottom: 18, fontWeight: 700 }}
       >
-        LỊCH TRÌNH
+        Từng chặng trong hành trình
       </Title>
       {loading && <p role="status">Đang tải lịch trình…</p>}
       {error && <p role="alert">Không tải được lịch trình. Bạn vui lòng thử lại sau.</p>}
@@ -54,7 +54,7 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
         expandIconPosition="end"
         bordered={false}
         style={{ background: token.colorBgContainer }}
-        className="custom-collapse"
+        className="custom-collapse route-timeline"
         items={dataItinerary.map((item) => ({
           key: item.id,
           style: panelStyle,
@@ -70,7 +70,7 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
             <div style={{ position: 'relative', paddingLeft: 12 }}>
               <div
                 style={{
-                  borderLeft: '1px dashed #1765AC',
+                  borderLeft: '2px dashed #21776d',
                   borderTop: '1px solid rgba(0,0,0,0.15)',
                   paddingLeft: 12,
                   position: 'relative',
@@ -87,7 +87,7 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
                     width: 4,
                     height: 4,
                     borderRadius: '50%',
-                    backgroundColor: '#1677ff',
+                    backgroundColor: '#21776d',
                   }}
                 />
                 <span
@@ -98,7 +98,7 @@ const Itinerary: React.FC<ItineraryProps> = ({ tourId }) => {
                     width: 4,
                     height: 4,
                     borderRadius: '50%',
-                    backgroundColor: '#1677ff',
+                    backgroundColor: '#21776d',
                   }}
                 />
               </div>

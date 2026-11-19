@@ -98,7 +98,8 @@ const UserFormModal: React.FC<Props> = ({
 
   return (
     <Modal
-      open={open}
+      centered
+        open={open}
       title={mode === 'add' ? 'Thêm mới người dùng' : 'Cập nhật người dùng'}
       onCancel={onCancel}
       onOk={handleOk}
@@ -179,11 +180,11 @@ const UserFormModal: React.FC<Props> = ({
           {canChangeRole && (
             <Col span={12}>
               <Form.Item
-                label="Role"
+                label="Vai trò"
                 name="role"
                 rules={[{ required: true, message: 'Vui lòng chọn role' }]}
               >
-                <Select placeholder="Chọn role">
+                <Select placeholder="Chọn vai trò">
                   {roles.map((role) => (
                     <Option key={role.id} value={role.id}>
                       {role.name}

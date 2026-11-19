@@ -22,7 +22,8 @@ const ModelViewRole: React.FC<Props> = ({ open, setOpen, role }) => {
 
   return (
     <Modal
-      title="Chi tiết vai trò"
+      centered
+        title="Chi tiết vai trò"
       open={open}
       onCancel={() => setOpen(false)}
       footer={null}

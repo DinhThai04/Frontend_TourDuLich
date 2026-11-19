@@ -29,16 +29,36 @@ export function unitPriceFor(type: PassengerType, price?: ITourPrice | null): nu
   }
 }
 
-/**
- * Cùng quy tắc tuổi với booking_service (dưới 2, 2-4, 5-11, từ 12 tuổi).
- * Giữ giá xem trước khớp với giá server sẽ tính khi thanh toán.
- */
-export function passengerTypeFor(birthDate: Dayjs | null | undefined): PassengerType {
-  if (!birthDate?.isValid()) return 'ADULT';
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.year();
-  const monthDiff = today.getMonth() - birthDate.month();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.date())) age -= 1;
+const vietnamDate = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+});
+
+function bookingDateParts(now: Date) {
+  const parts = Object.fromEntries(vietnamDate.formatToParts(now).map(part => [part.type, part.value]));
+  return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day) };
+}
+
+export function vietnamBookingDay(now = new Date()) {
+  const { year, month, day } = bookingDateParts(now);
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** Booking prices use the date in Vietnam. A birth date is a calendar date, not an instant. */
+export function ageOnVietnamDate(birthDate: Dayjs | null | undefined, now = new Date()): number | null {
+  if (!birthDate?.isValid()) return null;
+  const { year, month, day } = bookingDateParts(now);
+  let age = year - birthDate.year();
+  const monthDiff = month - 1 - birthDate.month();
+  if (monthDiff < 0 || (monthDiff === 0 && day < birthDate.date())) age -= 1;
+  return age;
+}
+
+export function passengerTypeFor(birthDate: Dayjs | null | undefined, now?: Date, fallback: PassengerType = 'ADULT'): PassengerType {
+  const age = ageOnVietnamDate(birthDate, now);
+  if (age === null || age < 0) return fallback;
   if (age < 2) return 'INFANT';
   if (age <= 4) return 'TODDLER';
   return age <= 11 ? 'CHILD' : 'ADULT';

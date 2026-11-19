@@ -1,12 +1,14 @@
 import type { FormInstance } from 'antd';
 import type { PersonalFormValues } from '@/types/Booking';
 import { Form, Input, Select, DatePicker } from "antd";
-import { useEffect } from "react";
+import { useContext, useEffect } from "react";
 import { sessionService } from "@/services/sessionServices";
-import dayjs from "dayjs";
+import { BookingDraftContext } from "@/layouts/BookingDraftContext";
+import { ageOnVietnamDate } from '@/utils/booking';
 
 export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: FormInstance<PersonalFormValues>) => void; }) {
   const [form] = Form.useForm<PersonalFormValues>();
+  const { markDirty } = useContext(BookingDraftContext);
 
   // expose form to parent
   useEffect(() => {
@@ -29,7 +31,7 @@ export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: For
     <div>
       <h2 className="text-lg font-semibold mb-4">Thông tin cá nhân</h2>
 
-      <Form form={form} layout="vertical" name="personalInfo" autoComplete="off">
+      <Form form={form} layout="vertical" name="personalInfo" autoComplete="off" onValuesChange={markDirty}>
 
         {/* HỌ TÊN */}
         <Form.Item
@@ -50,9 +52,9 @@ export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: For
               validator: (_, value) => {
                 if (!value) return Promise.resolve();
 
-                const age = dayjs().diff(value, "year");
-                if (age < 18) {
-                  return Promise.reject("Bạn phải từ 18 tuổi trở lên");
+                const age = ageOnVietnamDate(value);
+                if (age === null || age < 18) {
+                  return Promise.reject("Bạn phải từ 18 tuổi trở lên theo ngày Việt Nam");
                 }
 
                 return Promise.resolve();

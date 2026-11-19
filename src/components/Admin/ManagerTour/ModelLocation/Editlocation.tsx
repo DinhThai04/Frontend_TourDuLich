@@ -64,12 +64,12 @@ const EditLocation: React.FC<EditLocationProps> = ({ data, onSubmit }) => {
 
   return (
     <Card
-      title="Chỉnh sửa Điểm Đến"
+      className="journey-modal-form"
       variant="borderless"
       style={{
         maxWidth: 600,
         margin: '0 auto',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: 'none',
         borderRadius: 12,
       }}
     >
@@ -87,8 +87,8 @@ const EditLocation: React.FC<EditLocationProps> = ({ data, onSubmit }) => {
           rules={[{ required: true, message: 'Vui lòng chọn loại điểm' }]}
         >
           <Select placeholder="Chọn loại điểm" size="large">
-            <Option value="DEPARTURE">DEPARTURE</Option>
-            <Option value="DESTINATION">DESTINATION</Option>
+            <Option value="DEPARTURE">Điểm khởi hành</Option>
+            <Option value="DESTINATION">Điểm đến</Option>
           </Select>
         </Form.Item>
 

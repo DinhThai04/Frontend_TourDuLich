@@ -1,9 +1,9 @@
 import type { FormInstance } from 'antd';
 import type { CustomersFormValues, PassengerFormValues } from '@/types/Booking';
-import { useRef, useEffect } from 'react';
+import { useContext, useRef, useEffect } from 'react';
 import { Form, Input, DatePicker, Select, Row, Col, Button, Divider, Typography } from 'antd';
-import dayjs from 'dayjs';
-import { passengerLabel } from '@/utils/booking';
+import { ageOnVietnamDate, passengerLabel, passengerTypeFor } from '@/utils/booking';
+import { BookingDraftContext } from '@/layouts/BookingDraftContext';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -13,6 +13,7 @@ export default function ListOfCustomerInfo({
   // personalFormGetter,
   onCustomersChange,
   maxPassengers,
+  pricingDate,
 }: {
   onFormReady?: (form: FormInstance<CustomersFormValues>) => void;
   /** optional getter function provided by parent to read personal info form values */
@@ -21,8 +22,10 @@ export default function ListOfCustomerInfo({
   onCustomersChange?: (customers: PassengerFormValues[]) => void;
   /** Số hành khách bổ sung tối đa theo số chỗ còn lại của chuyến đi. */
   maxPassengers?: number;
+  pricingDate: Date;
 }) {
   const [form] = Form.useForm<CustomersFormValues>();
+  const { markDirty } = useContext(BookingDraftContext);
 
   useEffect(() => { onFormReady?.(form); }, [form, onFormReady]);
   const idCounter = useRef(1);
@@ -34,6 +37,7 @@ export default function ListOfCustomerInfo({
     const customers = form.getFieldsValue().customers || [];
     if (maxPassengers != null && customers.length >= maxPassengers) return;
 
+    markDirty();
     idCounter.current += 1;
     const newItem = {
       id: idCounter.current,
@@ -55,10 +59,12 @@ export default function ListOfCustomerInfo({
         layout="vertical"
         name="list_of_customers"
         onValuesChange={() => {
+          markDirty();
           if (onCustomersChange) onCustomersChange(form.getFieldsValue().customers || []);
         }}
       >
         <Title level={4}>Hành khách bổ sung</Title>
+        <p className="text-xs text-gray-500">Nhóm khách và giá được tính theo ngày sinh.</p>
         {maxPassengers != null && (
           <p className="text-xs text-gray-500" style={{ marginTop: -8 }}>
             Chuyến đi còn tối đa {maxPassengers} hành khách bổ sung (đã thêm {customerCount}).
@@ -66,30 +72,30 @@ export default function ListOfCustomerInfo({
         )}
 
         {/* Add buttons */}
-        <Row gutter={16} className="mb-6">
-          <Col span={8}>
+        <Row gutter={[16, 12]} className="mb-6 passenger-actions">
+          <Col xs={24} sm={12} xl={8}>
             <div className="flex justify-between items-center rounded p-2">
               <div>
                 <p className="font-medium">Người lớn</p>
                 <p className="text-xs text-gray-500">Từ 12 tuổi trở lên</p>
               </div>
-              <Button type="primary" className="bg-[#7BBCB0]!" disabled={capacityReached} onClick={() => addCustomer('ADULT')}>
+              <Button type="primary" className="bg-[#21776D]!" disabled={capacityReached} onClick={() => addCustomer('ADULT')}>
                 + Thêm
               </Button>
             </div>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} xl={8}>
             <div className="flex justify-between items-center rounded p-2">
               <div>
                 <p className="font-medium">Trẻ em</p>
                 <p className="text-xs text-gray-500">Từ 5 - 11 tuổi</p>
               </div>
-              <Button type="primary" className="bg-[#7BBCB0]!" disabled={capacityReached} onClick={() => addCustomer('CHILD')}>
+              <Button type="primary" className="bg-[#21776D]!" disabled={capacityReached} onClick={() => addCustomer('CHILD')}>
                 + Thêm
               </Button>
             </div>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} xl={8}>
             <div className="flex justify-between items-center rounded p-2">
               <div>
                 <p className="font-medium">Trẻ nhỏ</p>
@@ -97,7 +103,7 @@ export default function ListOfCustomerInfo({
               </div>
               <Button
                 type="primary"
-                className="bg-[#7BBCB0]!"
+                className="bg-[#21776D]!"
                 disabled={capacityReached}
                 onClick={() => addCustomer('TODDLER')}
               >
@@ -105,7 +111,7 @@ export default function ListOfCustomerInfo({
               </Button>
             </div>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} xl={8}>
             <div className="flex justify-between items-center rounded p-2">
               <div>
                 <p className="font-medium">Em bé</p>
@@ -113,7 +119,7 @@ export default function ListOfCustomerInfo({
               </div>
               <Button
                 type="primary"
-                className="bg-[#7BBCB0]!"
+                className="bg-[#21776D]!"
                 disabled={capacityReached}
                 onClick={() => addCustomer('INFANT')}
               >
@@ -137,12 +143,14 @@ export default function ListOfCustomerInfo({
               {fields.map(({ key, name, ...restField }, index) => (
                 <div
                   key={key}
+                  className="journey-passenger"
                   style={{ marginBottom: 24, borderBottom: '1px solid #eee', paddingBottom: 16 }}
                 >
                   <Row gutter={16} align="middle">
                     <Col xs={24} sm={20}>
                       <p className="font-bold mb-2">
-                        {index + 1}. {passengerLabel(customersWatch?.[name]?.type)}
+                        {index + 1}. {passengerLabel(passengerTypeFor(
+                          customersWatch?.[name]?.birthDate, pricingDate, customersWatch?.[name]?.type))}
                       </p>
                     </Col>
                     <Col xs={24} sm={4} className="text-right">
@@ -151,6 +159,7 @@ export default function ListOfCustomerInfo({
                         danger
                         onClick={() => {
                           // Form.List.remove does not fire onValuesChange, so notify the parent explicitly.
+                          markDirty();
                           const remaining = (form.getFieldsValue().customers || []).filter(
                             (_, position) => position !== name,
                           );
@@ -198,38 +207,12 @@ export default function ListOfCustomerInfo({
                             validator: (_, value) => {
                               if (!value) return Promise.resolve();
 
-                              const type = form.getFieldValue(['customers', name, 'type']);
-                              const today = dayjs();
-                              const age = today.diff(value, 'year');
+                              const age = ageOnVietnamDate(value);
+                              if (age === null) return Promise.reject('Ngày sinh không hợp lệ');
 
                               // Không cho phép ngày sinh trong tương lai
-                              if (value.isAfter(today)) {
+                              if (age < 0) {
                                 return Promise.reject('Ngày sinh không được lớn hơn ngày hiện tại');
-                              }
-
-                              // Validate theo từng loại
-                              switch (type) {
-                                case 'ADULT':
-                                  if (age < 12)
-                                    return Promise.reject('Người lớn phải từ 12 tuổi trở lên');
-                                  break;
-
-                                case 'CHILD':
-                                  if (age < 5 || age > 11)
-                                    return Promise.reject('Trẻ em phải từ 5 đến 11 tuổi');
-                                  break;
-
-                                case 'TODDLER':
-                                  if (age < 2 || age > 4)
-                                    return Promise.reject('Trẻ nhỏ phải từ 2 đến 4 tuổi');
-                                  break;
-
-                                case 'INFANT':
-                                  if (age >= 2) return Promise.reject('Em bé phải dưới 2 tuổi');
-                                  break;
-
-                                default:
-                                  break;
                               }
 
                               return Promise.resolve();
@@ -241,7 +224,7 @@ export default function ListOfCustomerInfo({
                       </Form.Item>
                     </Col>
 
-                    <Col span={6}>
+                    <Col xs={24} sm={12} lg={6}>
                       <Form.Item {...restField} name={[name, 'address']} label="Địa chỉ">
                         <Input placeholder="Nhập địa chỉ" />
                       </Form.Item>

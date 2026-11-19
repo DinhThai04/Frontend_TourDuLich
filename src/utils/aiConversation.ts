@@ -13,7 +13,7 @@ type Api = {
   ): Promise<AiBookingHelp>;
 };
 type StoragePort = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
-type Pending = { requestId: string; message: string };
+type Pending = { requestId: string; message: string; selectedTourId?: number };
 export type AiView = {
   messages: AiMessage[];
   busy: boolean;
@@ -162,7 +162,8 @@ export class AiConversation {
               (typeof pending.message !== 'string' ||
                 !pending.message.trim() ||
                 [...pending.message].length > 2000 ||
-                !/^[\da-f-]{36}$/i.test(pending.requestId))
+                !/^[\da-f-]{36}$/i.test(pending.requestId) ||
+                (pending.selectedTourId !== undefined && (!Number.isSafeInteger(pending.selectedTourId) || pending.selectedTourId < 1 || pending.selectedTourId > 2147483647)))
             )
               throw new Error('snapshot');
             this.view = {
@@ -228,10 +229,11 @@ export class AiConversation {
       }
     }
   }
-  async send(text: string) {
+  async send(text: string, selectedTourId?: number) {
     const message = text.trim();
     if (
       !message ||
+      (selectedTourId !== undefined && (!Number.isSafeInteger(selectedTourId) || selectedTourId < 1 || selectedTourId > 2147483647)) ||
       [...message].length > 2000 ||
       this.view.busy ||
       this.view.expired ||
@@ -246,7 +248,7 @@ export class AiConversation {
       minute: '2-digit',
     });
     this.emit({
-      pending: { requestId, message },
+      pending: { requestId, message, ...(selectedTourId === undefined ? {} : { selectedTourId }) },
       messages: [...this.view.messages, { id: requestId, role: 'user', text: message, time }],
       error: null,
     });

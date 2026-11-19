@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { Alert, Button, Input, message, Row, Col, Select, Typography } from 'antd';
+import { Alert, Collapse, Button, Input, message, Row, Col, Select, Typography } from 'antd';
 
 import { getListUser } from '@/services/userServices';
 import { getRoles } from '@/services/rolesServices';
@@ -89,7 +89,7 @@ const ManagerUser: React.FC = () => {
 
   return (
     <div style={{ padding: 24, background: '#f5f5f5', minHeight: '80vh', overflowX: 'auto' }}>
-      <Row
+      <Collapse className="journey-admin-filters" items={[{ key: 'filters', label: 'Bộ lọc nâng cao theo tên email và vai trò', children: (<>      <Row
         gutter={[16, 16]}
         style={{
           marginBottom: 16,
@@ -159,10 +159,11 @@ const ManagerUser: React.FC = () => {
             }}
           >
             <Typography.Text strong>Thao tác</Typography.Text>
-            <Button onClick={handleResetFilter}>Reset</Button>
+            <Button onClick={handleResetFilter}>Đặt lại</Button>
           </div>
         </Col>
-      </Row>
+      </Row></>) }]} />
+
 
       <Select aria-label="Lọc trạng thái tài khoản" value={statusFilter || undefined} allowClear placeholder="Tất cả trạng thái" onChange={value=>setStatusFilter(value ?? '')} options={[{value:'ACTIVE',label:'Hoạt động'},{value:'LOCKED',label:'Đã khóa'},{value:'ARCHIVED',label:'Đã lưu trữ'}]} style={{width:220,marginBottom:16}} />
       {isListCapped(data) && (

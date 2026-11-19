@@ -20,6 +20,16 @@ const session = (conversationId = id, turnVersion = 0) => ({ conversationId, tur
 const criteria = { region: 'CENTRAL', destinationId: null, originId: null, maxBudgetVnd: 3000000, budgetScope: 'PER_ADULT', departureFrom: null, departureTo: null, party: null, searchMode: 'CATALOG' };
 const result = (request, version = 1) => ({ ...session(request.conversationId, version), requestId: request.requestId, status: 'NO_RESULTS', reply: 'Chưa có tour phù hợp.', criteria, tours: [], clarification: null, detail: null, comparison: null, policy: null, searchSummary: { returnedCount: 0, hasMore: false, matchingCatalogCount: 0, matchingBookableCount: 0, dataAsOf: expiry } });
 const storage = () => { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) }; };
+
+test('page overview can answer without itinerary and only combines with detail for the same tour', () => {
+  const tourOverview = { tourId: 7, title: 'Tour fixture', referenceAdultPriceVnd: 950000, departures: { scheduled: true, nextAt: expiry }, dataAsOf: expiry };
+  const answer = { ...result({ conversationId: id, requestId: randomUUID() }), status: 'ANSWER', tourOverview };
+  assert.deepEqual(decodeAiResult(answer).tourOverview, tourOverview);
+  const detail = { tourId: 7, title: 'Tour fixture', itinerary: [], truncated: false, dataAsOf: expiry };
+  assert.equal(decodeAiResult({ ...answer, detail }).detail.tourId, 7);
+  assert.throws(() => decodeAiResult({ ...answer, detail: { ...detail, tourId: 8 } }));
+  assert.throws(() => decodeAiResult({ ...answer, tourOverview: { ...tourOverview, departures: { scheduled: false, nextAt: expiry } } }));
+});
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const fixture = (overrides = {}, saved = storage()) => {
   const calls = [];
@@ -248,4 +258,21 @@ test('client recognizes a server scope rejection without exposing or retrying it
   const client=new AiClient('http://localhost:8888/api/v1',async()=>Response.json({error:{type:'AI_SCOPE_REJECTED',retryable:false},message:'private body ignored'},{status:422}));
   await assert.rejects(()=>client.bookingHelp('write code',null),error=>error.type==='AI_SCOPE_REJECTED' && error.retryable===false);
   assert.ok(aiErrorText('AI_SCOPE_REJECTED').includes('SGU Tour'));
+});
+
+
+test('tour context survives uncertain reply, persisted pending and retry', async () => {
+  const saved=storage();let first=true;const requests=[];
+  const api={chat:async request=>{requests.push(request);if(first) throw new AiClientError('AI_UNAVAILABLE',true);return result(request);}};
+  const {controller}=fixture(api,saved);await controller.send('Xem lịch trình tour này',902);
+  assert.equal(controller.getSnapshot().pending.selectedTourId,902);
+  first=false;const restored=fixture(api,saved).controller;await restored.retry();
+  assert.equal(requests.length,2);assert.deepEqual(requests[1],requests[0]);
+  assert.equal(restored.getSnapshot().pending,null);
+});
+
+test('invalid page tour IDs never start a session or send a chat', async () => {
+  let calls=0;const {controller}=fixture({create:async()=>{calls++;return session();}});
+  for(const id of [0,-1,1.5,NaN,Infinity,2147483648]) await controller.send('Xem lịch trình tour này',id);
+  assert.equal(calls,0);assert.equal(controller.getSnapshot().pending,null);
 });

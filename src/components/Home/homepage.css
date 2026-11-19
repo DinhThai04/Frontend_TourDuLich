@@ -1,0 +1,421 @@
+.home-header-shell { position: sticky; top: 0; z-index: 100; }
+.home-header { border-bottom: 1px solid #e4ebe7; transition: box-shadow .2s; }
+.home-header.is-compact { box-shadow: 0 4px 16px #123d3510; }
+.home-header .site-container { min-height: 88px; transition: min-height .2s; }
+.home-header.is-compact .site-container { min-height: 72px; }
+.home-header.is-compact a[aria-label='Trang chủ SGU Tour'] { height: 48px; width: 176px; }
+.home-header .journey-nav [aria-current='page'] { color: #21776d; border-bottom-color: #21776d; }
+.home-page { color: #203d35; }
+.home-page .site-container { width: 1280px; padding-inline: 24px; }
+.home-banner { margin-bottom: 64px; }
+.home-hero { position: relative; isolation: isolate; overflow: hidden; min-height: 432px; display: flex; flex-direction: column; justify-content: center; color: white; background: #123d35; }
+.home-hero::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #102e29c9, #102e2960 65%, #102e2930); }
+.home-hero-photo { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -2; object-fit: cover; object-position: center 55%; opacity: 0; transform: scale(1.025); transition: opacity 1.1s ease, transform 8s ease-out; }
+.home-hero-photo.is-active { opacity: 1; transform: scale(1); }
+.home-hero-copy { padding-block: 64px 132px; }
+.home-eyebrow { margin: 0 0 12px; font-size: 12px; letter-spacing: .08em; font-weight: 600; color: #21776d; }
+.home-hero .home-eyebrow { color: #dcf0e5; }
+.home-hero h1 { font-size: clamp(32px, 3.6vw, 48px); line-height: 1.18; font-weight: 600; letter-spacing: -.025em; color: white; margin: 0 0 20px; max-width: 760px; }
+.home-hero-copy > p:last-child { font-size: 17px; line-height: 1.7; color: #f2f6f3; }
+.home-hero-bottom { position: absolute; left: 0; right: 0; bottom: 76px; display: flex; gap: 16px; justify-content: space-between; align-items: center; }
+.home-slide-label { font-size: 13px; color: white; }
+.home-hero-controls { display: flex; align-items: center; gap: 8px; }
+.home-hero-controls button { cursor: pointer; min-width: 32px; height: 32px; padding: 4px 10px; border: 1px solid #ffffff8c; border-radius: 6px; color: white; background: #123d356b; font-size: 12px; }
+.home-hero-controls .home-slide-choice[aria-pressed='true'] { background: white; color: #155e54; }
+.home-search-position { position: relative; z-index: 1; margin-top: -56px; }
+.home-search { background: white; border: 1px solid #dce7e2; border-radius: 12px; box-shadow: 0 10px 32px #123d3512; padding: 24px; }
+.home-search-fields { display: grid; grid-template-columns: 1.2fr .85fr 1.35fr; gap: 28px; align-items: center; }
+.home-search .ant-divider { display: none; }
+.home-search-budget { display: flex; gap: 16px; align-items: center; justify-content: space-between; min-width: 0; }
+.home-search-submit.ant-btn { height: 48px; padding-inline: 20px; flex-shrink: 0; }
+.home-search :is(.ant-select, .ant-picker) { max-width: 100%; }
+.home-search p { font-size: 14px; }
+.home-section { margin: 0; padding: 44px 0; }
+.home-section-heading { margin-bottom: 24px; }
+.home-section h2 { font-size: clamp(27px, 2.8vw, 36px); line-height: 1.25; font-weight: 600; color: #173c33; letter-spacing: -.02em; margin: 0 0 12px; }
+.home-section-heading > p:not(.home-eyebrow) { color: #5b6e65; line-height: 1.75; max-width: 680px; margin-bottom: 16px; }
+.home-text-link { display: inline-flex; align-items: center; gap: 16px; color: #21776d; font-size: 14px; font-weight: 600; padding-bottom: 4px; }
+.home-text-link:hover { text-decoration: underline; }
+.home-rail { min-width: 0; }
+.home-rail-track { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 32px) / 3); gap: 16px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: #b8cdc0 transparent; padding-block: 8px 16px; }
+.home-rail-track > * { min-width: 0; scroll-snap-align: start; }
+.home-rail--static .home-rail-track { grid-template-columns: repeat(var(--home-columns), minmax(0, 1fr)); grid-auto-flow: row; }
+.home-tour-rail.home-rail--one { max-width: 420px; margin-inline: auto; }
+.home-rail-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
+.home-rail-controls button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 36px; min-height: 36px; padding: 8px 12px; background: white; border: 1px solid #cbd9d1; border-radius: 8px; color: #155e54; cursor: pointer; font-size: 12px; }
+.home-rail-controls button:disabled { opacity: .4; cursor: default; }
+.home-destination-card { display: block; position: relative; height: 272px; overflow: hidden; border-radius: 12px; background: #e9f0eb; }
+.home-destination-card::after { content: ''; position: absolute; inset: 35% 0 0; background: linear-gradient(transparent, #0b211ec9); pointer-events: none; }
+.home-destination-photo { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease-out; }
+.home-destination-card:is(:hover, :focus-visible) .home-destination-photo { transform: scale(1.035); }
+.home-destination-caption { position: absolute; bottom: 20px; left: 24px; right: 24px; z-index: 1; color: white; }
+.home-destination-caption h3 { color: white; font-size: 24px; line-height: 1.3; margin: 0; font-weight: 600; }
+.home-destination-caption > span { display: block; margin-top: 8px; opacity: 0; transform: translateY(4px); transition: opacity .2s, transform .2s; font-size: 14px; }
+.home-destination-card:is(:hover, :focus-visible) .home-destination-caption > span { opacity: 1; transform: none; }
+.home-destinations--single .home-destinations-layout { display: grid; grid-template-columns: .85fr 1.15fr; align-items: center; gap: 56px; }
+.home-destinations--single .home-section-heading { margin: 0; }
+.home-destinations--single .home-destination-card { height: 300px; }
+.home-suggestions { background: #f0f5f1; margin-top: 24px; padding-block: 48px; }
+.home-interest-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.home-interest-filters button { padding: 9px 16px; border: 1px solid #cbd9d1; border-radius: 24px; background: white; color: #36574a; font-size: 14px; cursor: pointer; transition: background .18s, color .18s; }
+.home-interest-filters button[aria-pressed='true'] { background: #21776d; border-color: #21776d; color: white; }
+.home-interest-filters p { flex-basis: 100%; font-size: 12px; color: #62766a; line-height: 1.6; margin: 4px 0 0; }
+.home-page .journey-tour-card { border-radius: 12px; }
+.home-page .journey-tour-card h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; min-height: 48px; height: 48px; line-height: 24px; }
+.home-view-all { text-align: center; margin-top: 24px; }
+.home-review-card { border: 1px solid #dce7e2; box-shadow: 0 3px 12px #123d3508; }
+.home-reviews.is-revealed .home-review-card { animation: home-review-in .4s ease-out both; }
+.home-reviews.is-revealed .home-review-card:nth-child(2) { animation-delay: .08s; }
+.home-reviews.is-revealed .home-review-card:nth-child(3) { animation-delay: .16s; }
+.home-booking-guide { padding: 32px 0; margin-top: 24px; background: #f6f8f6; border-top: 1px solid #e1e9e3; }
+.home-guide-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 24px; }
+.home-guide-heading h2 { font-size: 22px; font-weight: 600; margin: 0; }
+.home-guide-heading > a { color: #21776d; font-size: 14px; }
+.home-booking-guide ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); list-style: none; padding: 0; margin: 0; gap: 24px; }
+.home-booking-guide li { display: flex; gap: 12px; align-items: flex-start; }
+.home-step-number { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #e1eee5; color: #155e54; flex-shrink: 0; font-size: 14px; font-weight: 600; }
+.home-booking-guide h3 { font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+.home-booking-guide p { font-size: 13px; line-height: 1.6; color: #637369; margin: 0; }
+@keyframes home-review-in { from { opacity: .6; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 1100px) {
+  .home-search-fields { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .home-search-budget { grid-column: 1 / -1; }
+  .home-rail-track { grid-auto-columns: calc((100% - 16px) / 2); }
+  .home-rail--static .home-rail-track { grid-template-columns: none; grid-auto-flow: column; }
+  .home-rail--one .home-rail-track { grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; }
+}
+@media (max-width: 767px) {
+  .home-page .site-container { padding-inline: 16px; }
+  .home-header .site-container { min-height: 72px; }
+  .home-header.is-compact .site-container { min-height: 64px; }
+  .home-header.is-compact a[aria-label='Trang chủ SGU Tour'] { width: 144px; }
+  .home-banner { margin-bottom: 32px; }
+  .home-hero { min-height: 376px; }
+  .home-hero-copy { padding-block: 40px 132px; }
+  .home-hero h1 { font-size: 28px; }
+  .home-hero-copy > p:last-child { font-size: 14px; max-width: 300px; }
+  .home-hero-bottom { bottom: 76px; }
+  .home-slide-label { font-size: 11px; }
+  .home-hero-controls { gap: 6px; }
+  .home-search { padding: 16px; }
+  .home-search-fields { grid-template-columns: 1fr; gap: 12px; }
+  .home-search-budget { grid-column: auto; gap: 8px; }
+  .home-search-submit.ant-btn { height: 44px; padding-inline: 12px; }
+  .home-search-fields > div { min-width: 0; padding-bottom: 8px; border-bottom: 1px solid #edf1ed; }
+  .home-search-fields > div:last-child { border-bottom: none; padding-bottom: 0; }
+  .home-search .ant-select { width: 100% !important; }
+  .home-search-budget > div { min-width: 0; flex: 1; }
+  .home-section { padding-block: 28px; }
+  .home-rail-track { grid-template-columns: none !important; grid-auto-flow: column !important; grid-auto-columns: 100%; gap: 12px; }
+  .home-destination-rail:not(.home-rail--one) .home-rail-track { grid-auto-columns: calc(100% - 32px); }
+  .home-destination-card, .home-destinations--single .home-destination-card { height: 248px; }
+  .home-destination-caption { left: 20px; right: 20px; }
+  .home-destination-caption > span { opacity: 1; transform: none; }
+  .home-destinations--single .home-destinations-layout { display: block; }
+  .home-destinations--single .home-section-heading { margin-bottom: 20px; }
+  .home-suggestions { margin-top: 16px; }
+  .home-booking-guide ol { grid-template-columns: 1fr 1fr; gap: 24px 16px; }
+  .home-guide-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
+
+
+.home-header .site-container > div:first-child { flex: 0 0 auto; margin-right: auto; }
+.home-header .site-container > div:last-child { flex: 0 1 auto; min-width: 0; }
+.home-header a[href='/policies'], .home-header a[href='/login'] { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 767px) {
+  .home-header a[aria-label='Trang chủ SGU Tour'] { width: 144px; }
+  .home-header .site-container > div:last-child { gap: 12px; }
+  .home-header a[href='/login'] { font-size: 12px; }
+  .home-header a[href='/login'] span { font-size: 12px; }
+}
+@media (max-width: 359px) { .home-header a[aria-label='Trang chủ SGU Tour'] { width: 120px; } }
+
+/* Restore the original homepage rhythm; motion supports the content. */
+.home-original-hero { height: 500px; overflow: hidden; background: #dcebe5; }
+.home-original-hero img { width: 100%; height: 100%; object-fit: cover; }
+.home-search-position { margin-top: -80px; }
+.home-banner { margin-bottom: 60px; }
+.home-section { padding-block: 68px; }
+.home-section-heading { margin-bottom: 32px; }
+.home-inspiration { padding-top: 20px; }
+.home-inspiration .home-section-heading, .home-benefits .home-section-heading, .home-reviews .home-section-heading { text-align: center; }
+.home-inspiration .home-section-heading > p, .home-benefits .home-section-heading > p, .home-reviews .home-section-heading > p { margin-inline: auto; }
+.home-inspiration-photo { height: 280px; overflow: hidden; border-radius: 16px; }
+.home-inspiration-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform .85s cubic-bezier(.22,.61,.36,1); }
+.home-inspiration-photo:hover img { transform: scale(1.035); }
+.home-slick-rail .slick-list { margin-inline: -10px; padding-block: 8px 20px; }
+.home-slick-rail .home-rail-slide { padding-inline: 10px; }
+.home-slick-rail .slick-track { display: flex; }
+.home-slick-rail .slick-slide { height: auto; }
+.home-slick-rail .slick-slide > div { height: 100%; }
+.home-slick-rail .slick-dots { position: static; margin-top: 12px; }
+.home-slick-rail .slick-dots li button::before { color: #21776d; }
+.home-rail-position { font-size: 12px; color: #637369; margin-inline: 6px; }
+.home-rail-controls button { border-radius: 24px; transition: background .25s, border-color .25s; }
+.home-rail-controls button:hover { background: #e8f1ec; border-color: #8bafa0; }
+.home-suggestions { padding-block: 72px; margin-block: 28px; background: linear-gradient(135deg,#edf5ef,#f7f6ee); }
+.home-benefits { padding-block: 76px; }
+.home-benefits-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 24px; }
+.home-benefits-grid article { padding: 28px 24px; border: 1px solid #e1eae4; border-radius: 16px; background: #fff; transition: transform .45s, box-shadow .45s; }
+.home-benefits-grid article:hover { transform: translateY(-4px); box-shadow: 0 14px 32px #123d3510; }
+.home-benefit-icon { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: #eef5ef; color: #21776d; font-size: 25px; margin-bottom: 24px; }
+.home-benefits h3 { font-size: 18px; margin-bottom: 12px; color: #173c33; }
+.home-benefits-grid p { color: #637369; line-height: 1.8; font-size: 14px; }
+.home-reviews { background: #f4f7f3; padding-block: 72px 84px; overflow: hidden; }
+.home-review-toggle { color: #21776d; border: 1px solid #cbd9d1; background: white; border-radius: 24px; padding: 8px 16px; cursor: pointer; font-size: 13px; }
+.home-review-window { overflow: hidden; padding-block: 12px; }
+.home-review-track { display: flex; width: max-content; animation: home-review-marquee var(--review-duration) linear infinite; }
+.home-review-group { display: flex; gap: 24px; padding-right: 24px; flex-shrink: 0; }
+.home-review-card { width: clamp(290px,30vw,390px); flex-shrink: 0; padding: 28px; border-radius: 16px; background: white; box-shadow: 0 5px 18px #123d3508; }
+.home-review-stars { color: #b17b22; letter-spacing: 3px; margin-bottom: 20px; }
+.home-review-card blockquote { margin: 0 0 28px; color: #36574a; font-size: 15px; line-height: 1.9; white-space: normal; overflow-wrap: anywhere; }
+.home-review-author { display: flex; gap: 12px; align-items: center; }
+.home-review-initial { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: #e8f1eb; color: #21776d; }
+.home-review-author h3 { margin: 0 0 4px; font-size: 14px; color: #173c33; }
+.home-review-author time { font-size: 12px; color: #6d7e74; }
+.home-reviews.is-paused .home-review-track { animation-play-state: paused; }
+.home-reviews.is-single .home-review-track { animation: none; margin-inline: auto; }
+.home-reviews.is-single .home-review-group { padding-right: 0; }
+.home-reviews .home-review-card { animation: none; }
+@keyframes home-review-marquee { to { transform: translateX(-50%); } }
+@media (max-width:1100px) { .home-benefits-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width:767px) {
+  .home-original-hero { height: 280px; }
+  .home-search-position { margin-top: -48px; }
+  .home-banner { margin-bottom: 32px; }
+  .home-section { padding-block: 40px; }
+  .home-inspiration { padding-top: 12px; }
+  .home-inspiration-photo { height: 240px; }
+  .home-suggestions { margin-block: 12px; }
+  .home-benefits-grid { gap: 12px; }
+  .home-benefits-grid article { padding: 20px 16px; }
+  .home-benefits h3 { font-size: 16px; }
+  .home-reviews { padding-bottom: 52px; }
+}
+
+.home-review-group { min-width: 100vw; justify-content: space-around; }
+.home-reviews.is-single .home-review-group { min-width: 0; }
+
+/* A first visit follows a clear path from discovery to booking. */
+.home-welcome-hero { position: relative; isolation: isolate; height: 540px; display: flex; align-items: center; }
+.home-welcome-hero > img { position: absolute; inset: 0; z-index: -2; object-position: center 58%; }
+.home-welcome-hero::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg,#092d28d9,#092d2866 65%,#092d281a); }
+.home-welcome-copy { padding-block: 44px 112px; color: white; }
+.home-welcome-copy .home-eyebrow { color: #e4f3ea; }
+.home-welcome-copy h1 { color: white; font-size: clamp(34px,4vw,56px); line-height: 1.16; letter-spacing: -.025em; font-weight: 600; margin: 0 0 22px; }
+.home-welcome-copy > p:not(.home-eyebrow) { max-width: 550px; line-height: 1.8; font-size: 17px; color: #f4f7f3; }
+.home-welcome-copy > a { display: inline-flex; align-items: center; gap: 16px; padding-block: 12px; color: white; font-size: 14px; text-decoration: underline; text-underline-offset: 5px; }
+.home-experience-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 24px; }
+.home-experience-card { display: block; overflow: hidden; border-radius: 16px; background: #f5f8f4; color: #203d35; }
+.home-experience-image { height: 250px; overflow: hidden; }
+.home-experience-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .85s cubic-bezier(.22,.61,.36,1); }
+.home-experience-card:is(:hover,:focus-visible) img { transform: scale(1.04); }
+.home-experience-copy { padding: 24px; }
+.home-experience-copy h3 { font-size: 22px; line-height: 1.35; margin: 0 0 12px; color: #173c33; }
+.home-experience-copy p { color: #637369; line-height: 1.8; margin-bottom: 20px; }
+.home-experience-copy > span { color: #21776d; font-size: 14px; font-weight: 600; }
+.home-experience-note { text-align: center; color: #637369; font-size: 12px; margin: 20px 0 0; }
+.home-flow-guide { margin-top: 0; padding-block: 56px; }
+.home-flow-guide .home-section-heading { text-align: center; }
+.home-flow-guide .home-section-heading p { margin-inline: auto; }
+.home-flow-guide ol { padding-block: 16px 28px; }
+.home-guide-link { display: flex; width: fit-content; margin-inline: auto; }
+.home-reviews { padding-block: 48px 56px; background: #f8faf7; }
+.home-reviews .home-review-card { border-color: #edf1eb; box-shadow: none; border-radius: 12px; }
+.home-review-tour { display: block; color: #21776d; font-size: 13px; line-height: 1.7; margin-bottom: 24px; }
+.home-review-tour:hover { text-decoration: underline; }
+.home-page [id] { scroll-margin-top: 100px; }
+@media(max-width:767px) {
+  .home-welcome-hero { height: 440px; }
+  .home-welcome-copy { padding-block: 36px 88px; }
+  .home-welcome-copy h1 { font-size: 36px; }
+  .home-welcome-copy > p:not(.home-eyebrow) { font-size: 15px; max-width: 330px; }
+  .home-welcome-copy > a { font-size: 13px; gap: 8px; }
+  .home-experience-grid { gap: 20px; }
+  .home-experience-image { height: 220px; }
+  .home-flow-guide ol { grid-template-columns: 1fr; gap: 24px; }
+  .home-flow-guide h3 { font-size: 16px; }
+  .home-page [id] { scroll-margin-top: 80px; }
+}
+
+/* Explicit homepage motion preference also works when Windows disables animations. */
+.home-page { --home-ease: cubic-bezier(.22,1,.36,1); }
+.home-motion-choice { position: absolute; top: 20px; right: 24px; z-index: 2; border: 1px solid #ffffff70; border-radius: 24px; padding: 8px 14px; background: #123d3570; color: #fff; font-size: 12px; cursor: pointer; backdrop-filter: blur(8px); transition: background .35s, border-color .35s; }
+.home-motion-choice:hover { background: #123d35c0; border-color: white; }
+.home-page .journey-section-enter { animation: none; }
+html[data-home-motion='full'] .home-welcome-hero > img { animation: home-coast-drift 22s ease-in-out infinite alternate; transform-origin: 60% 55%; will-change: transform; }
+html[data-home-motion='full'] .home-welcome-copy > * { animation: home-copy-arrive 1s var(--home-ease) both; }
+html[data-home-motion='full'] .home-welcome-copy h1 { animation-delay: .08s; }
+html[data-home-motion='full'] .home-welcome-copy > p:not(.home-eyebrow) { animation-delay: .18s; }
+html[data-home-motion='full'] .home-welcome-copy > a { animation-delay: .28s; }
+html[data-home-motion='full'] .home-search { animation: home-copy-arrive 1.1s .2s var(--home-ease) both; }
+html[data-home-motion='full'] .home-welcome-copy > a > span { display: inline-block; animation: home-arrow-float 2.8s ease-in-out infinite; }
+.home-page .home-reveal { opacity: 0; translate: 0 24px; transition: opacity .9s var(--home-ease) var(--reveal-delay,0ms), translate .9s var(--home-ease) var(--reveal-delay,0ms); }
+.home-page .home-reveal.is-arrived { opacity: 1; translate: 0 0; }
+.home-page .journey-tour-card { border: 1px solid #dce7e2; transition: transform .65s var(--home-ease), box-shadow .65s var(--home-ease), border-color .65s; }
+.home-page .journey-tour-card:is(:hover,:focus-within) { transform: translateY(-6px); border-color: #a6c5b5; box-shadow: 0 8px 16px #123d3508,0 24px 42px -20px #123d3538; }
+.home-page .journey-tour-card > div:first-child { overflow: hidden; }
+.home-page .journey-tour-card img { transition: transform 1.2s var(--home-ease); }
+.home-page .journey-tour-card:is(:hover,:focus-within) img { transform: scale(1.055); }
+.home-page .journey-tour-card .ant-btn { transition: background .4s,box-shadow .4s,transform .4s var(--home-ease); }
+.home-page .journey-tour-card .ant-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px #21776d30; }
+.home-page .home-experience-card { transition: transform .65s var(--home-ease),box-shadow .65s var(--home-ease); }
+.home-page .home-experience-card:is(:hover,:focus-visible) { transform: translateY(-5px); box-shadow: 0 18px 36px -20px #123d3540; }
+.home-page .home-experience-image img { transition: transform 1.3s var(--home-ease); }
+.home-page .home-experience-card:is(:hover,:focus-visible) img { transform: scale(1.055); }
+.home-experience-copy > span { display: inline-flex; gap: 12px; align-items: center; transition: color .4s; }
+.home-experience-copy > span > span { display: inline-block; transition: transform .65s var(--home-ease); }
+.home-experience-card:is(:hover,:focus-visible) .home-experience-copy > span > span { transform: translateX(5px); }
+.home-page .home-destination-card { transition: box-shadow .7s var(--home-ease); }
+.home-page .home-destination-photo { transition: transform 1.3s var(--home-ease); }
+.home-page .home-destination-card:is(:hover,:focus-visible) .home-destination-photo { transform: scale(1.065); }
+.home-page .home-destination-caption { transition: transform .7s var(--home-ease); }
+.home-page .home-destination-caption > span { transition: opacity .65s var(--home-ease),transform .65s var(--home-ease); }
+.home-page .home-destination-card:is(:hover,:focus-visible) .home-destination-caption { transform: translateY(-4px); }
+.home-page .home-interest-filters button { transition: background .4s,color .4s,border-color .4s,box-shadow .4s; }
+.home-page .home-interest-filters button:hover { border-color: #21776d; box-shadow: 0 3px 10px #123d3510; }
+.home-page .home-rail-controls button { transition: background .4s,border-color .4s,box-shadow .4s; }
+.home-rail-controls button .anticon { transition: transform .5s var(--home-ease); }
+.home-rail-controls button:last-child:hover .anticon { transform: translateX(2px); }
+.home-rail-controls button:nth-last-child(2):hover .anticon { transform: translateX(-2px); }
+.home-page .home-text-link { position: relative; text-decoration: none; }
+.home-page .home-text-link::after { content: ''; height: 1px; background: currentColor; position: absolute; bottom: 0; left: 0; right: 0; transform: scaleX(0); transform-origin: left; transition: transform .55s var(--home-ease); }
+.home-page .home-text-link:is(:hover,:focus-visible)::after { transform: scaleX(1); }
+.home-flow-guide .home-step-number { transition: background .5s,box-shadow .5s,transform .6s var(--home-ease); }
+.home-flow-guide li:hover .home-step-number { transform: scale(1.08); background: #cce3d4; box-shadow: 0 0 0 5px #e7f1ea; }
+.home-page :is(a,button):focus-visible { outline: 2px solid #529889; outline-offset: 4px; }
+html[data-home-motion='full'] .home-review-track { will-change: transform; }
+@keyframes home-coast-drift { from { transform: scale(1.025) translate3d(-.3%,0,0); } to { transform: scale(1.10) translate3d(.5%,-.6%,0); } }
+@keyframes home-copy-arrive { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes home-arrow-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+html[data-home-motion='reduced'] .home-page *,html[data-home-motion='reduced'] .home-page *::before,html[data-home-motion='reduced'] .home-page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+html[data-home-motion='reduced'] .home-reveal { opacity: 1; translate: none; }
+html[data-home-motion='reduced'] .home-review-window { overflow-x: auto; }
+html[data-home-motion='reduced'] .home-review-duplicate { display: none; }
+html[data-home-motion='reduced'] .home-page :is(.journey-tour-card,.home-experience-card,.home-destination-photo,.home-destination-caption,.home-step-number):is(:hover,:focus-within,:focus-visible) { transform: none; }
+html[data-home-motion='reduced'] .home-page img { transform: none !important; }
+html[data-home-motion='reduced'] .home-slick-rail .slick-track { transition: none !important; }
+@media(max-width:767px) { .home-motion-choice { top: 12px; right: 16px; font-size: 11px; padding: 6px 10px; } }
+
+.home-header .site-container { transition: min-height .45s cubic-bezier(.22,1,.36,1); }
+.home-header a[aria-label='Trang chủ SGU Tour'] { transition: width .45s cubic-bezier(.22,1,.36,1),height .45s cubic-bezier(.22,1,.36,1); }
+html[data-home-motion='reduced'] .home-header * { transition: none !important; }
+
+/* Compact tours, travelling route arrow and two staggered review rows. */
+.home-page .home-motion-choice{width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:50%}
+.home-destinations .home-destination-caption>span{opacity:1;transform:none;display:inline-flex;align-items:center;gap:12px;font-size:13px;margin-top:10px}
+.home-destinations .home-destination-caption>span>span{transition:transform .6s var(--home-ease)}
+.home-destination-card:is(:hover,:focus-visible) .home-destination-caption>span>span{transform:translateX(5px)}
+.home-page .home-suggestions{padding-block:24px 22px;margin-block:12px}
+.home-suggestions .home-section-heading{margin-bottom:12px}
+.home-suggestions .home-section-heading h2{font-size:clamp(25px,2.5vw,32px);line-height:1.2;margin-bottom:6px}
+.home-suggestions .home-section-heading>p{font-size:14px;line-height:20px;margin-bottom:0}
+.home-suggestions .home-interest-filters{margin-bottom:6px;padding-right:140px;gap:6px;min-height:34px}
+.home-suggestions .home-interest-filters button{padding:6px 13px;font-size:13px}
+.home-suggestions .home-rail{position:relative}
+.home-suggestions .home-rail-controls{position:absolute;right:0;top:-40px;gap:6px;margin:0}
+.home-suggestions .home-rail-controls button{min-width:32px;min-height:32px;padding:6px 8px}
+.home-suggestions .home-slick-rail .slick-list{padding-block:6px 10px}
+.home-suggestions .home-slick-rail .slick-dots{margin-top:0;height:22px}
+.home-page .home-suggestions .journey-tour-card img{height:148px}
+.home-page .home-suggestions .journey-tour-card>div:last-child{padding:12px!important}
+.home-page .home-suggestions .journey-tour-card h3{height:42px;min-height:42px;font-size:16px;line-height:21px}
+.home-suggestions .journey-tour-card p{padding-block:2px!important;font-size:13px;line-height:20px;margin:0}
+.home-suggestions .journey-tour-card>div:last-child>div:last-child{margin-top:8px!important}
+.home-suggestions .journey-tour-card .ant-btn{height:32px;padding-inline:12px;font-size:13px}
+.home-suggestions .home-view-all{margin-top:10px}
+.home-suggestions .home-view-all .ant-btn{height:36px;font-size:14px}
+.home-guide-route{position:relative;margin-block:16px 24px}
+.home-guide-route-horizontal{position:absolute;left:0;top:0;width:100%;height:100px;overflow:visible;pointer-events:none}
+.home-guide-route-vertical{display:none}
+.home-guide-curve{fill:none;stroke:#a8c9b9;stroke-width:1.5;stroke-dasharray:4 6;vector-effect:non-scaling-stroke}
+.home-guide-moving-arrow{color:#21776d}
+.home-page .home-guide-route ol{padding:34px 0 0;gap:0}
+.home-page .home-guide-route li{display:flex;flex-direction:column;align-items:center;text-align:center;gap:30px;padding-inline:16px}
+.home-guide-route li>div{max-width:230px}
+.home-guide-route .home-step-number{position:relative;z-index:1;width:32px;height:32px;flex:0 0 32px;animation:home-step-follow 12s linear infinite;animation-play-state:paused}
+.home-guide-route.is-running .home-step-number{animation-play-state:running}
+.home-guide-route li:nth-child(2) .home-step-number{animation-delay:3s}
+.home-guide-route li:nth-child(3) .home-step-number{animation-delay:6s}
+.home-guide-route li:nth-child(4) .home-step-number{animation-delay:9s}
+@keyframes home-step-follow{0%,20%{background:#21776d;color:white;box-shadow:0 0 0 6px #21776d12}25%,100%{background:#e1eee5;color:#155e54;box-shadow:0 0 0 0 #21776d00}}
+.home-reviews{--review-card-width:440px;--review-gap:18px}
+.home-reviews .home-section-heading{margin-bottom:20px}
+.home-review-window{padding-block:8px;overflow:hidden}
+.home-review-row{overflow:visible;margin-bottom:14px}
+.home-review-row:last-child{margin-bottom:0}
+.home-review-row--offset{margin-left:calc((var(--review-card-width) + var(--review-gap)) / -2)}
+.home-review-row .home-review-track{display:flex;width:max-content}
+.home-review-row .home-review-group{min-width:100vw;justify-content:flex-start;gap:var(--review-gap);padding-right:var(--review-gap)}
+.home-reviews .home-review-card{display:flex;flex-direction:column;width:var(--review-card-width);min-height:186px;height:186px;padding:16px 18px;border-radius:14px}
+.home-reviews .home-review-author{justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px}
+.home-review-person{display:flex;align-items:center;gap:9px;min-width:0}
+.home-reviews .home-review-initial,.home-review-avatar{width:28px;height:28px;flex:0 0 28px;border-radius:50%;font-size:12px;object-fit:cover}
+.home-reviews .home-review-author h3{font-size:13px;line-height:18px;font-weight:600;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-reviews .home-review-author time{font-size:11px;line-height:18px;flex-shrink:0}
+.home-reviews .home-review-stars{font-size:13px;line-height:16px;letter-spacing:2px;margin-bottom:7px}
+.home-reviews .home-review-card blockquote{font-size:13px;line-height:19px;margin:0 0 8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.home-reviews .home-review-tour{display:block;font-size:11px;line-height:17px;margin:auto 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-review-row--single .home-review-track{animation:none}
+.home-review-row--single .home-review-group{min-width:0;padding-right:0;margin-inline:auto}
+html[data-home-motion='reduced'] .home-review-row{margin-left:0}
+html[data-home-motion='reduced'] .home-review-row .home-review-track{animation:none!important}
+@media(max-width:767px){
+.home-page .home-motion-choice{width:38px;height:38px;min-height:38px;padding:0}
+.home-suggestions .home-interest-filters{padding-right:0;margin-bottom:8px}
+.home-suggestions .home-rail-controls{position:static;justify-content:flex-end;margin-bottom:2px}
+.home-page .home-suggestions .journey-tour-card img{height:150px}
+.home-guide-route-horizontal{display:none}
+.home-guide-route-vertical{display:block;position:absolute;width:48px;height:100%;left:0;top:0;overflow:visible;pointer-events:none}
+.home-guide-route-vertical .home-guide-moving-arrow path{stroke-width:4}
+.home-page .home-guide-route ol{display:grid;grid-template-columns:1fr;grid-auto-rows:1fr;padding:0;gap:0}
+.home-page .home-guide-route li{min-height:106px;flex-direction:row;align-items:center;text-align:left;padding:12px 0;gap:28px}
+.home-guide-route li>div{max-width:none;flex:1}
+.home-reviews{--review-card-width:330px;--review-gap:12px}
+.home-reviews .home-review-card{height:190px;min-height:190px;padding:14px}
+.home-review-row{margin-bottom:12px}
+}
+
+@media(max-width:767px){.home-guide-route-vertical .home-guide-arrow-shape{transform:scale(2)}.home-guide-route-vertical .home-guide-arrow-shape path{stroke-width:2.5}}
+
+.home-guide-route li:nth-child(2) .home-step-number{animation-delay:4s}
+.home-guide-route li:nth-child(3) .home-step-number{animation-delay:8s}
+.home-guide-route li:nth-child(4) .home-step-number{animation-delay:11.6s;animation-name:home-step-arrival}
+@keyframes home-step-arrival{0%,3%{background:#21776d;color:white;box-shadow:0 0 0 6px #21776d12}4%,100%{background:#e1eee5;color:#155e54;box-shadow:0 0 0 0 #21776d00}}
+
+/* A photographic bridge from the Vietnam hero into discovery. */
+.home-inspiration-editorial .home-section-heading{max-width:850px;margin:0 auto 28px}
+.home-inspiration-editorial .home-section-heading>p:not(.home-eyebrow){max-width:730px;margin-inline:auto}
+.home-inspiration-mosaic{display:grid;grid-template-columns:1.35fr 1fr;grid-template-rows:218px 218px;gap:18px}
+.home-inspiration-mosaic .home-inspiration-tile{position:relative;isolation:isolate;min-width:0;min-height:0;overflow:hidden;border-radius:18px;background:#173c33;color:white}
+.home-inspiration-tile--lead{grid-row:span 2}
+.home-inspiration-mosaic .home-experience-image{position:absolute;inset:0;height:100%;z-index:-2}
+.home-inspiration-mosaic .home-experience-image img{width:100%;height:100%;object-fit:cover}
+.home-inspiration-tile::after{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,#102d2910 15%,#102d292e 35%,#0c2722e6 100%)}
+.home-inspiration-tile .home-experience-copy{position:absolute;bottom:0;left:0;right:0;padding:24px 26px}
+.home-inspiration-tile .home-experience-copy h3{color:white;font-size:26px;line-height:1.2;margin:0 0 8px;font-weight:600;letter-spacing:-.02em}
+.home-inspiration-tile--lead .home-experience-copy h3{font-size:36px;margin-bottom:12px}
+.home-inspiration-tile .home-experience-copy p{color:#edf5f0;max-width:420px;font-size:14px;line-height:1.65;margin:0 0 14px}
+.home-inspiration-tile--lead .home-experience-copy p{font-size:16px;max-width:380px}
+.home-inspiration-tile .home-experience-copy>span{color:white;font-size:13px;gap:14px}
+.home-inspiration-place{position:absolute;top:20px;left:24px;max-width:calc(100% - 48px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:20px;color:white;background:#102d295c;backdrop-filter:blur(8px);border:1px solid #ffffff66;border-radius:20px;padding:4px 11px}
+.home-inspiration-mosaic[data-count='1']{grid-template-columns:1fr;grid-template-rows:380px}
+.home-inspiration-mosaic[data-count='1'] .home-inspiration-tile--lead{grid-row:auto}
+.home-inspiration-mosaic[data-count='2']{grid-template-rows:380px}
+.home-inspiration-mosaic[data-count='2'] .home-inspiration-tile--lead{grid-row:auto}
+@media(max-width:1100px){.home-inspiration-mosaic{grid-template-columns:1.15fr 1fr}.home-inspiration-tile .home-experience-copy{padding:20px}.home-inspiration-tile .home-experience-copy h3{font-size:24px}.home-inspiration-tile--lead .home-experience-copy h3{font-size:32px}}
+@media(max-width:767px){
+.home-inspiration-editorial .home-section-heading{margin-bottom:22px}
+.home-inspiration-editorial .home-section-heading>p:not(.home-eyebrow){font-size:14px;line-height:1.8}
+.home-inspiration-mosaic{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:300px 220px;gap:12px}
+.home-inspiration-tile--lead{grid-row:auto;grid-column:1/-1}
+.home-inspiration-tile .home-experience-copy{padding:16px 14px}
+.home-inspiration-tile .home-experience-copy h3{font-size:21px;line-height:1.2;margin-bottom:12px}
+.home-inspiration-tile--lead .home-experience-copy h3{font-size:30px;margin-bottom:10px}
+.home-inspiration-tile:not(.home-inspiration-tile--lead) .home-experience-copy p{display:none}
+.home-inspiration-tile--lead .home-experience-copy p{font-size:14px;margin-bottom:14px}
+.home-inspiration-tile .home-experience-copy>span{font-size:11px;gap:6px;line-height:1.5}
+.home-inspiration-place{top:14px;left:14px;max-width:calc(100% - 28px);padding:3px 8px;font-size:10px}
+.home-inspiration-mosaic[data-count='1']{grid-template-rows:300px}
+.home-inspiration-mosaic[data-count='2']{grid-template-columns:1fr;grid-template-rows:280px 220px}
+}

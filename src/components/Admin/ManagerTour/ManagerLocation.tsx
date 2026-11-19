@@ -91,7 +91,7 @@ const ManagerLocation: React.FC = () => {
       title: 'Loại',
       dataIndex: 'type',
       render: (_, record) => (
-        <Tag color={record.type === 'DESTINATION' ? 'blue' : 'green'}>{record.type}</Tag>
+        <Tag color={record.type === 'DESTINATION' ? 'blue' : 'green'}>{record.type === 'DESTINATION' ? 'Điểm đến' : 'Điểm khởi hành'}</Tag>
       ),
     },
     // --- CỘT ẢNH MỚI ---

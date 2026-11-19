@@ -31,7 +31,7 @@ export default function BookingExpense({ items, tourPrice, onConfirm }: BookingE
   const handleConfirm = () => {
     Modal.confirm({
       title: 'Xác nhận đặt tour',
-      content: 'Bạn có chắc chắn muốn đặt tour này?',
+      content: 'Tiếp tục để tạo yêu cầu giữ chỗ. Bạn sẽ xem hạn thanh toán và thanh toán ở bước tiếp theo.',
       okText: 'Xác nhận',
       cancelText: 'Hủy',
       onOk: async () => {
@@ -49,12 +49,15 @@ export default function BookingExpense({ items, tourPrice, onConfirm }: BookingE
     <>
       <Row justify="space-between" align="middle">
         <Col>
-          <Title level={4}>CHI PHÍ HÀNH KHÁCH</Title>
+          <Title level={4}>Chi phí hành khách</Title>
         </Col>
         <Col>
           <Title
+            key={calculatedTotal}
+            className="journey-total"
+            aria-live="polite"
             level={3}
-            style={{ fontFamily: 'sans-serif', color: '#7BBCB0', margin: 0, fontWeight: 'bold' }}
+            style={{ fontFamily: 'sans-serif', color: '#21776D', margin: 0, fontWeight: 'bold' }}
           >
             {formatCurrencyVND(calculatedTotal)}
           </Title>
@@ -80,7 +83,7 @@ export default function BookingExpense({ items, tourPrice, onConfirm }: BookingE
             <Text>Phụ thu phòng đơn</Text>
           </Col>
           <Col>
-            <Text className="text-[#7BBCB0]!">Chưa áp dụng</Text>
+            <Text className="text-[#21776D]!">Chưa áp dụng</Text>
           </Col>
         </Row>
       </div>
@@ -88,15 +91,15 @@ export default function BookingExpense({ items, tourPrice, onConfirm }: BookingE
       <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
         <Button
           type="link"
-          className="text-[#7BBCB0]!"
+          className="text-[#21776D]!"
           block
           size="large"
           onClick={() => navigate('/profile')}
         >
           Lịch sử đặt tour
         </Button>
-        <Button type="primary" className="bg-[#7BBCB0]!" block size="large" onClick={handleConfirm}>
-          Thanh toán
+        <Button type="primary" className="bg-[#21776D]!" block size="large" onClick={handleConfirm}>
+          Tiếp tục giữ chỗ
         </Button>
       </div>
     </>

@@ -5,8 +5,8 @@ const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_KEY = 'user';
 
 /**
- * Đơn giản hóa mã hóa token trước khi lưu vào sessionStorage để giảm nguy cơ XSS đọc trực tiếp.
- * Không thay thế hoàn toàn httpOnly cookie, nhưng làm tăng độ khó cho attacker.
+ * Giữ định dạng lưu trữ hiện có bằng Base64. Đây không phải mã hóa bảo mật:
+ * JavaScript cùng origin (kể cả mã XSS) vẫn có thể đọc token trong sessionStorage.
  */
 function obfuscate(value: string): string {
   return btoa(encodeURIComponent(value));

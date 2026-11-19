@@ -201,6 +201,7 @@ export default function History() {
     ['PENDING_PAYMENT', 'CONFIRMED'].includes(record.status ?? '') &&
     !!record.reservationStatus &&
     !['PAID', 'EXPIRED', 'CANCELLED'].includes(record.reservationStatus) &&
+    !['SUSPENDED', 'CANCELLED'].includes(record.tourDeparture?.operationalStatus ?? '') &&
     record.invoice?.status !== 'PAID';
 
   // Mirrors BookingLifecycleService.cancel: paid bookings and closed holds must not offer "Hủy".

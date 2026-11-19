@@ -11,7 +11,8 @@ interface Props {
 const UserDetailModal: React.FC<Props> = ({ open, user, onClose }) => {
   return (
     <Modal
-      open={open}
+      centered
+        open={open}
       title="Chi tiết người dùng"
       onCancel={onClose}
       footer={[

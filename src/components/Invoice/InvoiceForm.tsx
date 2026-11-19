@@ -2,6 +2,7 @@ import type { CustomerResponse } from '@/types/Booking';
 import type { ColumnsType } from 'antd/es/table';
 import {
   Card,
+  Grid,
   Typography,
   Table,
   Button,
@@ -28,6 +29,7 @@ export default function InvoiceForm({
   onCreate,
 }: InvoiceFormProps) {
   const navigate = useNavigate();
+  const screens = Grid.useBreakpoint();
   const [loading, setLoading] = useState(false);
   // Giá do server tính; giao diện chỉ hiển thị để tránh lệch với số tiền thực thu.
   const totalAmount = Number(quote?.amount ?? 0);
@@ -85,14 +87,14 @@ export default function InvoiceForm({
   ];
 
   return (
-    <Card loading={loading}>
+    <Card className="journey-invoice-form" variant="borderless" loading={loading}>
       <Title level={4} style={{ textAlign: 'center' }}>
-        Hóa đơn thanh toán
+        Thông tin giữ chỗ
       </Title>
 
       <section style={{ marginBottom: 16 }}>
         <Title level={5}>Thông tin tài khoản</Title>
-        <Descriptions size="small" bordered column={1}>
+        <Descriptions layout={screens.sm ? 'horizontal' : 'vertical'} size="small" bordered column={1}>
           <Descriptions.Item label="Họ tên">{account.fullName}</Descriptions.Item>
           <Descriptions.Item label="Email">{account.email}</Descriptions.Item>
           <Descriptions.Item label="Số điện thoại">{account.phone}</Descriptions.Item>
@@ -102,7 +104,7 @@ export default function InvoiceForm({
       {tourDeparture ? (
         <section style={{ marginBottom: 16 }}>
           <Title level={5}>Thông tin chuyến đi</Title>
-          <Descriptions size="small" bordered column={1}>
+          <Descriptions layout={screens.sm ? 'horizontal' : 'vertical'} size="small" bordered column={1}>
             <Descriptions.Item label="Mã chuyến đi">{tourDeparture.tourCode}</Descriptions.Item>
             <Descriptions.Item label="Ngày khởi hành">
               {formatDatetime(tourDeparture.departureDate)}
@@ -137,16 +139,17 @@ export default function InvoiceForm({
       <Table
         dataSource={customers}
         columns={columns}
+        scroll={{ x: 680 }}
         pagination={false}
         rowKey={(r) => String(r.id)}
         size="small"
       />
 
       <Divider />
-      <Title level={5}>Tổng thanh toán hóa đơn</Title>
-      <Descriptions bordered size="small" column={1}>
+      <Title level={5}>Tổng thanh toán</Title>
+      <Descriptions layout={screens.sm ? 'horizontal' : 'vertical'} bordered size="small" column={1}>
         <Descriptions.Item label="Tổng cộng">
-          <Text strong type="success" style={{ fontSize: 16 }}>
+          <Text strong style={{ fontSize: 16, color: '#155e54' }}>
             {formatCurrencyVND(totalAmount)}
           </Text>
         </Descriptions.Item>
@@ -161,8 +164,8 @@ export default function InvoiceForm({
         description="Hóa đơn được tạo tự động sau khi VNPay xác nhận giao dịch thành công."
       />
 
-      <Button type="primary" className="bg-[#7BBCB0]!" block size="large" loading={loading} disabled={!customers.length || !quote || totalAmount <= 0} onClick={handleSubmit}>
-        Thanh toán
+      <Button type="primary" className="bg-[#21776D]!" block size="large" loading={loading} disabled={!customers.length || !quote || totalAmount <= 0} onClick={handleSubmit}>
+        Thanh toán VNPay
       </Button>
 
       <Button type="text" block size="large" onClick={() => navigate('/')}>

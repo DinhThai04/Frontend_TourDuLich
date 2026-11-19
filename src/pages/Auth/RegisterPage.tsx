@@ -153,7 +153,7 @@ export default function RegisterPage() {
             >
               <Checkbox>
                 Tôi đã đọc và đồng ý với{' '}
-                <a href="/policies" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#7BBCB0' }}>
+                <a href="/policies" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: '#21776D' }}>
                   Điều khoản đăng ký hội viên
                 </a>
               </Checkbox>
@@ -162,7 +162,7 @@ export default function RegisterPage() {
             <Form.Item>
               <Button
                 type="primary"
-                className="!bg-[#7BBCB0]"
+                className="!bg-[#21776D]"
                 htmlType="submit"
                 loading={loading}
                 disabled={loading}
@@ -175,12 +175,12 @@ export default function RegisterPage() {
                 <Button
                   type="link"
                   onClick={() => navigate('/login')}
-                  style={{ padding: 0, color: '#7BBCB0' }}
+                  style={{ padding: 0, color: '#21776D' }}
                 >
                   Đăng nhập ngay
                 </Button>
               </Typography.Paragraph>
-              <Button className="text-[#7BBCB0]!" block type="link" onClick={() => navigate('/')}>
+              <Button className="text-[#21776D]!" block type="link" onClick={() => navigate('/')}>
                 Về trang chủ
               </Button>
             </Form.Item>

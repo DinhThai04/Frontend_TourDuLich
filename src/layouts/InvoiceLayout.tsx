@@ -79,13 +79,12 @@ export default function InvoiceLayout() {
         if (tourRes.status === 'rejected' || tourRes.value.code !== 1000 || !tourRes.value.result) {
           throw new Error('Không tải được thông tin chuyến đi.');
         }
-        if (quoteRes.status === 'rejected' || quoteRes.value.code !== 1000 || !quoteRes.value.result) {
-          throw new Error('Không tải được giá thanh toán của booking.');
-        }
-
         const tourDeparture = tourRes.value.result;
         if (['SUSPENDED', 'CANCELLED'].includes(tourDeparture.operationalStatus || '')) {
-          throw new Error('Chuyến cũ đang dừng do sự cố. Vui lòng vào Hồ sơ → Lịch sử đặt chỗ → Dời lịch để phản hồi; không thanh toán theo lịch cũ.');
+          throw new Error('Lịch khởi hành đã dừng hoặc đã đóng. Vui lòng kiểm tra lịch sử đặt chỗ hoặc liên hệ SGU Tour để được hỗ trợ.');
+        }
+        if (quoteRes.status === 'rejected' || quoteRes.value.code !== 1000 || !quoteRes.value.result) {
+          throw new Error('Không tải được giá thanh toán của booking.');
         }
 
         if (run !== requestSeq.current) return;
@@ -141,10 +140,10 @@ export default function InvoiceLayout() {
    * Render
    ----------------------------------------------------------*/
   return (
-    <div style={{ padding: '24px 10rem', background: '#fff', minHeight: '100vh' }}>
+    <div style={{ padding: '24px clamp(16px, 5vw, 160px)', background: '#fff', minHeight: '100vh' }}>
       <Row gutter={[24, 24]} justify="center">
         <Col xs={24} lg={16}>
-          <Card
+          <Card className="journey-ticket"
             variant="borderless"
             style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
           >

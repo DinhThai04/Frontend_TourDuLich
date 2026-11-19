@@ -227,7 +227,7 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
         <Button
           type="primary"
           size="large"
-          className="w-full !mt-4 !bg-[#7BBCB0]"
+          className="w-full !mt-4 !bg-[#21776D]"
           onClick={handleApplyFilters}
         >
           Áp dụng

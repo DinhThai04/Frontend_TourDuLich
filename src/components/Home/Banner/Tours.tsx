@@ -76,15 +76,16 @@ const Tours = () => {
 
   return (
     <div>
-      <div className="flex flex-col md:flex-row gap-4 !p-2 md:px-3">
+      <div className="home-search-fields">
         {/* Where to travel */}
-        <div className="flex-[4]">
-          <p className="!m-0 !mb-1 text-[16px] font-bold flex items-center gap-2 text-[#7BBCB0]">
+        <div className="home-search-destination">
+          <p className="!m-0 !mb-1 text-[16px] font-bold flex items-center gap-2 text-[#21776D]">
             <LocationEdit className="text-[12px]" />
             Bạn muốn đi đâu?
-            <span className="text-red-500">*</span>
+
           </p>
           <AutoComplete
+            aria-label="Điểm đến"
             options={options} // Hiển thị các gợi ý
             value={destination} // Vẫn kết nối với state của bạn
             onChange={onChangeDestination}
@@ -102,8 +103,8 @@ const Tours = () => {
         <Divider type="vertical" className="hidden md:block h-[70px] w-[1px] mx-3" />
 
         {/* Departure date */}
-        <div className="flex-[3]">
-          <p className="m-0 mb-1 text-[16px] font-medium text-[#7BBCB0] flex items-center gap-2">
+        <div className="home-search-date">
+          <p className="m-0 mb-1 text-[16px] font-medium text-[#21776D] flex items-center gap-2">
             <Calendar />
             Ngày đi
           </p>
@@ -119,13 +120,14 @@ const Tours = () => {
         <Divider type="vertical" className="hidden md:block h-[70px] w-[1px] ml-3 mr-[11px]" />
 
         {/* Price range + button */}
-        <div className="flex flex-[3] justify-between">
+        <div className="home-search-budget">
           <div>
-            <p className="m-0 mb-1 text-[16px] font-medium text-[#7BBCB0] flex items-center gap-2">
+            <p className="m-0 mb-1 text-[16px] font-medium text-[#21776D] flex items-center gap-2">
               <Ticket />
               Ngân sách
             </p>
             <Select
+              aria-label="Ngân sách"
               placeholder="Chọn mức giá"
               variant="borderless"
               value={priceRange}
@@ -134,8 +136,8 @@ const Tours = () => {
               className="!w-[180px]"
             />
           </div>
-          <Button className="!h-auto !border-[#7BBCB0]" aria-label="Tìm tour" onClick={handleSearch}>
-            <SearchOutlined className="text-[20px] px-[6px] !text-[#7BBCB0]" />
+          <Button type="primary" className="home-search-submit" aria-label="Tìm tour" onClick={handleSearch}>
+            <SearchOutlined /><span>Tìm tour</span>
           </Button>
         </div>
       </div>

@@ -166,7 +166,7 @@ const ManagerRoleUser: React.FC = () => {
       ),
     },
     {
-      title: 'Thuộc Roles',
+      title: 'Thuộc vai trò',
       dataIndex: 'roles',
       search: false,
       render: (_, record) =>

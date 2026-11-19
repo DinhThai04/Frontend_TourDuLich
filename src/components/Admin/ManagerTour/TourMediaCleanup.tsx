@@ -40,7 +40,8 @@ export default function TourMediaCleanup({ open, onClose, canDelete }: { open: b
       },
     });
   }
-  return <Modal open={open} onCancel={onClose} footer={null} width={820} title="Ảnh đã gỡ khỏi tour">
+  return <Modal centered
+        open={open} onCancel={onClose} footer={null} width={820} title="Ảnh đã gỡ khỏi tour">
     <Alert type="info" showIcon message="Gỡ khỏi tour sẽ giữ ảnh trên Cloudinary. Xóa vĩnh viễn chỉ thực hiện với ảnh đã xác minh và không còn tham chiếu khác."
       description="Ảnh đã gỡ từ trước khi có chức năng này có thể không còn metadata để xuất hiện trong danh sách; bạn kiểm tra những ảnh đó trực tiếp trên Cloudinary." />
     <Space style={{ marginBlock: 12 }}><Button onClick={() => void load(page)} loading={loading}>Tải lại</Button></Space>

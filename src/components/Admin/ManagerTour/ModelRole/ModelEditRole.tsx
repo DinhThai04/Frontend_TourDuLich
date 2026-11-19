@@ -194,7 +194,8 @@ const ModelEditRole: React.FC<Props> = ({ open, setOpen, role, fetchRoles }) => 
   // _________________________________________________
   return (
     <Modal
-      title="Chỉnh sửa vai trò"
+      centered
+        title="Chỉnh sửa vai trò"
       open={open}
       onCancel={() => setOpen(false)}
       onOk={handleSubmit}
