@@ -25,11 +25,15 @@ const List = ({ tours }: { tours: ITour[] | null }) => {
         {tours && tours.length > 0 ? (
           tours.map((tour) => (
             <Card
+              role="link"
+              tabIndex={0}
+              aria-label={`Xem tour ${tour.tourTitle}`}
+              onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) navigate(`/tours/detail/${tour.id}`); }}
               onClick={() => {
                 navigate(`/tours/detail/${tour.id}`);
               }}
               key={tour.id}
-              className="rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
+              className="journey-tour-card rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
             >
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="w-full sm:w-1/3 flex-shrink-0 rounded-lg overflow-hidden">
@@ -95,7 +99,7 @@ const List = ({ tours }: { tours: ITour[] | null }) => {
                   <div className="!mt-4 flex justify-between items-center">
                     <div className="">
                       <Text className="text-gray-500 font-bold !text-[18px]">Giá chỉ từ</Text>
-                      <span className="block text-[#FFDA32] !mt-0 font-[700] text-[24px]">
+                      <span className="block text-[#155e54] !mt-0 font-[700] text-[24px]">
                         {formatCurrencyVND(tour.basePrice)}
                       </span>
                     </div>
@@ -104,7 +108,7 @@ const List = ({ tours }: { tours: ITour[] | null }) => {
                         navigate(`/tours/detail/${tour.id}`);
                       }}
                       type="primary"
-                      className="mt-2 !bg-[#7BBCB0]"
+                      className="mt-2 !bg-[#21776D]"
                       size="large"
                     >
                       Xem chi tiết

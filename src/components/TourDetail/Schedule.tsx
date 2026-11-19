@@ -220,7 +220,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
       </ConfigProvider>
       <p
         style={{
-          color: '#E01600',
+          color: '#155e54',
           fontSize: 16,
           fontStyle: 'italic',
           fontWeight: 400,
@@ -270,7 +270,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
 
         {/* Giá */}
         <div
-          style={{ fontSize: 14, fontWeight: '700', color: special ? '#E01600' : 'transparent' }}
+          style={{ fontSize: 14, fontWeight: '700', color: special ? '#155e54' : 'transparent' }}
         >
           {special?.price || '—'}
         </div>
@@ -322,7 +322,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
             </button>
           </Col>
           <Col>
-            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#E01600' }}>{dayjs(dataDetailTourDeparture?.departureDate).format('DD/MM/YYYY')}</div>
+            <div style={{ fontSize: 18, fontWeight: 'bold', color: '#155e54' }}>{dayjs(dataDetailTourDeparture?.departureDate).format('DD/MM/YYYY')}</div>
           </Col>
         </Row>
 
@@ -482,7 +482,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                   (Từ 12 tuổi trở lên)
                 </Text>
               </div>
-              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#155e54' }}>
                 {vnd(dataDetailTourDeparture?.tourPrice?.adultPrice)}
               </Text>
             </div>
@@ -501,7 +501,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                   (Từ 5 đến 11 tuổi)
                 </Text>
               </div>
-              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#155e54' }}>
                 {vnd(dataDetailTourDeparture?.tourPrice?.childPrice)}
               </Text>
             </div>
@@ -520,7 +520,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                   (Từ 2 - 4 tuổi)
                 </Text>
               </div>
-              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#155e54' }}>
                 {vnd(dataDetailTourDeparture?.tourPrice?.toddlerPrice)}
               </Text>
             </div>
@@ -550,7 +550,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
                   (Dưới 2 tuổi)
                 </Text>
               </div>
-              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#155e54' }}>
                 {vnd(dataDetailTourDeparture?.tourPrice?.infantPrice)}
               </Text>
             </div>
@@ -564,7 +564,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
               }}
             >
               <Text style={{ fontWeight: 500, fontSize: 13 }}>Phụ thu phòng đơn</Text>
-              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#E01600' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#155e54' }}>
                 {vnd(dataDetailTourDeparture?.tourPrice?.singleSupplementPrice)}
               </Text>
             </div>
@@ -642,7 +642,7 @@ export default function Schedule({ tourData, onSelectDepartureId }: ScheduleProp
         : specialMonths.length === 0 ? <Empty description="Tour hiện chưa có lịch khởi hành sắp tới." />
         : <Row gutter={17}>
         <Col xs={24} md={4}>{renderMonthSelector()}</Col>
-        <Col xs={24} md={20}>{selectedDepartureId ? (dataDetailTourDeparture ? renderTravelInfoCard() : <Spin />) : renderCalendar()}</Col>
+        <Col xs={24} md={20}><div key={selectedDepartureId || 'calendar'} className="journey-departure-state">{selectedDepartureId ? (dataDetailTourDeparture ? renderTravelInfoCard() : <Spin />) : renderCalendar()}</div></Col>
       </Row>}
     </div>
   );

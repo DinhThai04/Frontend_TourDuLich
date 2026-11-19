@@ -2,18 +2,9 @@ import { Link } from 'react-router-dom';
 import './about.css';
 
 const values = [
-  {
-    title: 'Hành trình được tuyển chọn',
-    text: 'Mỗi tour đều được kiểm tra lịch trình, phương tiện và điểm đến trước khi mở bán, để bạn yên tâm tận hưởng chuyến đi.',
-  },
-  {
-    title: 'Giá minh bạch',
-    text: 'Giá niêm yết hiển thị rõ theo từng ngày khởi hành, không phụ phí ẩn. Bạn luôn biết mình thanh toán cho điều gì.',
-  },
-  {
-    title: 'Đồng hành trước và sau chuyến đi',
-    text: 'Đội ngũ hỗ trợ trao đổi qua hotline và email trong suốt quá trình đặt chỗ, thanh toán và chuẩn bị khởi hành.',
-  },
+  { title: 'Xem rõ hành trình', text: 'Đọc lịch trình theo ngày, điểm đi và điểm đến trước khi lựa chọn tour.' },
+  { title: 'Chọn lịch khởi hành', text: 'Xem ngày đi, giá theo nhóm tuổi và số chỗ của chuyến đang quan tâm.' },
+  { title: 'Theo dõi đặt chỗ', text: 'Quản lý booking, hạn thanh toán và kết quả giao dịch trong tài khoản.' },
 ];
 
 export default function AboutPage() {
@@ -24,18 +15,18 @@ export default function AboutPage() {
         <span> / Về chúng tôi</span>
       </nav>
       <header className="sgu-about-heading">
-        <span className="sgu-about-eyebrow">SGU TOUR · ĐỒNG HÀNH CÙNG BẠN</span>
+        <span className="sgu-about-eyebrow">SGU TOUR · DU LỊCH VIỆT NAM</span>
         <h1>Về SGU Tour</h1>
         <p>
-          SGU Tour kết nối du khách với những hành trình trong nước và quốc tế được tổ chức
-          trọn gói: lịch trình rõ ràng, phương tiện phù hợp và đội ngũ hỗ trợ tận tâm.
+          SGU Tour là website tìm và đặt tour du lịch Việt Nam, được xây dựng trong đồ án môn J2EE.
+          Bạn có thể xem hành trình, chọn ngày khởi hành và theo dõi đặt chỗ trực tuyến.
         </p>
       </header>
       <section aria-labelledby="about-mission">
-        <h2 id="about-mission">Sứ mệnh của chúng tôi</h2>
+        <h2 id="about-mission">Từ lựa chọn đến khởi hành</h2>
         <p>
           Giúp mỗi chuyến đi trở nên dễ lên kế hoạch và dễ dàng thực hiện: từ việc chọn điểm đến,
-          xem ngày khởi hành, đặt chỗ trực tuyến đến thanh toán an toàn và nhận hỗ trợ khi cần.
+          xem ngày khởi hành, khai báo hành khách đến kiểm tra thời hạn giữ chỗ và kết quả thanh toán.
         </p>
       </section>
       <section aria-labelledby="about-values">
@@ -50,12 +41,8 @@ export default function AboutPage() {
         </ul>
       </section>
       <section aria-labelledby="about-contact">
-        <h2 id="about-contact">Liên hệ</h2>
-        <p>
-          123 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh · Hotline{' '}
-          <a href="tel:+84123456789">+84 123 456 789</a> · Email{' '}
-          <a href="mailto:danhcong6205@gmail.com">danhcong6205@gmail.com</a>
-        </p>
+        <h2 id="about-contact">Thông tin trước khi đặt tour</h2>
+        <p>Xem điều kiện giữ chỗ và thanh toán trong chính sách của hệ thống. Bạn có thể tra cứu booking trong tài khoản của mình.</p>
         <p>
           Bạn muốn xem trước khi đặt? Hãy xem <Link to="/tours">danh sách tour</Link> hoặc đọc{' '}
           <Link to="/policies">chính sách &amp; câu hỏi thường gặp</Link>.

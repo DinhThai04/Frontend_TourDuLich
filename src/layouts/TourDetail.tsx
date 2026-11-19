@@ -7,7 +7,7 @@ import TourDetailCard from '@/components/TourDetail/TourDetailCard';
 import TourImages from '@/components/TourDetail/TourImage';
 import { Alert, Button, Row, Col, Skeleton, Typography } from 'antd';
 import { lazy, useEffect, useRef, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { getRandom3Tour, getTourById } from '@/services/tourServices';
 import type { ITour } from '@/types/Tour';
 import DeferredSection from '@/components/Share/DeferredSection';
@@ -22,19 +22,24 @@ export default function TourDetail() {
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const { id } = useParams<{ id: string }>();
+  const { hash, key } = useLocation();
   const scheduleRef = useRef<HTMLDivElement>(null);
 
-
+  useEffect(() => {
+    if (hash === '#lich-khoi-hanh' && dataDetailtour?.id === Number(id)) {
+      scheduleRef.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [dataDetailtour, hash, id, key]);
 
   const scrollToSchedule = () => {
     if (scheduleRef.current) {
-      scheduleRef.current.scrollIntoView({ 
+      scheduleRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'start'
       });
     }
   };
-  
+
   useEffect(() => {
     setSelectedDepartureId(null);
     const controller = new AbortController();
@@ -77,10 +82,10 @@ export default function TourDetail() {
           <Row gutter={24}>
             <Col xs={24} lg={17}>
               {dataDetailtour && <TourImages imageIds={dataDetailtour.imageIds} />}
-              <div ref={scheduleRef}>
+              <div id="lich-khoi-hanh" ref={scheduleRef} style={{ scrollMarginTop: 96 }}>
                 {dataDetailtour && (
-                  <Schedule 
-                    tourData={dataDetailtour} 
+                  <Schedule
+                    tourData={dataDetailtour}
                     onSelectDepartureId={handleSelectDeparture}
                   />
                 )}
@@ -98,8 +103,8 @@ export default function TourDetail() {
                   alignSelf: 'flex-start', // đảm bảo sticky tính từ đầu Col
                 }}
               >
-                <TourDetailCard 
-                  tourData={dataDetailtour} 
+                <TourDetailCard
+                  tourData={dataDetailtour}
                   selectedDepartureId={selectedDepartureId}
                   onSelectDeparture={scrollToSchedule} // Truyền hàm xuống
                 />
@@ -114,10 +119,10 @@ export default function TourDetail() {
               marginBottom: 24,
               fontWeight: 700,
               textAlign: 'center',
-              color: '#0B5DA7',
+              color: '#153a35',
             }}
           >
-            CÁC CHƯƠNG TRÌNH KHÁC
+            Những hành trình khác
           </Title>
 
           <Row gutter={24} justify="space-between">
