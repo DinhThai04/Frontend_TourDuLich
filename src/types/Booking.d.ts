@@ -25,9 +25,11 @@ export type BookingRequest = {
 	tourDepartureId: string; // id from url
 	listOfCustomers: { fullName: string; birthdate: string; address?: string; gender: string }[]; // customers from the booking form
 	clientKey?: string; // stable UUID for one checkout attempt; retries must reuse it
+	pricingDate?: string; // Vietnam calendar date used for the current preview
 };
 
 export type BookingResponse = {
+	restartAllowed?: boolean;
 	reservationStatus?: 'HELD' | 'CHECKOUT' | 'PAID' | 'EXPIRED' | 'CANCELLED' | null;
 	paymentDeadline?: string | null;
 	paymentRequiredNow?: boolean;

@@ -5,7 +5,8 @@ import { errorMessage } from '@/utils/errors';
 import { parseDate, formatDatetime, createClientKey } from '@/utils';
 import { Row, Col, Card, Modal, Checkbox, Alert, Spin } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useRef, useState, useMemo, useCallback, useEffect } from 'react';
+import { isAxiosError } from 'axios';
+import { useContext, useRef, useState, useMemo, useCallback, useEffect } from 'react';
 
 import PersonalInfo from '@/components/Booking/PersonalInfo';
 import ListOfCustomerInfo from '@/components/Booking/ListOfCustomerInfo';
@@ -15,11 +16,22 @@ import BookingExpense, { type ExpenseItem } from '@/components/Booking/BookingEx
 import bookingServices from '@/services/bookingServices';
 import { getTourDepartureById } from '@/services/tourServices';
 import { sessionService } from '@/services/sessionServices';
-import { PASSENGER_LABELS, passengerTypeFor, passengersForBooking } from '@/utils/booking';
+import { PASSENGER_LABELS, passengerTypeFor, passengersForBooking, vietnamBookingDay } from '@/utils/booking';
+import { bookingAttemptKey, bookingAttemptScope, clearBookingAttempt, pendingBookingKey } from '@/utils/bookingAttempt';
 
 import type { BookingRequest, CustomerRequest } from '@/types/Booking';
 
+import { BookingDraftContext } from './BookingDraftContext';
+
+const previousBookingsLink = (
+  // The same-origin tab needs its opener to inherit the sign-in session in sessionStorage.
+  <a href="/profile#don-dat-tour" target="_blank" rel="opener">
+    Kiểm tra đơn đã giữ chỗ trước khi đặt lại
+  </a>
+);
+
 export default function BookingLayout() {
+  const { clearDraft, markDirty } = useContext(BookingDraftContext);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tourDepartureId = searchParams.get('departureId');
@@ -64,10 +76,31 @@ export default function BookingLayout() {
 
   const personalFormRef = useRef<FormInstance<PersonalFormValues> | null>(null);
   const customersFormRef = useRef<FormInstance<CustomersFormValues> | null>(null);
-  /** One idempotency key per checkout attempt so a retried submit cannot create a second booking. */
-  const clientKeyRef = useRef<string | null>(null);
   const [includeBooker, setIncludeBooker] = useState(true);
   const [extraCustomers, setExtraCustomers] = useState<PassengerFormValues[]>([]);
+  const [restartNotice, setRestartNotice] = useState(false);
+  const [pricingDay, setPricingDay] = useState(vietnamBookingDay);
+  const pricingDate = useMemo(() => parseDate(pricingDay) ?? new Date(), [pricingDay]);
+
+  useEffect(() => {
+    let timer = 0;
+    const syncDay = () => {
+      const now = Date.now();
+      const today = vietnamBookingDay(new Date(now));
+      setPricingDay(today);
+      const midnight = parseDate(today)?.getTime();
+      window.clearTimeout(timer);
+      if (midnight !== undefined) timer = window.setTimeout(syncDay, Math.max(1, midnight + 86_400_000 - now));
+    };
+    syncDay();
+    window.addEventListener('focus', syncDay);
+    document.addEventListener('visibilitychange', syncDay);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', syncDay);
+      document.removeEventListener('visibilitychange', syncDay);
+    };
+  }, []);
 
   const handlePersonalFormReady = useCallback((form: FormInstance<PersonalFormValues>) => { personalFormRef.current = form; }, []);
   const handleCustomersFormReady = useCallback((form: FormInstance<CustomersFormValues>) => { customersFormRef.current = form; }, []);
@@ -85,18 +118,25 @@ export default function BookingLayout() {
     // Người đặt đã được form cá nhân kiểm tra từ 18 tuổi trở lên nên luôn là người lớn.
     if (includeBooker) counts.ADULT += 1;
     extraCustomers.forEach((customer) => {
-      counts[passengerTypeFor(customer.birthDate)] += 1;
+      counts[passengerTypeFor(customer.birthDate, pricingDate, customer.type)] += 1;
     });
     return (Object.keys(counts) as PassengerType[])
       .filter((type) => counts[type] > 0)
       .map((type) => ({ type, label: PASSENGER_LABELS[type], quantity: counts[type] }));
-  }, [includeBooker, extraCustomers]);
+  }, [includeBooker, extraCustomers, pricingDate]);
 
   /** =====================================================
    *  🔹 Function xử lý khi nhấn "Xác nhận"
    *  ===================================================== */
   const handleConfirm = async () => {
     try {
+      const ensureDisplayedDayIsCurrent = () => {
+        const today = vietnamBookingDay();
+        if (today === pricingDay) return;
+        setPricingDay(today);
+        throw new Error('Đã sang ngày mới theo giờ Việt Nam. Vui lòng kiểm tra lại giá và nhóm tuổi trước khi xác nhận.');
+      };
+      ensureDisplayedDayIsCurrent();
       if (!departureReady) throw new Error('Chưa xác nhận được chuyến đi hợp lệ.');
       const personalForm = personalFormRef.current;
       const customerForm = customersFormRef.current;
@@ -107,6 +147,7 @@ export default function BookingLayout() {
 
       if (personalForm && includeBooker) await personalForm.validateFields();
       await customerForm.validateFields();
+      ensureDisplayedDayIsCurrent();
       const p = personalForm?.getFieldsValue();
       const extras = customerForm.getFieldsValue().customers || [];
       const passengers = passengersForBooking<PassengerFormValues>(includeBooker,
@@ -124,12 +165,16 @@ export default function BookingLayout() {
        *  🔹 Tạo booking request
        *  ===================================================== */
       const user = sessionService.getUser();
-      if (!user) throw new Error('Không tìm thấy thông tin người dùng.');
+      if (!user || !tourDepartureId) throw new Error('Không xác định được tài khoản hoặc lịch khởi hành.');
+      const attemptScope = bookingAttemptScope(user.id, tourDepartureId);
+      const clientKey = bookingAttemptKey(attemptScope, createClientKey);
+      setRestartNotice(false);
 
       const bookingRequest: BookingRequest = {
         userId: String(user.id),
         tourDepartureId: String(tourDepartureId),
-        clientKey: (clientKeyRef.current ??= createClientKey()),
+        clientKey,
+        pricingDate: pricingDay,
         listOfCustomers: customers.map((c: CustomerRequest) => ({
           fullName: c.fullName,
           birthdate: c.birthDate.format('YYYY-MM-DD'),
@@ -146,6 +191,21 @@ export default function BookingLayout() {
 
       if (res.code !== 1000 || !res.result?.id) throw new Error(res.result?.message || res.message || 'Đặt tour thất bại');
 
+      clearBookingAttempt(attemptScope, clientKey);
+      if (res.result.restartAllowed) {
+        setRestartNotice(true);
+        Modal.info({
+          title: 'Đơn trước đã kết thúc',
+          content: 'Thông tin đang nhập vẫn được giữ. Chọn “Tiếp tục giữ chỗ” để xác nhận một lượt đặt mới.',
+        });
+        return;
+      }
+      clearDraft();
+      const reservationStatus = res.result.reservationStatus;
+      if (reservationStatus === 'EXPIRED' || reservationStatus === 'CANCELLED' || reservationStatus === 'PAID') {
+        navigate(`/invoice/booking/${res.result.id}`);
+        return;
+      }
       Modal.success({
         title: res.result.paymentRequiredNow ? 'Vui lòng thanh toán ngay' : 'Đã giữ chỗ',
         content: res.result.paymentRequiredNow
@@ -158,9 +218,14 @@ export default function BookingLayout() {
     } catch (err: unknown) {
       // AntD rejects validateFields with field info, which the form already highlights.
       if (err && typeof err === 'object' && 'errorFields' in err) return;
+      const status = isAxiosError(err) ? err.response?.status : undefined;
+      const checkPreviousBooking = isAxiosError(err) && (!status || status === 409 || status >= 500);
       Modal.error({
         title: 'Lỗi',
-        content: errorMessage(err),
+        content: checkPreviousBooking ? <>
+          <p>{errorMessage(err)}</p>
+          {previousBookingsLink}
+        </> : errorMessage(err),
       });
     }
   };
@@ -168,13 +233,27 @@ export default function BookingLayout() {
   /** =====================================================
    *  🔹 RETURN SCOPE
    *  ===================================================== */
-  if (departureError) return <Alert type="error" showIcon message={departureError} />;
+  const currentUser = sessionService.getUser();
+  const hasPendingAttempt = currentUser && tourDepartureId
+    && pendingBookingKey(bookingAttemptScope(currentUser.id, tourDepartureId));
+  if (departureError) return <Alert type="error" showIcon message={departureError}
+    description={hasPendingAttempt ? previousBookingsLink : undefined} />;
   if (!departureReady) return <Spin tip="Đang kiểm tra chuyến đi"><div style={{ minHeight: 160 }} /></Spin>;
   return (
     <div className="bg-white min-h-screen" style={{ padding: '24px clamp(16px, 5vw, 160px)' }}>
       <Row gutter={[24, 24]} justify="center">
         <BookingTitle />
       </Row>
+
+      {hasPendingAttempt && (
+        <Alert className="!mb-4" type="info" showIcon
+          message="Lần giữ chỗ trước chưa có kết quả xác nhận trên trang này."
+          description={previousBookingsLink} />
+      )}
+      {restartNotice && !hasPendingAttempt && (
+        <Alert className="!mb-4" type="info" showIcon
+          message="Đơn trước đã kết thúc. Bạn có thể tạo lượt giữ chỗ mới với thông tin đang nhập." />
+      )}
 
       <Row gutter={[24, 24]} justify="center">
         {/* LEFT COLUMN */}
@@ -194,12 +273,16 @@ export default function BookingLayout() {
               marginTop: '20px',
             }}
           >
-            <Checkbox checked={includeBooker} onChange={e => setIncludeBooker(e.target.checked)}>
+            <Checkbox checked={includeBooker} onChange={event => {
+              markDirty();
+              setIncludeBooker(event.target.checked);
+            }}>
               Người đặt cũng tham gia tour (không cần nhập lại ở danh sách bên dưới)
             </Checkbox>
             <ListOfCustomerInfo
               onFormReady={handleCustomersFormReady}
               onCustomersChange={handleCustomersChange}
+              pricingDate={pricingDate}
               maxPassengers={availableSeats == null ? undefined : Math.max(0, availableSeats - (includeBooker ? 1 : 0))}
             />
           </Card>
