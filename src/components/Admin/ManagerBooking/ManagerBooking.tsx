@@ -203,6 +203,7 @@ const ManagerBooking: React.FC = () => {
 
       {/* Modal chi tiết Booking */}
       <Modal
+        centered
         title={`Chi tiết đặt tour #${detail?.id ?? ''}`}
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
