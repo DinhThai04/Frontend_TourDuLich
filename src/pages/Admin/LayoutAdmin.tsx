@@ -244,7 +244,7 @@ const AdminSidebar: React.FC = () => {
           />
           <Dropdown menu={{ items: itemsDropdown }} trigger={['click']}>
             <Space style={{ cursor: 'pointer' }}>
-              Welcome {user?.username || 'Admin'} <Avatar>{(user?.username || 'A')[0]}</Avatar>
+              Xin chào {user?.username || 'Admin'} <Avatar>{(user?.username || 'A')[0]}</Avatar>
             </Space>
           </Dropdown>
         </div>
@@ -267,50 +267,7 @@ const AdminSidebar: React.FC = () => {
             }}
             className="custom-scrollbar"
           >
-            <style>
-              {`
-                .custom-scrollbar {
-                  scrollbar-width: none !important;
-                  -ms-overflow-style: none !important;
-                }
 
-                .custom-scrollbar::-webkit-scrollbar {
-                  display: none !important;
-                  width: 0 !important;
-                  height: 0 !important;
-                }
-
-                .custom-scrollbar::-webkit-scrollbar-track {
-                  display: none !important;
-                }
-
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                  display: none !important;
-                }
-
-                .ant-modal-wrap {
-                  overflow: auto !important;
-                }
-
-                .ant-modal-mask {
-                  position: fixed !important;
-                  background-color: rgba(0, 0, 0, 0.5) !important;
-                }
-
-                .ant-modal {
-                  position: fixed !important;
-                }
-
-                body.ant-scrolling-effect {
-                  overflow: auto !important;
-                  padding-right: 0 !important;
-                }
-
-                .ant-modal-open {
-                  overflow: auto !important;
-                }
-              `}
-            </style>
             <Outlet />
           </div>
         </Content>

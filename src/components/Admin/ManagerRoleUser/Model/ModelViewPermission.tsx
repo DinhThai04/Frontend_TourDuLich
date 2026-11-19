@@ -29,7 +29,8 @@ const methodColorMap: Record<string, string> = {
 const ModelViewPermission: React.FC<Props> = ({ open, onClose, viewingPermission }) => {
   return (
     <Modal
-      title="Chi tiết quyền"
+      centered
+        title="Chi tiết quyền"
       open={open}
       onCancel={onClose}
       footer={null}

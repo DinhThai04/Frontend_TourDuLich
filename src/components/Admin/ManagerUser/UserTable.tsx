@@ -34,7 +34,7 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
 
   const columns: ProColumns<User>[] = [
     {
-      title: 'Avatar',
+      title: 'Ảnh đại diện',
       dataIndex: 'avatar',
       search: false,
       width: 80,

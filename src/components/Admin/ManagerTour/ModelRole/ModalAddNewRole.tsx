@@ -159,7 +159,8 @@ const ModalAddNewRole: React.FC<ModalAddNewRoleProps> = ({ open, setOpen, fetchR
 
   return (
     <Modal
-      title="Thêm vai trò mới"
+      centered
+        title="Thêm vai trò mới"
       open={open}
       onCancel={() => setOpen(false)}
       onOk={handleSubmit}

@@ -49,11 +49,13 @@ export default function UserAccountActions({ user, onChanged }: { user: User; on
       {available.includes('DELETE') && <Button size="small" danger onClick={()=>open('DELETE')}>Xóa thật</Button>}
       {canEvents && <Button size="small" onClick={()=>void viewHistory()}>Nhật ký</Button>}
     </Space>
-    <Modal title={action?`${labels[action]} tài khoản ${user.username}`:''} open={!!action} onCancel={()=>{if(!saving)setAction(null);}} onOk={()=>void submit()} confirmLoading={saving} maskClosable={!saving} closable={!saving} okText={action?labels[action]:'Xác nhận'}>
+    <Modal centered
+        title={action?`${labels[action]} tài khoản ${user.username}`:''} open={!!action} onCancel={()=>{if(!saving)setAction(null);}} onOk={()=>void submit()} confirmLoading={saving} maskClosable={!saving} closable={!saving} okText={action?labels[action]:'Xác nhận'}>
       <Alert type={action==='DELETE'?'warning':'info'} showIcon message={action==='DELETE'?'Chỉ xóa thật tài khoản đã khóa và chưa có lịch sử nghiệp vụ. Nhật ký thao tác vẫn được giữ.':action==='ARCHIVE'?'Lưu trữ giữ nguyên lịch sử. Chỉ thực hiện khi đã giải quyết mọi chuyến đi, thanh toán và yêu cầu liên quan.':action==='LOCK'?'Tài khoản sẽ mất quyền đăng nhập và sử dụng phiên cũ. Booking và giao dịch vẫn được giữ nguyên.':'Tài khoản có thể đăng nhập lại bằng mật khẩu hiện có. Phiên trước khi khóa không được khôi phục.'} />
       <Form form={form} layout="vertical"><Form.Item name="reason" label="Lý do" rules={[{required:true,whitespace:true,message:'Vui lòng nhập lý do'}, {max:1000}]}><Input.TextArea rows={3} maxLength={1000} showCount disabled={saving}/></Form.Item></Form>
     </Modal>
-    <Modal title={`Nhật ký tài khoản ${user.username} (100 mục gần nhất)`} open={historyOpen} onCancel={()=>setHistoryOpen(false)} footer={null} width={900}>
+    <Modal centered
+        title={`Nhật ký tài khoản ${user.username} (100 mục gần nhất)`} open={historyOpen} onCancel={()=>setHistoryOpen(false)} footer={null} width={900}>
       <Table<AccountEvent> rowKey="id" dataSource={history} loading={loadingHistory} pagination={{pageSize:10}} columns={[
         {title:'Thời gian',dataIndex:'createdAt'}, {title:'Người thực hiện',dataIndex:'actorId',render:(id:number)=>`Tài khoản #${id}`},
         {title:'Thao tác',dataIndex:'action'}, {title:'Trạng thái mới',dataIndex:'newStatus',render:(value:AccountEvent['newStatus'])=><Tag>{value?accountStatusLabels[value]:'Đã xóa thật'}</Tag>}, {title:'Lý do',dataIndex:'reason'}
