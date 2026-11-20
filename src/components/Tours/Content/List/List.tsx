@@ -1,4 +1,4 @@
-import { Card, Button, Space, Typography, Empty } from 'antd';
+import { Card, Button, Space, Typography } from 'antd';
 import {
   CalendarOutlined,
   EnvironmentOutlined,
@@ -14,21 +14,22 @@ import dayjs from 'dayjs';
 import ResponsiveImage from '@/components/Share/ResponsiveImage';
 const { Text } = Typography;
 
-const List = ({ tours }: { tours: ITour[] | null }) => {
+type TourListProps = {
+  tours: ITour[];
+  comparedIds: number[];
+  comparisonFull: boolean;
+  onCompare: (tour: ITour) => void;
+};
+
+const List = ({ tours, comparedIds, comparisonFull, onCompare }: TourListProps) => {
   const navigate = useNavigate();
   return (
     <div className="!p-4">
-      {/* <Title level={2} className="text-center mb-8">
-        Danh sách Tour nổi bật
-      </Title> */}
       <div className="flex flex-col gap-5">
-        {tours && tours.length > 0 ? (
-          tours.map((tour) => (
+        {tours.map(tour => {
+          const compared = comparedIds.includes(Number(tour.id));
+          return (
             <Card
-              role="link"
-              tabIndex={0}
-              aria-label={`Xem tour ${tour.tourTitle}`}
-              onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) navigate(`/tours/detail/${tour.id}`); }}
               onClick={() => {
                 navigate(`/tours/detail/${tour.id}`);
               }}
@@ -96,33 +97,34 @@ const List = ({ tours }: { tours: ITour[] | null }) => {
                       </p>
                     </span>
                   </div>
-                  <div className="!mt-4 flex justify-between items-center">
+                  <div className="!mt-4 flex flex-wrap justify-between items-center gap-2">
                     <div className="">
                       <Text className="text-gray-500 font-bold !text-[18px]">Giá chỉ từ</Text>
                       <span className="block text-[#155e54] !mt-0 font-[700] text-[24px]">
                         {formatCurrencyVND(tour.basePrice)}
                       </span>
                     </div>
-                    <Button
-                      onClick={() => {
-                        navigate(`/tours/detail/${tour.id}`);
-                      }}
-                      type="primary"
-                      className="mt-2 !bg-[#21776D]"
-                      size="large"
-                    >
-                      Xem chi tiết
-                    </Button>
+                    <div className="flex flex-wrap gap-2" onClick={event => event.stopPropagation()}>
+                      <Button aria-pressed={compared} aria-label={`So sánh ${tour.tourTitle}`}
+                        disabled={comparisonFull && !compared} type={compared ? 'dashed' : 'default'}
+                        onClick={() => onCompare(tour)}>
+                        {compared ? 'Đã chọn' : 'So sánh'}
+                      </Button>
+                      <Button href={`/tours/detail/${tour.id}`} type="primary" className="!bg-[#21776D]"
+                        onClick={event => {
+                          if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                          event.preventDefault();
+                          navigate(`/tours/detail/${tour.id}`);
+                        }}>
+                        Xem chi tiết
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
             </Card>
-          ))
-        ) : (
-          <div className="flex justify-center items-center h-full">
-            <Empty description="Không có tour phù hợp" />
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );

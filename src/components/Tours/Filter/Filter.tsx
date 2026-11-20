@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { getAllDepartures, getAllDestinations, getAllVehicles } from '@/services/tourServices';
 import { settledRows } from '@/utils/settledRows';
-import { BUDGET_BUCKETS, budgetKeyFromParams, budgetParams } from '@/utils/tourSearch';
+import { BUDGET_BUCKETS, budgetKeyFromParams, budgetParams, TOUR_FILTER_KEYS } from '@/utils/tourSearch';
 import type { ILocation, ITour, IVehicle } from '@/types/Tour';
 import type { useSearchParams } from 'react-router-dom';
 
@@ -19,8 +19,6 @@ interface IProps {
   searchParams: URLSearchParams;
   setSearchParams: ReturnType<typeof useSearchParams>[1];
 }
-
-const FILTER_KEYS = ['dest', 'depD', 'minP', 'maxP', 'veh', 'dep'] as const;
 
 const Filter = ({ searchParams, setSearchParams }: IProps) => {
   // State để lưu trữ các giá trị của bộ lọc
@@ -42,7 +40,7 @@ const Filter = ({ searchParams, setSearchParams }: IProps) => {
     // Chỉ đọc lại URL khi chính bộ lọc thay đổi (nút "Áp dụng", liên kết từ trang chủ).
     // Đổi sắp xếp hay chuyển trang cũng làm searchParams đổi, nhưng không được xóa các lựa
     // chọn người dùng đang soạn mà chưa bấm "Áp dụng".
-    const key = FILTER_KEYS.map((name) => searchParams.get(name) ?? '').join('|');
+    const key = TOUR_FILTER_KEYS.map((name) => searchParams.get(name) ?? '').join('|');
     if (key === syncedFilters) return;
     setSyncedFilters(key);
 
