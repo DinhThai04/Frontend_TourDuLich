@@ -1,151 +1,125 @@
-import JourneySteps from '@/components/Share/JourneySteps';
 import { useEffect, useState } from 'react';
-import { Spin, Card, Result, Button, Descriptions } from 'antd';
+import { Button, Card, Descriptions, Result, Spin } from 'antd';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
+import JourneySteps from '@/components/Share/JourneySteps';
 import paymentServices from '@/services/paymentServices';
 import { formatCurrencyVND } from '@/utils';
+import { bookingHistoryLink } from '@/utils/booking';
 
 type PaymentResult = {
-  status: string; responseCode: string; transactionStatus: string;
-  orderId: string; amount: string; transactionNo?: string; bankCode?: string;
+  status: string;
+  bookingId?: number;
+  orderId: string;
+  amount: string;
+  transactionNo?: string;
+  bankCode?: string;
 };
 
-/** Stop verifying after this long so the page never spins forever. */
+type Outcome =
+  | { kind: 'success'; payment: PaymentResult }
+  | { kind: 'pending' | 'reconciliation' | 'refunded' | 'failed' | 'unverified'; payment?: PaymentResult }
+  | { kind: 'unavailable'; retryable: boolean };
+
 const VERIFY_TIMEOUT_MS = 25000;
-/** Re-query transient network failures within the timeout window. */
 const RETRY_INTERVAL_MS = 3000;
 
-export default function VnPayCallback() {
-  return <BookingVnPayCallback />;
-}
-function BookingVnPayCallback() {
-  const [loading, setLoading] = useState(true);
-  const [payment, setPayment] = useState<PaymentResult | null>(null);
-  const [error, setError] = useState('');
-  const [refunded, setRefunded] = useState(false);
-  // Only transient failures can change on another poll; a settled failure already expired the booking.
-  const [retryable, setRetryable] = useState(true);
-  const [attempt, setAttempt] = useState(0);
+const resultCopy = {
+  success: { status: 'success', title: 'Thanh toán thành công', description: 'Bạn có thể xem đơn và hóa đơn trong tài khoản.' },
+  pending: { status: 'info', title: 'Đang xác nhận giao dịch', description: 'Hệ thống chưa nhận được kết quả cuối cùng. Nếu ngân hàng đã trừ tiền, vui lòng chờ và không thanh toán lại.' },
+  reconciliation: { status: 'warning', title: 'Giao dịch cần đối soát', description: 'Vui lòng mở đơn để theo dõi. Nếu ngân hàng đã trừ tiền, liên hệ SGU Tour và không thanh toán lại.' },
+  refunded: { status: 'info', title: 'Đã ghi nhận hoàn tiền', description: 'Bạn có thể xem lại thông tin đơn hoặc liên hệ SGU Tour để kiểm tra chứng từ.' },
+  failed: { status: 'error', title: 'Giao dịch không thành công', description: 'Mở đơn để kiểm tra hạn giữ chỗ và các bước tiếp theo. Nếu ngân hàng đã trừ tiền, hãy liên hệ SGU Tour trước khi thanh toán lại.' },
+  unverified: { status: 'info', title: 'Chưa xác nhận được giao dịch', description: 'Bạn có thể kiểm tra lại kết quả hoặc mở lịch sử đơn. Nếu ngân hàng đã trừ tiền, vui lòng không thanh toán lại trong lúc chờ xác nhận.' },
+  unavailable: { status: 'warning', title: 'Không thể xác minh giao dịch', description: 'Mở lịch sử đặt tour để kiểm tra đơn hoặc liên hệ SGU Tour nếu ngân hàng đã trừ tiền.' },
+} as const;
 
-  const retry = () => {
-    setPayment(null);
-    setError('');
-    setRefunded(false);
-    setRetryable(true);
-    setLoading(true);
-    setAttempt((value) => value + 1);
-  };
+export default function VnPayCallback() {
+  const { search } = useLocation();
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<{ request: string; outcome: Outcome }>();
+  const request = `${attempt}:${search}`;
+  const outcome = state?.request === request ? state.outcome : undefined;
 
   useEffect(() => {
-    let active = true;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
-    const deadline = Date.now() + VERIFY_TIMEOUT_MS;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-    function stopTimers() {
-      if (retryTimer) clearTimeout(retryTimer);
+    function stop() {
       clearTimeout(deadlineTimer);
-    }
-    function finish(apply: () => void) {
-      if (!active) return;
-      stopTimers();
-      apply();
-      setLoading(false);
-    }
-    // Hard cap: abort a hung request and show a retryable error state.
-    const deadlineTimer = setTimeout(() => {
-      if (!active) return;
+      clearTimeout(retryTimer);
       controller.abort();
-      finish(() => setError('Hết thời gian xác thực giao dịch. Vui lòng kiểm tra lịch sử đặt tour hoặc bấm Thử lại.'));
-    }, VERIFY_TIMEOUT_MS);
+    }
 
-    const verify = async () => {
+    function finish(outcome: Outcome) {
+      if (controller.signal.aborted) return;
+      stop();
+      setState({ request, outcome });
+    }
+
+    async function verify() {
       try {
-        const res = await paymentServices.get(
-          `/payment/vnpay/bookings/return${window.location.search}`,
-          { signal: controller.signal },
+        const { code, result } = await paymentServices.get(
+          `/payment/vnpay/bookings/return${search}`, { signal: controller.signal },
         );
-        const result = res.result as PaymentResult;
-        if (result?.status === 'refunded') {
-          finish(() => {
-            setRefunded(true);
-            setRetryable(false);
-            setError('Giao dịch này đã được ghi nhận hoàn tiền sau đối soát. Vui lòng xem lịch sử hoặc liên hệ hỗ trợ nếu cần kiểm tra chứng từ.');
-          });
+        const payment = result as PaymentResult | undefined;
+        if (code !== 1000 || !payment) {
+          finish({ kind: 'unverified' });
           return;
         }
-        if (result?.status === 'reconciliation') {
-          finish(() => {
-            setRetryable(false);
-            setError('Đã nhận kết quả giao dịch nhưng booking cần đối soát (có thể đã hết hạn hoặc thay đổi). Nếu ngân hàng đã trừ tiền, vui lòng liên hệ hỗ trợ và không thanh toán lại.');
-          });
-          return;
+        switch (payment.status) {
+          case 'success': finish({ kind: 'success', payment }); break;
+          case 'pending': finish({ kind: 'pending', payment }); break;
+          case 'reconciliation': finish({ kind: 'reconciliation', payment }); break;
+          case 'refunded': finish({ kind: 'refunded', payment }); break;
+          case 'failed': finish({ kind: 'failed', payment }); break;
+          default: finish({ kind: 'unverified', payment });
         }
-        // The provider signalled an ambiguous result: the backend keeps the seats and waits
-        // for a retried IPN or reconciliation, so this is not a released booking.
-        if (result?.status === 'pending') {
-          finish(() => {
-            setRetryable(false);
-            setError('Giao dịch đã được ghi nhận nhưng chưa có kết quả cuối cùng. Vui lòng không thanh toán lại và kiểm tra Lịch sử đặt tour sau ít phút.');
-          });
-          return;
-        }
-        if (res.code !== 1000 || result?.status !== 'success' ||
-            result?.responseCode !== '00' || result?.transactionStatus !== '00') {
-          const code = result?.responseCode;
-          finish(() => {
-            setRetryable(false);
-            setError(code && code !== '00'
-              ? `Giao dịch không thành công (mã ${code}). Booking đã được giải phóng chỗ; vui lòng đặt lại tour nếu vẫn còn nhu cầu.`
-              : 'Giao dịch đã hủy hoặc chưa hoàn tất. Booking đã được giải phóng chỗ; vui lòng đặt lại tour nếu vẫn còn nhu cầu.');
-          });
-          return;
-        }
-        finish(() => setPayment(result));
-      } catch (err: unknown) {
-        if (!active || controller.signal.aborted) return;
-        // 4xx means the gateway/payment service has already made up its mind (bad signature,
-        // unknown booking): retrying cannot change the outcome, so surface it immediately.
-        const status = axios.isAxiosError(err) ? err.response?.status : undefined;
-        const transient = status === undefined || status === 408 || status === 429 || status >= 500;
-        if (transient && Date.now() < deadline) {
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+        if (status === undefined || status === 408 || status === 429 || status >= 500) {
           retryTimer = setTimeout(() => { void verify(); }, RETRY_INTERVAL_MS);
-          return;
+        } else {
+          finish({ kind: 'unavailable', retryable: status === 401 });
         }
-        const backendMessage = axios.isAxiosError(err) && typeof err.response?.data?.message === 'string'
-          ? err.response.data.message
-          : undefined;
-        finish(() => {
-          if (!transient) setRetryable(false);
-          // Never fall through to err.message: "Request failed with status code 502" is a
-          // developer string on a page the customer reads right after paying.
-          setError(backendMessage || 'Không thể xác minh thanh toán ngay lúc này. Vui lòng kiểm tra Lịch sử đặt tour hoặc bấm Thử lại.');
-        });
       }
-    };
+    }
 
+    const deadlineTimer = setTimeout(() => finish({ kind: 'unverified' }), VERIFY_TIMEOUT_MS);
     void verify();
-    return () => {
-      active = false;
-      controller.abort();
-      stopTimers();
-    };
-  }, [attempt]);
+    return stop;
+  }, [request, search]);
 
-  if (loading) return <div style={{ padding: '5rem', textAlign: 'center' }}><Spin /><p>Đang xác thực giao dịch...</p></div>;
-  return <div style={{ padding: '24px' }}>
-    <JourneySteps current={payment ? 2 : 1} />
-    <Result status={payment ? 'success' : refunded ? 'info' : 'error'}
-      title={payment ? 'Thanh toán thành công!' : refunded ? 'Đã ghi nhận hoàn tiền' : 'Chưa hoàn tất thanh toán'}
-      subTitle={payment ? `Mã giao dịch: ${payment.orderId}` : error}
-      extra={<>
-        {!payment && !refunded && retryable && <Button type="primary" onClick={retry} style={{ marginRight: 8 }}>Thử lại</Button>}
-        <Button href="/profile">Lịch sử đặt tour</Button>
-      </>} />
-    {payment && <Card className="journey-ticket" title="Biên nhận thanh toán"><p className="journey-eyebrow">SGU TOUR · GIAO DỊCH ĐÃ XÁC MINH</p><Descriptions bordered column={1}>
-      <Descriptions.Item label="Số tiền">{formatCurrencyVND(Number(payment.amount))}</Descriptions.Item>
-      <Descriptions.Item label="Mã giao dịch VNPay">{payment.transactionNo}</Descriptions.Item>
-      <Descriptions.Item label="Ngân hàng">{payment.bankCode}</Descriptions.Item>
-    </Descriptions></Card>}
+  if (!outcome) return <div className="!py-20 text-center" role="status">
+    <Spin /><p>Đang xác nhận giao dịch…</p>
+  </div>;
+
+  const copy = resultCopy[outcome.kind];
+  const payment = 'payment' in outcome ? outcome.payment : undefined;
+  const bookingId = payment?.bookingId;
+  const showRetry = ['pending', 'unverified'].includes(outcome.kind) ||
+    (outcome.kind === 'unavailable' && outcome.retryable);
+
+  return <div className="!p-6">
+    <JourneySteps current={2} />
+    <Result status={copy.status} title={copy.title}
+      subTitle={bookingId ? `Đơn #${bookingId}. ${copy.description}` : copy.description}
+      extra={<div className="flex flex-wrap justify-center gap-2">
+        {showRetry && <Button type="primary" onClick={() => setAttempt(value => value + 1)}>
+          Kiểm tra lại trạng thái
+        </Button>}
+        <Button type={showRetry ? 'default' : 'primary'} href={bookingHistoryLink(bookingId)}>
+          {bookingId ? 'Xem đơn này' : 'Lịch sử đặt tour'}
+        </Button>
+      </div>} />
+    {outcome.kind === 'success' && <Card className="journey-ticket" title="Biên nhận thanh toán">
+      <Descriptions bordered column={1}>
+        <Descriptions.Item label="Số tiền">{formatCurrencyVND(Number(outcome.payment.amount))}</Descriptions.Item>
+        <Descriptions.Item label="Mã giao dịch">{outcome.payment.orderId}</Descriptions.Item>
+        <Descriptions.Item label="Mã giao dịch VNPAY">{outcome.payment.transactionNo || '—'}</Descriptions.Item>
+        <Descriptions.Item label="Ngân hàng">{outcome.payment.bankCode || '—'}</Descriptions.Item>
+      </Descriptions>
+    </Card>}
   </div>;
 }

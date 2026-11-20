@@ -14,18 +14,18 @@ import {
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrencyVND, formatDate, formatDatetime } from '@/utils';
-import { passengerLabel } from '@/utils/booking';
-// import type { CustomerResponse } from "@/types/Booking";
-// import type { ITourDeparture } from "@/types/Tour";
+import PriceBreakdown from '@/components/Share/PriceBreakdown';
+import { passengerLabel, PARTY_TYPES, tourPriceNote } from '@/utils/booking';
 import type { InvoiceFormProps } from '@/types/Invoice';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 export default function InvoiceForm({
   account,
   customers = [],
   tourDeparture,
   quote,
+  paymentDeadline,
   onCreate,
 }: InvoiceFormProps) {
   const navigate = useNavigate();
@@ -112,22 +112,7 @@ export default function InvoiceForm({
             <Descriptions.Item label="Ngày về">
               {formatDatetime(tourDeparture.returnDate)}
             </Descriptions.Item>
-            {/* Pricing may be unavailable while the departure itself is still readable. */}
-            {tourDeparture.tourPrice ? (
-              <>
-                <Descriptions.Item label="Giá vé người lớn">
-                  {formatCurrencyVND(tourDeparture.tourPrice.adultPrice)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Giá vé trẻ em">
-                  {formatCurrencyVND(tourDeparture.tourPrice.childPrice)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Giá phòng đơn tham khảo (chưa áp dụng)">
-                  {formatCurrencyVND(tourDeparture.tourPrice.singleSupplementPrice)}
-                </Descriptions.Item>
-              </>
-            ) : (
-              <Descriptions.Item label="Giá vé">Đang cập nhật</Descriptions.Item>
-            )}
+
           </Descriptions>
         </section>
       ) : (
@@ -146,26 +131,28 @@ export default function InvoiceForm({
       />
 
       <Divider />
-      <Title level={5}>Tổng thanh toán</Title>
-      <Descriptions layout={screens.sm ? 'horizontal' : 'vertical'} bordered size="small" column={1}>
-        <Descriptions.Item label="Tổng cộng">
-          <Text strong style={{ fontSize: 16, color: '#155e54' }}>
-            {formatCurrencyVND(totalAmount)}
-          </Text>
-        </Descriptions.Item>
-      </Descriptions>
-
+      {quote && <PriceBreakdown
+        total={totalAmount}
+        lines={PARTY_TYPES.flatMap(type => {
+          const quantity = customers.filter(customer => customer.bookingType === type).length;
+          const unitAmount = Number(quote.unitPrices[type]);
+          return quantity && Number.isFinite(unitAmount)
+            ? [{ label: passengerLabel(type), quantity, unitAmount, amount: quantity * unitAmount }] : [];
+        })}
+        note={tourPriceNote(quote.singleSupplementPrice)}
+      />}
       <Divider />
       <Alert
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
         message="Thanh toán trực tuyến qua VNPay"
-        description="Hóa đơn được tạo tự động sau khi VNPay xác nhận giao dịch thành công."
+        description={paymentDeadline ? `Hạn giữ chỗ: ${formatDatetime(paymentDeadline)} (giờ Việt Nam).`
+          : 'Hóa đơn được tạo tự động sau khi VNPAY xác nhận giao dịch thành công.'}
       />
 
       <Button type="primary" className="bg-[#21776D]!" block size="large" loading={loading} disabled={!customers.length || !quote || totalAmount <= 0} onClick={handleSubmit}>
-        Thanh toán VNPay
+        Thanh toán qua VNPAY
       </Button>
 
       <Button type="text" block size="large" onClick={() => navigate('/')}>

@@ -10,9 +10,11 @@ export type PaymentQuote = {
   /** Tổng tiền server sẽ thu (VND, dạng chuỗi số nguyên). */
   amount: string;
   unitPrices: Record<'ADULT' | 'CHILD' | 'TODDLER' | 'INFANT', string>;
+  singleSupplementPrice?: string | null;
 };
 
 interface InvoiceFormProps {
+  paymentDeadline?: string | null;
   account: { fullName: string; email: string; phone: string };
   customers?: CustomerResponse[];
   tourDeparture?: ITourDeparture;

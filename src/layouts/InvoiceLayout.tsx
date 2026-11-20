@@ -1,7 +1,7 @@
 import { errorMessage } from '@/utils/errors';
 import { formatDatetime } from '@/utils';
 import { Row, Col, Card, Spin, Alert, message, Button } from 'antd';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 
 import InvoiceForm from '@/components/Invoice/InvoiceForm';
@@ -12,6 +12,8 @@ import paymentServices from '@/services/paymentServices';
 import type { BookingResponse, CustomerResponse } from '@/types/Booking';
 import type { PaymentQuote } from '@/types/Invoice';
 import type { ITourDeparture } from '@/types/Tour';
+import { bookingHistoryLink } from '@/utils/booking';
+import { tourScheduleLink } from '@/utils/tourSchedule';
 
 /** Only redirect to a trusted VNPay host, never to an arbitrary server-provided URL. */
 const VNPAY_HOSTS = new Set(
@@ -34,6 +36,7 @@ export default function InvoiceLayout() {
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [closedBooking, setClosedBooking] = useState<{ kind: 'expired' | 'cancelled' | 'paid'; tourId?: number }>();
   // The route keeps this component mounted, so a slow response for the previous booking
   // must never overwrite the booking currently in the address bar.
   const requestSeq = useRef(0);
@@ -44,13 +47,11 @@ export default function InvoiceLayout() {
   const [customerResult, setCustomerResult] = useState<CustomerResponse[]>([]);
   const [quote, setQuote] = useState<PaymentQuote>();
 
-  /** ---------------------------------------------------------
-   * 🔹 Load toàn bộ dữ liệu: Booking, Customer, TourDeparture
-   ----------------------------------------------------------*/
   const loadData = useCallback(async (bookingId: number) => {
     const run = ++requestSeq.current;
     setLoading(true);
     setError(null);
+    setClosedBooking(undefined);
 
     try {
       const user = sessionService.getUser();
@@ -62,8 +63,18 @@ export default function InvoiceLayout() {
           throw new Error('Không tải được thông tin đặt tour.');
         }
         const booking = bookingRes.result as BookingResponse;
-        if (['UNCONFIRMED', 'CANCELLED', 'EXPIRED'].includes(booking.status ?? '')) throw new Error('Booking đã hủy hoặc hết hạn. Vui lòng đặt lại nếu chuyến đi còn chỗ.');
-        if (booking.reservationStatus === 'PAID') throw new Error('Booking này đã thanh toán. Bạn có thể xem hóa đơn trong lịch sử đặt tour.');
+        if (booking.reservationStatus === 'PAID') {
+          if (run === requestSeq.current) setClosedBooking({ kind: 'paid' });
+          return;
+        }
+        const expired = booking.reservationStatus === 'EXPIRED' || booking.status === 'EXPIRED';
+        if (expired || booking.reservationStatus === 'CANCELLED' || ['UNCONFIRMED', 'CANCELLED'].includes(booking.status ?? '')) {
+          const departure = await getTourDepartureById(Number(booking.tourDepartureId)).catch(() => null);
+          if (run === requestSeq.current) {
+            setClosedBooking({ kind: expired ? 'expired' : 'cancelled', tourId: departure?.result?.tourId });
+          }
+          return;
+        }
         if (!booking.reservationStatus) throw new Error('Booking cũ chưa có giữ chỗ thanh toán trực tuyến. Vui lòng liên hệ SGU Tour để được hỗ trợ.');
 
         // Each dependency reports its own failure so one broken API does not hide the real cause.
@@ -103,11 +114,11 @@ export default function InvoiceLayout() {
     }
   }, []);
 
-  /** Call loadData khi id thay đổi */
   useEffect(() => {
     if (id) {
-      loadData(Number(id));
+      void loadData(Number(id));
     }
+    return () => { requestSeq.current += 1; };
   }, [id, loadData]);
 
   /** ---------------------------------------------------------
@@ -133,6 +144,7 @@ export default function InvoiceLayout() {
     } catch (err: unknown) {
       const text = errorMessage(err, 'Không thể tạo thanh toán.');
       message.error(text);
+      if (id) void loadData(Number(id));
     }
   };
 
@@ -148,6 +160,15 @@ export default function InvoiceLayout() {
             style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
           >
             {loading && <Spin />}
+            {!loading && closedBooking && <Alert
+              type={closedBooking.kind === 'paid' ? 'success' : 'warning'}
+              showIcon
+              message={closedBooking.kind === 'paid' ? 'Đơn này đã thanh toán'
+                : closedBooking.kind === 'expired' ? 'Đã hết hạn giữ chỗ' : 'Đơn đặt tour đã hủy'}
+              description={<div className="mt-2 flex flex-wrap gap-3">
+                {closedBooking.tourId && <Link to={tourScheduleLink(closedBooking.tourId)}>Chọn lại ngày khởi hành</Link>}
+                <Link to={bookingHistoryLink(Number(id))}>Xem đơn này</Link>
+              </div>} />}
             {error && (
               <Alert
                 type="error"
@@ -159,12 +180,12 @@ export default function InvoiceLayout() {
               />
             )}
 
-            {!loading && !error && bookingResult && (
+            {!loading && !error && !closedBooking && bookingResult && (
               <Alert type="info" showIcon style={{ marginBottom: 16 }}
                 message={bookingResult.paymentRequiredNow ? 'Cần thanh toán ngay để hoàn tất đặt tour' : 'Booking đang chờ thanh toán'}
                 description={bookingResult.paymentDeadline ? `Chỗ được giữ đến ${formatDatetime(bookingResult.paymentDeadline)}. Nếu chưa thanh toán khi hết hạn, booking sẽ tự hủy.` : 'Vui lòng kiểm tra thông tin và tiếp tục thanh toán.'} />
             )}
-            {!loading && !error && bookingResult && (
+            {!loading && !error && !closedBooking && bookingResult && (
               <InvoiceForm
                 account={{
                   fullName: currentUser?.username || 'Khách hàng',
@@ -174,6 +195,7 @@ export default function InvoiceLayout() {
                 customers={customerResult}
                 tourDeparture={tourDepartureResult}
                 quote={quote}
+                paymentDeadline={bookingResult.paymentDeadline}
                 onCreate={handleCreatePayment}
               />
             )}
