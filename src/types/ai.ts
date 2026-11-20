@@ -101,6 +101,11 @@ export type AiResult = AiSession & {
     title: string;
     referenceAdultPriceVnd: number | null;
     departures: { scheduled: boolean; nextAt: string | null } | null;
+    availability?: {
+      partySize: number;
+      selected: AiDepartureOption | null;
+      alternative: AiDepartureOption | null;
+    } | null;
     dataAsOf: string;
   } | null;
   comparison: AiComparison | null;
@@ -113,7 +118,14 @@ export type AiResult = AiSession & {
     dataAsOf: string;
   } | null;
 };
-export type AiChatRequest = { conversationId: string; requestId: string; message: string; selectedTourId?: number };
+type AiDepartureOption = { departureId: number; departureAt: string; availableSeats: number };
+export type AiChatRequest = {
+  conversationId: string;
+  requestId: string;
+  message: string;
+  selectedTourId?: number;
+  selectedDepartureId?: number;
+};
 export type AiMessage = {
   id: string;
   role: 'user' | 'bot';

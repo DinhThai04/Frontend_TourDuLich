@@ -13,7 +13,9 @@ type Api = {
   ): Promise<AiBookingHelp>;
 };
 type StoragePort = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
-type Pending = { requestId: string; message: string; selectedTourId?: number };
+type Pending = Omit<AiChatRequest, 'conversationId'>;
+const validContextId = (id?: number) => id === undefined ||
+  (Number.isSafeInteger(id) && id > 0 && id <= 2147483647);
 export type AiView = {
   messages: AiMessage[];
   busy: boolean;
@@ -163,7 +165,8 @@ export class AiConversation {
                 !pending.message.trim() ||
                 [...pending.message].length > 2000 ||
                 !/^[\da-f-]{36}$/i.test(pending.requestId) ||
-                (pending.selectedTourId !== undefined && (!Number.isSafeInteger(pending.selectedTourId) || pending.selectedTourId < 1 || pending.selectedTourId > 2147483647)))
+                !validContextId(pending.selectedTourId) || !validContextId(pending.selectedDepartureId) ||
+                (pending.selectedDepartureId !== undefined && pending.selectedTourId === undefined))
             )
               throw new Error('snapshot');
             this.view = {
@@ -229,11 +232,12 @@ export class AiConversation {
       }
     }
   }
-  async send(text: string, selectedTourId?: number) {
+  async send(text: string, selectedTourId?: number, selectedDepartureId?: number) {
     const message = text.trim();
     if (
       !message ||
-      (selectedTourId !== undefined && (!Number.isSafeInteger(selectedTourId) || selectedTourId < 1 || selectedTourId > 2147483647)) ||
+      !validContextId(selectedTourId) || !validContextId(selectedDepartureId) ||
+      (selectedDepartureId !== undefined && selectedTourId === undefined) ||
       [...message].length > 2000 ||
       this.view.busy ||
       this.view.expired ||
@@ -248,7 +252,11 @@ export class AiConversation {
       minute: '2-digit',
     });
     this.emit({
-      pending: { requestId, message, ...(selectedTourId === undefined ? {} : { selectedTourId }) },
+      pending: {
+        requestId, message,
+        ...(selectedTourId === undefined ? {} : { selectedTourId }),
+        ...(selectedDepartureId === undefined ? {} : { selectedDepartureId }),
+      },
       messages: [...this.view.messages, { id: requestId, role: 'user', text: message, time }],
       error: null,
     });
@@ -275,7 +283,7 @@ export class AiConversation {
       if (this.api.bookingHelp) {
         const help = await this.api.bookingHelp(
           pending.message,
-          this.selectedBookingId,
+          pending.selectedTourId === undefined ? this.selectedBookingId : null,
           this.active.signal
         );
         if (generation !== this.epoch) return;

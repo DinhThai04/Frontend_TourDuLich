@@ -27,6 +27,8 @@ function TourImage({ url, title }: { url: string | null; title: string }) {
   );
 }
 const tourLink = (id: number) => `/tours/detail/${id}`;
+const departureLink = (tourId: number, departureId?: number) =>
+  `${tourLink(tourId)}${departureId ? `?departureId=${departureId}` : ''}#lich-khoi-hanh`;
 
 export default function AiResults({
   result,
@@ -39,6 +41,8 @@ export default function AiResults({
   onOpenSchedule?: () => void;
   disabled: boolean;
 }) {
+  const availability = result.tourOverview?.availability;
+  const relevantDeparture = availability?.alternative ?? availability?.selected;
   return (
     <>
       {result.tours.length > 0 && (
@@ -55,7 +59,7 @@ export default function AiResults({
                 </div>
                 <div className="ai-tour-price">
                   {money(tour.price.amountVnd)}{' '}
-                  {tour.price.basis === 'TOTAL_GROUP' ? '/ nhóm đã cung cấp' : '/ người lớn'}
+                  {tour.price.basis === 'TOTAL_GROUP' ? 'cho cả nhóm' : '/ người lớn'}
                 </div>
                 {tour.availability.status === 'AVAILABLE' && tour.availability.departureAt ? (
                   <div>
@@ -105,9 +109,15 @@ export default function AiResults({
             <div>Khởi hành gần nhất trong khoảng hỏi: {formatDatetime(result.tourOverview.departures.nextAt)}</div>
           )}
           <small>Dữ liệu kiểm tra: {formatDatetime(result.tourOverview.dataAsOf)}</small>
-          <Link to={`${tourLink(result.tourOverview.tourId)}#lich-khoi-hanh`} onClick={event => {
+          {availability?.selected && <div>
+            Lịch đang chọn: {formatDatetime(availability.selected.departureAt)}
+          </div>}
+          {availability?.alternative && <div>
+            Lịch gần nhất đủ chỗ: {formatDatetime(availability.alternative.departureAt)}
+          </div>}
+          <Link to={departureLink(result.tourOverview.tourId, relevantDeparture?.departureId)} onClick={event => {
             if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onOpenSchedule?.();
-          }}>Xem lịch và số chỗ trên trang tour</Link>
+          }}>{relevantDeparture ? 'Xem ngày này' : 'Xem lịch khởi hành'}</Link>
         </section>
       )}
       {result.detail && (
@@ -124,7 +134,9 @@ export default function AiResults({
           ))}
           {result.detail.truncated && <p>Nội dung đã rút gọn; xem đầy đủ tại trang tour.</p>}
           <small>Dữ liệu kiểm tra: {formatDatetime(result.detail.dataAsOf)}</small>
-          <Link to={tourLink(result.detail.tourId)}>Mở trang chi tiết tour</Link>
+          <Link to={`${tourLink(result.detail.tourId)}#lich-trinh`} onClick={event => {
+            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onOpenSchedule?.();
+          }}>Xem lịch trình trên trang tour</Link>
         </section>
       )}
       {result.comparison && (
