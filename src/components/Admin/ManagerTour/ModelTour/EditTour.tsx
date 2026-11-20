@@ -1,12 +1,15 @@
+import TourContentReadiness from './TourContentReadiness';
 import type { UploadFile } from 'antd';
 import type { ITour } from '@/types/Tour';
 import type { TourFormValues } from '@/types/adminForms';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Form, Input, InputNumber, Button, Select, Upload, Space, Card, Tooltip, message, Alert } from 'antd';
 import { imageFileError, imageBatchError } from '@/utils/tourMedia';
+import { useApiQuery } from '@/hooks';
+import { isBookableDeparture } from '@/utils/tourSchedule';
 import { UploadOutlined, SaveOutlined } from '@ant-design/icons';
 import type { ILocation, ITourPrice, IVehicle } from '@/types/Tour';
-import { getAllDepartures, getAllDestinations, getAllPrice, getAllVehicles } from '@/services/tourServices';
+import { getAllDepartures, getAllDestinations, getAllPrice, getAllVehicles, getItineraryByTourId } from '@/services/tourServices';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -20,6 +23,7 @@ interface EditTourProps {
 
 const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit, onSavingChange }) => {
   const [form] = Form.useForm<TourFormValues>();
+  const values = Form.useWatch([], form);
   const [saving, setSaving] = useState(false);
   const inFlight = React.useRef(false);
   const [departureList, setDepartureList] = useState<ILocation[]>([]);
@@ -29,6 +33,12 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit, onS
   const [deletedImageUrls, setDeletedImageUrls] = useState<string[]>([]);
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [loadingReference, setLoadingReference] = useState(false);
+  const { data: existingItinerary } = useApiQuery(async () => {
+    const response = await getItineraryByTourId(Number(data?.id));
+    if (response.code !== 1000) throw new Error('Chưa tải được lịch trình');
+    return response.result;
+  }, { enabled: !!data?.id && !data.itineraries, deps: [data?.id] });
+  const itinerary = data?.itineraries ?? existingItinerary;
 
   /**
    * Four independent lookups: a failure in one must not blank the other selects, but it must be
@@ -268,6 +278,14 @@ const EditTour: React.FC<EditTourProps> = ({ data, isEdit = false, onSubmit, onS
           </Button>
         </Form.Item>
       </Form>
+      <TourContentReadiness title={values?.tourTitle} program={values?.tourProgram}
+        duration={Number(values?.duration) || undefined}
+        adultPrice={tourPriceList.find(price => Number(price.id) === Number(values?.tourPriceId))?.adultPrice}
+        departureCity={departureList.find(city => Number(city.id) === Number(values?.departureLocationId))?.city}
+        hasPhoto={!!values?.files?.length}
+        hasItinerary={itinerary ? itinerary.length > 0 : undefined}
+        hasOpenDeparture={data?.departures ? data.departures.some(item => isBookableDeparture(item) && new Date(item.departureDate).getTime() > Date.now()) : undefined}
+      />
     </Card>
   );
 };

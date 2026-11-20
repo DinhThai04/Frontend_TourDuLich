@@ -1,7 +1,8 @@
+import { formatCurrencyVND } from '@/utils';
 import type { ITourPrice } from '@/types/Tour';
 import type { PriceFormValues } from '@/types/adminForms';
 import React, { useEffect, useState } from 'react';
-import { Form, InputNumber, Button, Divider, Card, Space } from 'antd';
+import { Form, InputNumber, Button, Divider, Card, Descriptions, Modal, Space } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 
 interface EditPriceProps {
@@ -9,8 +10,14 @@ interface EditPriceProps {
   onSubmit?: (values: PriceFormValues) => void | Promise<void>;
 }
 
+const fields = [
+  ['adultPrice', 'Người lớn'], ['childPrice', 'Trẻ em'], ['toddlerPrice', 'Trẻ nhỏ'],
+  ['infantPrice', 'Em bé'], ['singleSupplementPrice', 'Phụ thu phòng đơn'],
+] as const;
+
 const EditPrice: React.FC<EditPriceProps> = ({ data, onSubmit }) => {
   const [form] = Form.useForm<PriceFormValues>();
+  const [preview, setPreview] = useState<PriceFormValues>();
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -33,6 +40,7 @@ const EditPrice: React.FC<EditPriceProps> = ({ data, onSubmit }) => {
     setSubmitting(true);
     try {
       await onSubmit?.(values);
+      setPreview(undefined);
     } finally {
       setSubmitting(false);
     }
@@ -50,7 +58,7 @@ const EditPrice: React.FC<EditPriceProps> = ({ data, onSubmit }) => {
       }}
     >
       <Divider style={{ margin: '12px 0' }} />
-      <Form form={form} layout="vertical" onFinish={handleFinish}>
+      <Form form={form} layout="vertical" onFinish={setPreview}>
         <Space size="large" style={{ display: 'flex', justifyContent: 'space-between' }}>
           <Form.Item
             label="Giá người lớn (VNĐ)"
@@ -141,10 +149,18 @@ const EditPrice: React.FC<EditPriceProps> = ({ data, onSubmit }) => {
 
         <Form.Item style={{ textAlign: 'center', marginTop: 24 }}>
           <Button type="primary" icon={<SaveOutlined />} htmlType="submit" size="large" style={{ minWidth: 160 }} loading={submitting}>
-            Cập nhật Giá
+            Xem trước bảng giá
           </Button>
         </Form.Item>
       </Form>
+      <Modal title="Xem trước bảng giá" open={!!preview} onCancel={() => { if (!submitting) setPreview(undefined); }}
+        confirmLoading={submitting} onOk={() => { if (preview) void handleFinish(preview); }}
+        okText="Lưu bảng giá" cancelText="Quay lại">
+        {data && preview && <Descriptions column={1} size="small" items={fields.map(([key, label]) => ({
+          key, label, children: `${formatCurrencyVND(Number(data[key]))} → ${formatCurrencyVND(Number(preview[key]))}`,
+        }))} />}
+        <p className="mt-3">Giá mới áp dụng cho các lượt giữ chỗ tiếp theo. Đơn đã giữ chỗ tiếp tục dùng giá máy chủ đã chốt.</p>
+      </Modal>
     </Card>
   );
 };
