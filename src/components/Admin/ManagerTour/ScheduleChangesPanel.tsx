@@ -32,7 +32,11 @@ const PROPOSAL_STATUS: Record<string, { color: string; label: string }> = {
 };
 const proposalStatus = (status?: string | null) =>
   (status && PROPOSAL_STATUS[status]) || { color: 'default', label: status || 'Không xác định' };
-export default function ScheduleChangesPanel({ tourId, onChanged }: { tourId: number; onChanged: () => void }) {
+export default function ScheduleChangesPanel({ tourId, focusRequestId, onChanged }: {
+  tourId: number;
+  focusRequestId?: number;
+  onChanged: () => void;
+}) {
   const read = useHasPermission(ALL_PERMISSIONS.BOOKING_CHANGES.READ);
   const create = useHasPermission(ALL_PERMISSIONS.BOOKING_CHANGES.CREATE);
   const review = useHasPermission(ALL_PERMISSIONS.BOOKING_CHANGES.REVIEW);
@@ -55,8 +59,8 @@ export default function ScheduleChangesPanel({ tourId, onChanged }: { tourId: nu
     const current = ++requestId.current;
     // Danh sách lịch phụ chỉ để chọn khi tạo sự cố; lỗi của nó không được chặn bảng chính.
     const [data, ds] = await Promise.allSettled([
-      bookingChanges.admin(tourId),
-      create ? getDepartureHistoryByTourId(tourId) : Promise.resolve(null),
+      bookingChanges.admin(tourId, undefined, focusRequestId),
+      create && !focusRequestId ? getDepartureHistoryByTourId(tourId) : Promise.resolve(null),
     ]);
     // A response for another tour (or a superseded refresh) must not overwrite this table.
     if (current !== requestId.current) return;
@@ -69,7 +73,7 @@ export default function ScheduleChangesPanel({ tourId, onChanged }: { tourId: nu
     const failure = data.status === 'rejected' ? data.reason
       : ds.status === 'rejected' ? ds.reason : null;
     if (failure) message.error(changeError(failure));
-  }, [tourId, allowed, create]);
+  }, [tourId, allowed, create, focusRequestId]);
   useEffect(() => {
     // Never keep showing the previous tour's requests while the new tour loads.
     requestId.current += 1;
@@ -111,10 +115,10 @@ export default function ScheduleChangesPanel({ tourId, onChanged }: { tourId: nu
   }
   function choose(row: ChangeRequest, name: string) { setAction({ row, name }); actionForm.resetFields(); if (name === 'REFUND' && row.paid_amount) actionForm.setFieldValue('amount', Number(row.paid_amount)); }
   if (!allowed) return null;
-  return <Card className="mt-4" title="Dời lịch và xử lý sự cố" extra={<Space><Button onClick={() => void refresh()}>Tải lại</Button>{create && <Button danger onClick={() => { form.resetFields(); setPreview(null); setKey(createClientKey()); setOpen(true); }}>Khai báo sự cố bắt buộc</Button>}</Space>}>
+  return <Card className="mt-4" title="Dời lịch và xử lý sự cố" extra={<Space><Button onClick={() => void refresh()}>Tải lại</Button>{create && !focusRequestId && <Button danger onClick={() => { form.resetFields(); setPreview(null); setKey(createClientKey()); setOpen(true); }}>Khai báo sự cố bắt buộc</Button>}</Space>}>
     <Alert type="info" showIcon message="Giữ nguyên lịch sử chuyến cũ. Chỉ chuyển booking đã đồng ý; không lấy im lặng làm đồng ý. Lịch thay thế được giữ riêng đến khi giải quyết hết khách ở chuyến cũ." />
     {capped && <Alert className="mt-3" type="warning" showIcon message="Danh sách dời lịch đã đạt giới hạn 500 bản ghi. Dữ liệu có thể chưa đầy đủ, hãy thu hẹp theo tour hoặc kiểm tra trực tiếp trước khi kết luận." />}
-    <Table<ShopProposal> rowKey="id" size="small" dataSource={proposals} pagination={{ pageSize: 3 }} columns={[
+    {!focusRequestId && <Table<ShopProposal> rowKey="id" size="small" dataSource={proposals} pagination={{ pageSize: 3 }} columns={[
       { title: 'Sự cố', render: (_, r) => `#${r.id} — lịch ${r.source_departure_id} → ${r.target_departure_id}` },
       { title: 'Hạn phản hồi', render: (_, r) => dayjs(r.response_deadline).format('HH:mm DD/MM/YYYY') },
       { title: 'Trạng thái', render: (_, r) => {
@@ -122,8 +126,9 @@ export default function ScheduleChangesPanel({ tourId, onChanged }: { tourId: nu
         return <Tag color={item.color}>{item.label}</Tag>;
       } },
       { title: 'Hoàn tất xử lý', render: (_, r) => create && r.status === 'OPEN' && <Button loading={busy} onClick={() => Modal.confirm({ title: 'Đóng chuyến cũ và mở bán lịch thay thế?', content: 'Chỉ thực hiện khi toàn bộ booking chuyến cũ đã được xử lý. Hệ thống sẽ kiểm tra lại trước khi mở.', onOk: async () => { setBusy(true); try { await bookingChanges.activate(r.id); await refresh(); onChanged(); } catch (e) { message.error(changeError(e)); throw e; } finally { setBusy(false); } } })}>Kiểm tra và mở lịch mới</Button> },
-    ]} expandable={{ expandedRowRender: r => <><p>{r.reason}</p><p>Bằng chứng: {r.evidence}</p></> }} />
-    <Table<ChangeRequest> rowKey="id" size="small" dataSource={rows} pagination={{ pageSize: 5 }} columns={[
+    ]} expandable={{ expandedRowRender: r => <><p>{r.reason}</p><p>Bằng chứng: {r.evidence}</p></> }} />}
+    <Table<ChangeRequest> rowKey="id" size="small" dataSource={rows} pagination={focusRequestId ? false : { pageSize: 5 }}
+      locale={{ emptyText: focusRequestId ? 'Không tìm thấy yêu cầu trong tour này.' : undefined }} columns={[
       { title: 'Yêu cầu', render: (_, r) => `#${r.id} / Booking #${r.booking_id} / ${r.kind === 'SHOP' ? 'Shop đề xuất' : 'Khách yêu cầu'}` },
       { title: 'Liên hệ', render: (_, r) => <>{r.username}<br />{r.email}</> },
       { title: 'Lịch gốc → mới', render: (_, r) => `${dayjs(r.source_departure_at).format('HH:mm DD/MM/YYYY')} → ${dayjs(r.target_departure_at).format('HH:mm DD/MM/YYYY')}` },
