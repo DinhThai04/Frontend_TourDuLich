@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 const source = await readFile(new URL('../src/utils/tourSchedule.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
   .replace("from 'dayjs'", `from '${import.meta.resolve('dayjs')}'`);
-const { departureCalendar, departureMonthStart } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const { departureCalendar, departureMonthStart, departureAdultPrice, departureIdFromSearch } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const now = dayjs('2026-10-15T01:00:00');
 
 test('ISO month from API produces October, not NaN from slash splitting', () => {
@@ -31,5 +31,24 @@ test('months are sorted across years and invalid/past departures are excluded', 
   assert.equal(calendar.dates['2026-10-16'].id, 1);
 });
 test('tour with no upcoming departures has an explicit empty state', () => {
-  assert.deepEqual(departureCalendar([{ id: '1', departureDate: '2026-10-09T06:00:00' }], 3350000, now), { dates: {}, months: [] });
+  const calendar = departureCalendar([{ id: '1', departureDate: '2026-10-09T06:00:00' }], 3350000, now);
+  assert.deepEqual(calendar.months, []);
+  assert.deepEqual(calendar.upcoming, []);
+});
+test('sold-out dates stay visible while a bookable time on the same day wins', () => {
+  const calendar = departureCalendar([
+    { id: 1, departureDate: '2026-10-16T06:00:00', availableSeats: 0 },
+    { id: 2, departureDate: '2026-10-16T08:00:00', availableSeats: 3, tourPrice: { adultPrice: 4500000 } },
+    { id: 3, departureDate: '2026-11-10T08:00:00', availableSeats: 0 },
+    { id: 4, departureDate: '2026-11-13T08:00:00', availableSeats: 4, operationalStatus: 'SUSPENDED' },
+  ], 3350000, now);
+  assert.deepEqual(calendar.months, ['2026-10', '2026-11']);
+  assert.deepEqual([...calendar.soldOutDays], ['2026-11-10']);
+  assert.deepEqual(calendar.dates['2026-10-16'], { id: 2, price: '4.500K' });
+});
+test('a selected day displays its own adult price and shares a validated departure id', () => {
+  assert.equal(departureAdultPrice({ basePrice: 3350000 }, { tourPrice: { adultPrice: 4500000 } }), 4500000);
+  assert.equal(departureAdultPrice({ basePrice: 3350000 }, null), 3350000);
+  assert.equal(departureIdFromSearch('?departureId=42'), 42);
+  assert.equal(departureIdFromSearch('?departureId=4.2'), null);
 });

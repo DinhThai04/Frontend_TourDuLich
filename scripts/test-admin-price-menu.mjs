@@ -21,7 +21,7 @@ const uiUrl = dataUrl(`import React from ${JSON.stringify(reactUrl)};
   export const message={success(){}};`);
 const icons = ['MenuFoldOutlined','MenuUnfoldOutlined','UserOutlined','GlobalOutlined','ScheduleOutlined',
   'StarOutlined','UnorderedListOutlined','CalendarOutlined','EnvironmentOutlined','UsergroupAddOutlined',
-  'SafetyOutlined','GiftOutlined','FieldTimeOutlined','MoneyCollectOutlined'];
+  'SafetyOutlined','GiftOutlined','FieldTimeOutlined','MoneyCollectOutlined','DashboardOutlined'];
 const iconsUrl = dataUrl(icons.map(name => `export const ${name}=()=>null;`).join('\n'));
 const routerUrl = dataUrl(`import React from ${JSON.stringify(reactUrl)};
   export const Link=({to,children})=>React.createElement('a',{href:to},children);
@@ -58,6 +58,12 @@ test('tour-only staff do not receive a price menu whose route they cannot open',
   const keys = menuKeys(staff([P.TOURS.GET_LIST]));
   assert.ok(keys.includes('/admin/managerTour/list'));
   assert.ok(!keys.includes('/admin/managerTour/price'));
+});
+test('the operations menu is available to staff with reconciliation or departure read access', () => {
+  for (const permission of [P.PAYMENT_RECONCILIATION.GET_LIST, P.TOUR_DEPARTURES.GET_LIST]) {
+    assert.ok(menuKeys(staff([permission])).includes('/admin/operations'));
+  }
+  assert.ok(!menuKeys(staff([P.PRICE.GET_LIST])).includes('/admin/operations'));
 });
 test('active admins retain both tour and price navigation', () => {
   const user = staff([]); user.role.name = 'admin';
