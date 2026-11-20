@@ -29,7 +29,7 @@ export default function PoliciesPage() {
     return () => abort.abort();
   }, [attempt]);
   useEffect(() => {
-    if (document && /^#P\d{2}$/.test(hash))
+    if (hash === '#ho-tro' || (document && /^#P\d{2}$/.test(hash)))
       window.document.getElementById(hash.slice(1))?.scrollIntoView();
   }, [document, hash]);
   const normalize = (s: string) =>
@@ -107,17 +107,14 @@ export default function PoliciesPage() {
               )}
             </div>
           </div>
-          <div className="sgu-policy-contact">
-            <h2>Cần kiểm tra một booking cụ thể?</h2>
-            <p>
-              Đăng nhập và hỏi trợ lý bằng mã booking hoặc tên tour đã đặt. Thời gian còn lại được
-              tính từ hạn của đúng đơn khi kiểm tra.
-            </p>
-            <Link to="/profile">Mở lịch sử đặt tour</Link> ·{' '}
-            <a href="mailto:danhcong6205@gmail.com">Liên hệ SGU Tour</a>
-          </div>
         </>
       )}
+      <div id="ho-tro" className="sgu-policy-contact scroll-mt-24">
+        <h2>Cần hỗ trợ về đơn đặt tour?</h2>
+        <p>Cung cấp mã đơn khi liên hệ để SGU Tour tra cứu chuyến đi và xác nhận điểm tập trung.</p>
+        <Link to="/profile#don-dat-tour">Mở lịch sử đặt tour</Link> ·{' '}
+        <a href="mailto:danhcong6205@gmail.com">Liên hệ SGU Tour</a>
+      </div>
     </main>
   );
 }
