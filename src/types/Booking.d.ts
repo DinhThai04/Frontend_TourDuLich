@@ -26,6 +26,7 @@ export type BookingRequest = {
 	listOfCustomers: { fullName: string; birthdate: string; address?: string; gender: string }[]; // customers from the booking form
 	clientKey?: string; // stable UUID for one checkout attempt; retries must reuse it
 	pricingDate?: string; // Vietnam calendar date used for the current preview
+	expectedAmount?: string;
 };
 
 export type BookingResponse = {
@@ -60,6 +61,7 @@ export type CustomerRequest = {
 export type PassengerType = 'ADULT' | 'CHILD' | 'TODDLER' | 'INFANT';
 
 export interface PassengerFormValues {
+  id?: number;
   type: PassengerType;
   fullName: string;
   birthDate: Dayjs | null;
