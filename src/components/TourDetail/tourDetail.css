@@ -1,0 +1,47 @@
+.tour-detail-page {
+  padding: 24px 12px;
+}
+
+.tour-detail-mobile-bar {
+  display: none;
+}
+
+.tour-calendar-label {
+  font-size: 0.875rem;
+}
+
+@media (max-width: 991px) {
+  .tour-detail-page {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
+  .tour-detail-mobile-bar {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 68px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: #fff;
+    border-top: 1px solid #dce7e2;
+    box-shadow: 0 -4px 20px rgb(21 58 53 / 10%);
+  }
+
+  .tour-detail-mobile-bar small,
+  .tour-detail-mobile-bar strong {
+    display: block;
+  }
+
+  .tour-detail-mobile-bar strong {
+    color: #155e54;
+  }
+}
+
+@media (max-width: 480px) {
+  .tour-calendar-label {
+    font-size: 0.625rem;
+  }
+}

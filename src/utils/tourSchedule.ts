@@ -1,27 +1,54 @@
 import dayjs from 'dayjs';
-import type { ITourDeparture } from '@/types/Tour';
+import type { ITour, ITourDeparture } from '@/types/Tour';
+
+export function departureIdFromSearch(search: string) {
+  const value = new URLSearchParams(search).get('departureId');
+  const id = Number(value);
+  return value && /^\d+$/.test(value) && Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+export function isBookableDeparture(departure: ITourDeparture) {
+  return (!departure.operationalStatus || departure.operationalStatus === 'OPEN') &&
+    Number(departure.availableSeats) > 0;
+}
+
+export function departureAdultPrice(tour: ITour, departure: ITourDeparture | null) {
+  return departure ? departure.tourPrice?.adultPrice : tour.basePrice;
+}
+
+export function tourScheduleLink(tourId: number, departureId?: number) {
+  return `/tours/detail/${tourId}${departureId ? `?departureId=${departureId}` : ''}#lich-khoi-hanh`;
+}
 
 export function departureCalendar(departures: ITourDeparture[], basePrice?: number, now = dayjs()) {
   const dates: Record<string, { id: number; price: string }> = {};
   const months = new Set<string>();
-  for (const departure of departures) {
-    if (typeof departure.departureDate !== 'string' || !departure.departureDate.trim()) continue;
+  const upcoming = departures.filter(departure => {
+    if (typeof departure.departureDate !== 'string' || !departure.departureDate.trim()) return false;
     const date = dayjs(departure.departureDate);
     const id = Number(departure.id);
-    if (!date.isValid() || !date.isAfter(now) || !Number.isSafeInteger(id) || id < 1) continue;
-    // A sold-out departure is still OPEN in the catalogue; showing it leads to a dead checkout.
-    if (departure.availableSeats !== undefined && Number(departure.availableSeats) < 1) continue;
-    // Each departure carries its own price snapshot; fall back to the tour's base price.
+    return date.isValid() && date.isAfter(now) && Number.isSafeInteger(id) && id > 0 &&
+      (!departure.operationalStatus || departure.operationalStatus === 'OPEN');
+  }).sort((left, right) => left.departureDate.localeCompare(right.departureDate));
+  const soldOutDays = new Set<string>();
+  for (const departure of upcoming) {
+    const date = dayjs(departure.departureDate);
+    const day = date.format('YYYY-MM-DD');
+    months.add(date.format('YYYY-MM'));
+    if (departure.availableSeats !== undefined && !isBookableDeparture(departure)) {
+      if (!dates[day]) soldOutDays.add(day);
+      continue;
+    }
+    if (dates[day]) continue;
+    soldOutDays.delete(day);
     const adultPrice = departure.tourPrice?.adultPrice;
     const displayPrice = adultPrice && adultPrice > 0 ? adultPrice : basePrice;
-    dates[date.format('YYYY-MM-DD')] = {
-      id,
-      // Nhóm theo kiểu Việt Nam và làm tròn nghìn: 'en-US' in ra "6,700K" và giá lẻ sẽ thành "6.750,5K".
+    dates[day] = {
+      id: Number(departure.id),
       price: displayPrice !== undefined ? `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(displayPrice / 1000)}K` : '',
     };
-    months.add(date.format('YYYY-MM'));
   }
-  return { dates, months: [...months].sort() };
+  return { dates, months: [...months], upcoming, soldOutDays };
 }
 
 export function departureMonthStart(month: string) {
