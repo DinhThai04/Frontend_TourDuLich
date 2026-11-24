@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/utils/tourSearch.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { tourSearchQuery } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const { clearTourFilters, tourSearchQuery } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 
 const run = (raw, defaultSize) => tourSearchQuery(new URLSearchParams(raw), defaultSize);
 
@@ -33,4 +33,11 @@ test('only the filter keys the backend understands are forwarded', () => {
   assert.deepEqual([...query.keys()].sort(), ['dest', 'page', 'size', 'sort']);
   assert.equal(query.get('dest'), 'Ha Long');
   assert.equal(query.get('page'), '2');
+});
+
+test('empty results can relax only the date or reset all filters while preserving sorting', () => {
+  const params = new URLSearchParams('dest=Ha+Long&depD=2026-12-10&minP=5000000&page=2&sort=priceLow');
+  assert.equal(clearTourFilters(params, ['depD']).toString(), 'dest=Ha+Long&minP=5000000&sort=priceLow');
+  assert.equal(clearTourFilters(params).toString(), 'sort=priceLow');
+  assert.equal(params.get('page'), '2');
 });

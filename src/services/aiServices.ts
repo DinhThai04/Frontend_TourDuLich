@@ -167,12 +167,26 @@ export function decodeAiResult(value: unknown): AiResult {
         if (!scheduled && nextAt !== null) throw invalid();
         return { scheduled, nextAt };
       });
-      if (price === null && departures === null) throw invalid();
+      const availability = nullable(overview.availability ?? null, (value) => {
+        const seats = object(value);
+        const partySize = number(seats.partySize, 1);
+        const option = (input: unknown) => {
+          const item = object(input);
+          return { departureId: number(item.departureId, 1), departureAt: timestamp(item.departureAt),
+            availableSeats: number(item.availableSeats) };
+        };
+        const selected = nullable(seats.selected, option);
+        const alternative = nullable(seats.alternative, option);
+        if (alternative && (alternative.availableSeats < partySize || alternative.departureId === selected?.departureId)) throw invalid();
+        return { partySize, selected, alternative };
+      });
+      if (price === null && departures === null && availability === null) throw invalid();
       return {
         tourId: number(overview.tourId, 1),
         title: text(overview.title, 400),
         referenceAdultPriceVnd: price,
         departures,
+        ...(availability === null ? {} : { availability }),
         dataAsOf: timestamp(overview.dataAsOf),
       };
     }),

@@ -6,7 +6,8 @@ import { reconciliationServices, type ReconciliationAction, type ReconciliationE
 import { ALL_PERMISSIONS as P } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 import { errorMessage } from '@/utils/errors';
-import { formatCurrencyVND, formatDatetime } from '@/utils';
+import { formatCurrencyVND, formatDatetime, parseDate } from '@/utils';
+import { useSearchParams } from 'react-router-dom';
 
 const labels: Record<ReconciliationAction, string> = {
   UNPAID_CONFIRMED: 'Xác nhận chưa thu tiền', PAYMENT_FOUND: 'Phát hiện đã thu tiền, cần hỗ trợ/hoàn tiền', REFUND_RECORDED: 'Ghi nhận đã hoàn đủ tiền',
@@ -21,6 +22,8 @@ const reasonLabels: Record<string, string> = {
 };
 type Values = { action: ReconciliationAction; reference: string; note: string; confirmed: boolean; providerPaidAt?: Dayjs };
 export default function PaymentReconciliation() {
+  const [params, setParams] = useSearchParams();
+  const focusedRef = params.get('txnRef') ?? undefined;
   const canResolve = useHasPermission(P.PAYMENT_RECONCILIATION.RESOLVE);
   const canHistory = useHasPermission(P.PAYMENT_RECONCILIATION.HISTORY);
   const [rows, setRows] = useState<ReconciliationRow[]>([]);
@@ -40,7 +43,8 @@ export default function PaymentReconciliation() {
     const requestId = ++loadId.current;
     setLoading(true);
     try {
-      const response = await reconciliationServices.list(page, view);
+      const response = await reconciliationServices.list(focusedRef ? 0 : page, focusedRef ? 'ALL' : view, { txnRef: focusedRef });
+      if (response.code !== 1000) throw new Error(response.message || 'Chưa tải được đối soát');
       if (requestId !== loadId.current) return;
       setRows(response.result.items); setHasNext(response.result.hasNext);
     } catch (error) {
@@ -48,7 +52,7 @@ export default function PaymentReconciliation() {
     } finally {
       if (requestId === loadId.current) setLoading(false);
     }
-  }, [page, view]);
+  }, [page, view, focusedRef]);
   useEffect(() => { void load(); }, [load]);
   const open = (row: ReconciliationRow) => {
     form.resetFields(); form.setFieldsValue({ action: row.case_status === 'OPEN' ? 'REFUND_RECORDED' : 'UNPAID_CONFIRMED', confirmed: false }); setSelected(row);
@@ -79,17 +83,28 @@ export default function PaymentReconciliation() {
     { title: 'Trạng thái', key: 'state', render: (_, row) => <><Tag>{transactionLabels[row.status] || row.status}</Tag>{row.case_status && <Tag color={row.case_status === 'OPEN' ? 'orange' : 'green'}>{row.case_status === 'OPEN' ? 'Cần xử lý' : 'Đã hoàn tiền'}</Tag>}<div>{row.reason ? reasonLabels[row.reason] || row.reason : ''}</div></> },
     { title: 'Hết hạn', dataIndex: 'expires_at', render: value => (value ? formatDatetime(String(value)) : '—') },
     { title: 'Thao tác', key: 'actions', render: (_, row) => <Space wrap>
-      {canResolve && view === 'ACTIONABLE' && <Button onClick={() => open(row)}>Ghi nhận xử lý</Button>}
-      {canHistory && <Button onClick={() => void showHistory(row.txn_ref)}>Lịch sử</Button>}
+      {canResolve && (row.case_status === 'OPEN' || (row.status === 'PENDING' && !row.case_status &&
+        !!parseDate(row.expires_at) && Number(parseDate(row.expires_at)) <= Date.now())) && <Button disabled={loading} onClick={() => open(row)}>Ghi nhận xử lý</Button>}
+      {canHistory && <Button disabled={loading} onClick={() => void showHistory(row.txn_ref)}>Lịch sử</Button>}
     </Space> },
   ];
   return <Space direction="vertical" style={{ width: '100%' }} size="middle">
     <Typography.Title level={3}>Đối soát thanh toán VNPay / MoMo</Typography.Title>
     <Alert type="info" showIcon message="Đối chiếu chứng từ trước khi xác nhận"
       description="Giao dịch quá hạn chưa có kết quả không đồng nghĩa chưa thu tiền. Màn hình này ghi nhận kết quả kiểm tra thủ công; không chuyển tiền, không gọi hoàn tiền ngân hàng và không tự xác nhận booking đã thanh toán." />
-    <Space><Select value={view} onChange={value => { setPage(0); setView(value); }} style={{ width: 220 }} options={[{ value: 'ACTIONABLE', label: 'Cần xử lý' }, { value: 'HISTORY', label: 'Đã có lịch sử xử lý' }]} /><Button loading={loading} onClick={() => void load()}>Tải lại</Button></Space>
-    <Table rowKey={(row) => `${row.provider}-${row.txn_ref}`} dataSource={rows} columns={columns} loading={loading} pagination={false} scroll={{ x: 1150 }} />
-    <Space><Button disabled={page === 0 || loading} onClick={() => setPage(value => value - 1)}>Trang trước</Button><span>Trang {page + 1}</span><Button disabled={!hasNext || loading} onClick={() => setPage(value => value + 1)}>Trang sau</Button></Space>
+    {focusedRef && <Alert showIcon message={`Đang xem giao dịch ${focusedRef}`}
+      action={<Button size="small" onClick={() => { setPage(0); setParams({}); }}>Xem tất cả giao dịch</Button>} />}
+    <Input.Search aria-label="Mã giao dịch chính xác" placeholder="Nhập mã giao dịch" enterButton="Tra cứu"
+      maxLength={32} allowClear style={{ maxWidth: 420 }} onSearch={value => {
+        const ref = value.trim();
+        if (ref && !/^[A-Za-z0-9_-]{1,32}$/.test(ref)) { message.warning('Mã giao dịch không hợp lệ'); return; }
+        setPage(0);
+        setParams(ref ? { txnRef: ref } : {});
+      }} />
+    {!focusedRef && <Space><Select value={view} onChange={value => { setPage(0); setView(value); }} style={{ width: 220 }} options={[{ value: 'ACTIONABLE', label: 'Cần xử lý' }, { value: 'HISTORY', label: 'Đã có lịch sử xử lý' }]} /><Button loading={loading} onClick={() => void load()}>Tải lại</Button></Space>}
+    <Table rowKey={(row) => `${row.provider}-${row.txn_ref}`} dataSource={focusedRef ? rows.filter(row => row.txn_ref === focusedRef) : rows} columns={columns} loading={loading} pagination={false} scroll={{ x: 1150 }}
+      locale={{ emptyText: focusedRef ? 'Không tìm thấy giao dịch theo mã đã nhập.' : undefined }} />
+    {!focusedRef && <Space><Button disabled={page === 0 || loading} onClick={() => setPage(value => value - 1)}>Trang trước</Button><span>Trang {page + 1}</span><Button disabled={!hasNext || loading} onClick={() => setPage(value => value + 1)}>Trang sau</Button></Space>}
     <Modal title="Ghi nhận kết quả đối soát" open={!!selected} onCancel={() => { if (!saving) setSelected(null); }} onOk={() => form.submit()} confirmLoading={saving} maskClosable={!saving}>
       <Alert type="warning" showIcon message="Chỉ xác nhận sau khi đã đối chiếu với ngân hàng/cổng thanh toán. Ghi nhận hoàn tiền yêu cầu khoản hoàn đã thực hiện bên ngoài hệ thống." style={{ marginBottom: 16 }} />
       <Form form={form} layout="vertical" onFinish={submit}>

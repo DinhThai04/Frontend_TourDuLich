@@ -12,8 +12,8 @@ export type ReconciliationEvent = { id: number; actor_id: number; actor_name: st
 export type ReconciliationDecision = { action: ReconciliationAction; amountVnd: number; reference: string;
   note: string; confirmed: boolean; providerPaidAt?: string };
 export const reconciliationServices = {
-  list: (page: number, view: string): Promise<ApiResponse<{ items: ReconciliationRow[]; hasNext: boolean }>> =>
-    axiosClient.get('/payment/reconciliation', { params: { page, view } }),
+  list: (page: number, view: string, options?: { txnRef?: string; size?: number; bookingId?: number; day?: string }): Promise<ApiResponse<{ items: ReconciliationRow[]; hasNext: boolean }>> =>
+    axiosClient.get('/payment/reconciliation', { params: { page, view, ...options } }),
   history: (ref: string): Promise<ApiResponse<ReconciliationEvent[]>> => axiosClient.get(`/payment/reconciliation/${encodeURIComponent(ref)}/history`),
   resolve: (ref: string, input: ReconciliationDecision): Promise<ApiResponse<Pick<ReconciliationRow, 'txn_ref' | 'status'>>> =>
     axiosClient.post(`/payment/reconciliation/${encodeURIComponent(ref)}/resolve`, input),

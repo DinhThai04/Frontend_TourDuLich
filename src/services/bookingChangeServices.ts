@@ -10,6 +10,9 @@ export interface ChangeRequest {
   events?: { action: string; note: string; actor_id: number; created_at: string }[];
 }
 export interface DepartureOption { id: number; departure_date: string; return_date: string; available_seats: number }
+export type PendingScheduleChange = Pick<ChangeRequest, 'id' | 'booking_id' | 'kind' | 'status' | 'source_departure_at' | 'tour_title'> & {
+  tour_id: number;
+};
 export interface EligibleBooking { id: number; tour_title: string; departure_date: string }
 export interface ShopProposal { id: number; source_departure_id: number; target_departure_id: number; status: string; reason: string; evidence: string; response_deadline: string }
 export interface ShopInput {
@@ -29,14 +32,20 @@ async function unwrap<T>(request: Promise<Response<T>>) {
 }
 const root = '/booking/changes';
 export const bookingChanges = {
-  mine: () => unwrap<ChangeRequest[]>(api.get(`${root}/mine`)),
+  mine: (bookingId?: number) => unwrap<ChangeRequest[]>(api.get(`${root}/mine`, { params: { bookingId } })),
   eligible: () => unwrap<EligibleBooking[]>(api.get(`${root}/eligible`)),
   options: (bookingId: number) => unwrap<DepartureOption[]>(api.get(`${root}/options`, { params: { bookingId } })),
   customer: (bookingId: number, targetId: number, reason: string, clientKey: string) =>
     unwrap<ChangeRequest>(api.post(`${root}/customer`, { bookingId, targetId, reason, clientKey })),
   respond: (row: ChangeRequest, action: string, note: string, targetId?: number) =>
     unwrap<ChangeRequest>(api.post(`${root}/${row.id}/respond`, { action, note, targetId, expectedVersion: row.version })),
-  admin: (tourId?: number, query?: ListQuery) => unwrap<{ requests: ChangeRequest[]; proposals: ShopProposal[] }>(api.get(`${root}/admin`, { params: { ...listPageParams(query), ...(tourId != null ? { tourId } : {}) } })),
+  admin: (tourId?: number, query?: ListQuery, requestId?: number) =>
+    unwrap<{ requests: ChangeRequest[]; proposals: ShopProposal[] }>(
+      api.get(`${root}/admin`, { params: { ...listPageParams(query), tourId, requestId } }),
+    ),
+  pending: (page: number, filters?: { bookingId?: number; day?: string; customerAction?: boolean }) => unwrap<{ items: PendingScheduleChange[]; hasNext: boolean }>(
+    api.get(`${root}/admin/pending`, { params: { page, ...filters } }),
+  ),
   preview: (input: ShopInput) => unwrap<{ bookingCount: number; occupiedSeats: number; capacity: number; version: number }>(api.post(`${root}/shop/preview`, input)),
   shop: (input: ShopInput) => unwrap<ShopProposal>(api.post(`${root}/shop`, input)),
   review: (row: ChangeRequest, action: string, note: string) =>

@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import React, { useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -13,7 +14,7 @@ import { formatCurrencyVND, formatDate, formatDatetime, isListCapped } from '@/u
 import { passengerLabel } from '@/utils/booking';
 import { settledRows } from '@/utils/settledRows';
 import { useApiQuery } from '@/hooks';
-import { Alert, Tag, Modal, Button, message } from 'antd';
+import { Alert, Tag, Modal, Button, Input, Space, message } from 'antd';
 
 type BookingWithFullInfo = BookingResponse & {
   userName?: string;
@@ -48,12 +49,36 @@ const CUSTOMER_STATUS: Record<string, string> = {
 const MAX_DEPARTURE_LOOKUPS = 50;
 
 const ManagerBooking: React.FC = () => {
+  const [params, setParams] = useSearchParams();
+  const bookingId = params.get('bookingId');
   const [detail, setDetail] = useState<BookingWithFullInfo | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   /** Load toàn bộ dữ liệu; nguồn phụ lỗi thì chỉ thiếu thông tin trang trí, không làm trắng bảng. */
   const { data, loading, error: loadError } = useApiQuery(
     async () => {
+      if (bookingId) {
+        const id = Number(bookingId);
+        if (!/^[0-9]{1,10}$/.test(bookingId) || id < 1 || id > 2147483647) throw new Error('Mã đơn không hợp lệ');
+        const response = await bookingServices.getById(id);
+        if (response.code !== 1000 || !response.result) throw new Error('Không tìm thấy đơn');
+        const booking = response.result;
+        const [departure, customers, invoice, names] = await Promise.allSettled([
+          booking.tourDepartureId ? getTourDepartureById(Number(booking.tourDepartureId)) : Promise.resolve(null),
+          bookingServices.getListOfCustomersByBookingId(id),
+          invoiceServices.getByBookingId(id),
+          getUserDisplayNames([booking.accountId]),
+        ]);
+        const row: BookingWithFullInfo = {
+          ...booking,
+          userName: (names.status === 'fulfilled' && names.value[String(booking.accountId)]) || `Tài khoản #${booking.accountId}`,
+          tourDeparture: departure.status === 'fulfilled' && departure.value?.code === 1000 ? departure.value.result : null,
+          listOfCustomers: customers.status === 'fulfilled' && customers.value.code === 1000 ? customers.value.result : undefined,
+          invoice: invoice.status === 'fulfilled' && invoice.value.code === 1000 ? invoice.value.result : null,
+          invoiceLoadFailed: invoice.status === 'rejected',
+        };
+        return { rows: [row], capped: false };
+      }
       const [bookingRes, tourRes, customerRes, invoiceRes] = await Promise.allSettled([
         bookingServices.getAll(),
         getAllTourDeparture(),
@@ -130,9 +155,9 @@ const ManagerBooking: React.FC = () => {
         missingDepartureIds.length > MAX_DEPARTURE_LOOKUPS;
       return { rows, capped };
     },
-    { onError: (msg) => message.error(msg) },
+    { deps: [bookingId], onError: (msg) => message.error(msg) },
   );
-  const rows = data?.rows ?? [];
+  const rows = loading || loadError ? [] : data?.rows ?? [];
 
   /** Cột bảng */
   const columns: ProColumns<BookingWithFullInfo>[] = [
@@ -198,6 +223,17 @@ const ManagerBooking: React.FC = () => {
         dataSource={rows}
         rowKey="id"
         search={false}
+        toolBarRender={() => [<Space key="lookup" wrap>
+          <Input.Search aria-label="Mã đơn chính xác" placeholder="Nhập mã đơn" enterButton="Tra cứu"
+            maxLength={10} onSearch={value => {
+              const id = value.trim();
+              if (!/^[0-9]{1,10}$/.test(id) || Number(id) < 1 || Number(id) > 2147483647) {
+                message.warning('Nhập mã đơn dạng số'); return;
+              }
+              setParams({ bookingId: id });
+            }} />
+          {bookingId && <Button onClick={() => setParams({})}>Xem tất cả đơn</Button>}
+        </Space>]}
         pagination={{ pageSize: 10 }}
       />
 

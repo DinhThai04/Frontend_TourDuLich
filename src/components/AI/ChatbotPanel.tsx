@@ -5,6 +5,7 @@ import { SendOutlined, MinusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { aiErrorText } from '../../services/aiServices';
 import { formatDate } from '@/utils';
+import { bookingHistoryLink } from '@/utils/booking';
 import { useAiConversation } from './AiConversationContext';
 import AiResults from './AiResults';
 import logo from '../../assets/branding/sgu-tour-icon.svg';
@@ -48,7 +49,8 @@ export default function ChatbotPanel({ isOpen, onClose, context = { kind: 'gener
     const scoped = scopeMessage(text.trim());
     if (blocked || !text.trim() || [...scoped].length > 2000) return;
     setInput('');
-    void conversation.send(scoped, context.kind === 'tour' ? context.tourId : undefined);
+    const tour = context.kind === 'tour' ? context : undefined;
+    void conversation.send(scoped, tour?.tourId, tour?.departureId);
   };
   return (
     <section className="chatbot-floating-container" role="dialog" aria-label="Trợ lý SGU Tour">
@@ -85,7 +87,7 @@ export default function ChatbotPanel({ isOpen, onClose, context = { kind: 'gener
         aria-relevant="additions"
         aria-busy={view.busy}
       >
-        {(view.messages.length <= 1 || context.kind === 'checkout') && <div className="journey-chat-prompts" aria-label="Gợi ý bắt đầu">
+        {(view.messages.length <= 1 || context.kind === 'checkout' || (context.kind === 'tour' && context.departureId)) && <div className="journey-chat-prompts" aria-label="Gợi ý bắt đầu">
           <p>{context.kind === 'checkout' ? 'Bạn cần hỗ trợ bước nào?' : 'Bạn muốn tìm hiểu điều gì?'}</p>
           {chatPrompts(context).map(prompt => <button type="button" key={prompt} disabled={blocked} onClick={() => send(prompt)}>{prompt}</button>)}
         </div>}
@@ -118,7 +120,9 @@ export default function ChatbotPanel({ isOpen, onClose, context = { kind: 'gener
                       </button>
                     ))}
                   </div>
-                  <Link to="/profile">Lịch sử đặt tour</Link> ·{' '}
+                  <Link onClick={onClose} to={bookingHistoryLink(message.bookingHelp.selectedBookingId)}>
+                    {message.bookingHelp.selectedBookingId ? 'Xem trạng thái đơn này' : 'Lịch sử đặt tour'}
+                  </Link> ·{' '}
                   <Link to="/policies">Chính sách</Link>
                   {message.bookingHelp.policy && (
                     <small className="ai-policy-source">

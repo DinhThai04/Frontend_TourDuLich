@@ -6,7 +6,11 @@ import type { ChangeRequest, DepartureOption, EligibleBooking } from '@/services
 import { formatCurrencyVND, createClientKey } from '@/utils';
 
 const labels: Record<string, string> = { PENDING: 'Chờ phản hồi / xét duyệt', ACCEPTED: 'Đã đồng ý, chờ chuyển', APPROVED: 'Đã chuyển lịch', SUPPORT_REQUIRED: 'Cần hỗ trợ', REFUNDED: 'Đã ghi nhận hoàn tiền', REJECTED: 'Từ chối', SUPERSEDED: 'Đã thay thế', CANCELLED_BY_SHOP: 'Shop đã hủy', WITHDRAWN: 'Đã kết thúc' };
-export default function BookingChangesPanel({ onChanged }: { onChanged: () => void }) {
+export default function BookingChangesPanel({ onChanged, bookingId, onClearBooking }: {
+  onChanged: () => void;
+  bookingId?: number;
+  onClearBooking: () => void;
+}) {
   const [rows, setRows] = useState<ChangeRequest[]>([]);
   const [eligible, setEligible] = useState<EligibleBooking[]>([]);
   const [options, setOptions] = useState<DepartureOption[]>([]);
@@ -16,16 +20,22 @@ export default function BookingChangesPanel({ onChanged }: { onChanged: () => vo
   const [clientKey, setClientKey] = useState('');
   const [form] = Form.useForm<{ bookingId: number; targetId?: number; reason: string; action: string }>();
   const optionsSeq = useRef(0);
+  const requestsSeq = useRef(0);
   const refresh = useCallback(async () => {
-    // Hai nguồn dữ liệu độc lập: nguồn nào lỗi chỉ mất phần đó, không xóa bảng đang xem.
-    const [changes, bookings] = await Promise.allSettled([bookingChanges.mine(), bookingChanges.eligible()]);
+    const request = ++requestsSeq.current;
+    const [changes, bookings] = await Promise.allSettled([bookingChanges.mine(bookingId), bookingChanges.eligible()]);
+    if (requestsSeq.current !== request) return;
     if (changes.status === 'fulfilled') setRows(changes.value);
     if (bookings.status === 'fulfilled') setEligible(bookings.value);
     const failure = changes.status === 'rejected' ? changes.reason
       : bookings.status === 'rejected' ? bookings.reason : null;
     if (failure) message.error(changeError(failure));
-  }, []);
-  useEffect(() => { void refresh(); }, [refresh]);
+  }, [bookingId]);
+  useEffect(() => {
+    setRows([]);
+    void refresh();
+    return () => { requestsSeq.current += 1; };
+  }, [refresh]);
   async function loadOptions(id: number) {
     // Đổi booking là đổi danh sách lịch; phản hồi của booking cũ đến sau phải bị bỏ,
     // nếu không người dùng chọn lịch của booking khác.
@@ -47,7 +57,10 @@ export default function BookingChangesPanel({ onChanged }: { onChanged: () => vo
       setMode(null); message.success('Đã ghi nhận lựa chọn. Vui lòng xem trạng thái mới nhất.'); await refresh(); onChanged();
     } catch (e) { message.error(changeError(e), 8); } finally { setBusy(false); }
   }
-  return <Card title="Dời lịch và hỗ trợ chuyến đi" className="mb-4" extra={<Space><Button onClick={() => void refresh()}>Tải lại</Button><Button onClick={() => { form.resetFields(); setOptions([]); setClientKey(createClientKey()); setMode('new'); }} disabled={!eligible.length}>Yêu cầu dời lịch</Button></Space>}>
+  return <Card title="Dời lịch và hỗ trợ chuyến đi" className="mb-4" extra={<Space wrap><Button onClick={() => void refresh()}>Tải lại</Button><Button onClick={() => { form.resetFields(); setOptions([]); setClientKey(createClientKey()); setMode('new'); }} disabled={!eligible.length}>Yêu cầu dời lịch</Button></Space>}>
+    {bookingId && <Space wrap className="!mb-3">
+      <Tag>Đơn #{bookingId}</Tag><Button size="small" onClick={onClearBooking}>Xem tất cả đơn</Button>
+    </Space>}
     <Alert type="info" showIcon message="Khách đã thanh toán: gửi yêu cầu trước giờ đi ít nhất 72 giờ. Yêu cầu chờ duyệt chưa giữ chỗ ở lịch mới. Chỉ áp dụng cùng tour và không phát sinh chênh lệch tiền." />
     <Table<ChangeRequest> rowKey="id" size="small" dataSource={rows} pagination={{ pageSize: 4 }} columns={[
       { title: 'Booking / tour', render: (_, r) => `#${r.booking_id} — ${r.tour_title}` },

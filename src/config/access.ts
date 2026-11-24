@@ -3,6 +3,10 @@ import type { User } from '@/types/User';
 /** Quyền được khớp bằng mã ổn định; đường dẫn API chỉ là metadata nên đổi route không đổi quyền. */
 export type RequiredPermission = { code?: string; anyOf?: readonly string[] };
 
+export const OPERATIONS_ACCESS: RequiredPermission = {
+  anyOf: ['RECONCILIATION_READ', 'TOUR_DEPARTURES_GET_LIST', 'BOOKINGS_GET_ALL'],
+};
+
 /**
  * Cổng vào khu quản trị: mở cho vai trò có ít nhất một quyền của các trang quản trị.
  * Từng trang con vẫn kiểm tra đúng mã quyền của nó; vai trò khách hàng không có mã nào nên không lọt vào.

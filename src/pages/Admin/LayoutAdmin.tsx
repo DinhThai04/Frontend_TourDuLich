@@ -1,4 +1,4 @@
-import { hasPermission } from '@/config/access';
+import { hasPermission, OPERATIONS_ACCESS } from '@/config/access';
 import React, { useState, useEffect } from 'react';
 import {
   MenuFoldOutlined,
@@ -15,6 +15,7 @@ import {
   GiftOutlined,
   FieldTimeOutlined,
   MoneyCollectOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons';
 import { Layout, Menu, Dropdown, Space, Avatar, Button, message } from 'antd';
 import type { MenuProps } from 'antd';
@@ -43,6 +44,14 @@ const AdminSidebar: React.FC = () => {
 
   // Xây menu theo đúng quyền mà từng route yêu cầu, tránh hiện mục rồi bị chặn khi bấm.
   const menuItems: MenuProps['items'] = [];
+
+  if (hasPermission(user, OPERATIONS_ACCESS)) {
+    menuItems.push({
+      key: '/admin/operations',
+      icon: <DashboardOutlined />,
+      label: <Link to="/admin/operations">Việc cần xử lý</Link>,
+    });
+  }
 
   // Quản lý người dùng (module USERS)
   if (hasPermission(user, ALL_PERMISSIONS.USERS.GET_LIST)) {

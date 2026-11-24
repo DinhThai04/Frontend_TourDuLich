@@ -1,3 +1,4 @@
+import TourContentReadiness from './TourContentReadiness';
 import type { TourFormValues } from '@/types/adminForms';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Form, Input, InputNumber, Button, Select, Upload, Space, Card, Tooltip, Alert, message } from 'antd';
@@ -18,6 +19,7 @@ interface AddTourProps {
 
 const AddNewTour: React.FC<AddTourProps> = ({ onSubmit, pendingTour, onSavingChange, onSkipImages }) => {
   const [form] = Form.useForm<TourFormValues>();
+  const values = Form.useWatch([], form);
   const [saving, setSaving] = useState(false);
   const inFlight = React.useRef(false);
   const [departureList, setDepartureList] = useState<ILocation[]>([]);
@@ -229,6 +231,13 @@ const AddNewTour: React.FC<AddTourProps> = ({ onSubmit, pendingTour, onSavingCha
           {pendingTour && <Button disabled={saving} onClick={onSkipImages} style={{ marginLeft: 8 }}>Để bổ sung ảnh sau</Button>}
         </Form.Item>
       </Form>
+      <TourContentReadiness title={values?.tourTitle} program={values?.tourProgram}
+        duration={Number(values?.duration) || undefined}
+        adultPrice={tourPriceList.find(price => Number(price.id) === Number(values?.tourPriceId))?.adultPrice}
+        departureCity={departureList.find(city => Number(city.id) === Number(values?.departureLocationId))?.city}
+        hasPhoto={!!values?.files?.length}
+        hasItinerary={false} hasOpenDeparture={false}
+      />
     </Card>
   );
 };

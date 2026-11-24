@@ -1,3 +1,12 @@
+export const TOUR_FILTER_KEYS = ['dest', 'depD', 'minP', 'maxP', 'veh', 'dep'] as const;
+
+export function clearTourFilters(input: URLSearchParams, keys: readonly string[] = TOUR_FILTER_KEYS) {
+  const next = new URLSearchParams(input);
+  for (const key of keys) next.delete(key);
+  next.delete('page');
+  return next;
+}
+
 export function tourSearchQuery(input: URLSearchParams, defaultSize = 5) {
   const bounded = (raw: string | null, fallback: number, min: number, max: number) => {
     const value = raw && /^\d+$/.test(raw) ? Number(raw) : fallback;
@@ -9,7 +18,7 @@ export function tourSearchQuery(input: URLSearchParams, defaultSize = 5) {
   const page = bounded(input.get('page'), 0, 0, 2_000);
   const size = bounded(input.get('size'), fallback, 1, 50);
   const query = new URLSearchParams();
-  for (const key of ['dest', 'depD', 'minP', 'maxP', 'veh', 'dep', 'sort']) {
+  for (const key of [...TOUR_FILTER_KEYS, 'sort']) {
     const value = input.get(key);
     if (value) query.set(key, value);
   }

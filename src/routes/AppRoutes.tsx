@@ -9,11 +9,12 @@ const LoginPage = lazy(() => import('@/pages/Auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/Auth/RegisterPage'));
 const Tours = lazy(() => import('@/pages/Tours/page'));
 import RouteGuard from './RouteGuard';
-import { ADMIN_ACCESS } from '@/config/access';
+import { ADMIN_ACCESS, OPERATIONS_ACCESS } from '@/config/access';
 import PermissionGate from './PermissionGate';
 import { ALL_PERMISSIONS as P } from '@/config/permissions';
 const LayoutAdmin = lazy(() => import('../pages/Admin/LayoutAdmin'));
 const AdminLanding = lazy(() => import('@/pages/Admin/AdminLanding'));
+const OperationsPage = lazy(() => import('@/pages/Admin/OperationsPage'));
 const ManagerUser = lazy(() => import('../components/Admin/ManagerUser/ManagerUser'));
 const ManagerTour = lazy(() => import('../components/Admin/ManagerTour/ManagerTour'));
 const ManagerBooking = lazy(() => import('../components/Admin/ManagerBooking/ManagerBooking'));
@@ -77,6 +78,7 @@ function RouteContent() {
           >
             <Route path="/admin" element={<LayoutAdmin />}>
               <Route index element={<AdminLanding />} />
+              <Route path="/admin/operations" element={<PermissionGate permission={OPERATIONS_ACCESS}><OperationsPage /></PermissionGate>} />
               <Route path="/admin/paymentReconciliation" element={<PermissionGate permission={P.PAYMENT_RECONCILIATION.GET_LIST}><PaymentReconciliation /></PermissionGate>} />
               <Route path="/admin/managerUser" element={<PermissionGate permission={P.USERS.GET_LIST}><ManagerUser /></PermissionGate>} />
               <Route path="/admin/managerTour/list" element={<PermissionGate permission={P.TOURS.GET_LIST}><ManagerTour /></PermissionGate>} />

@@ -14,6 +14,7 @@ export default function ListOfCustomerInfo({
   onCustomersChange,
   maxPassengers,
   pricingDate,
+  initialCustomers,
 }: {
   onFormReady?: (form: FormInstance<CustomersFormValues>) => void;
   /** optional getter function provided by parent to read personal info form values */
@@ -23,12 +24,13 @@ export default function ListOfCustomerInfo({
   /** Số hành khách bổ sung tối đa theo số chỗ còn lại của chuyến đi. */
   maxPassengers?: number;
   pricingDate: Date;
+  initialCustomers?: PassengerFormValues[];
 }) {
   const [form] = Form.useForm<CustomersFormValues>();
   const { markDirty } = useContext(BookingDraftContext);
 
   useEffect(() => { onFormReady?.(form); }, [form, onFormReady]);
-  const idCounter = useRef(1);
+  const idCounter = useRef(Math.max(0, ...(initialCustomers ?? []).map(customer => customer.id ?? 0)));
   const customersWatch = Form.useWatch('customers', form) as PassengerFormValues[] | undefined;
   const customerCount = customersWatch?.length ?? 0;
   const capacityReached = maxPassengers != null && customerCount >= maxPassengers;
@@ -58,6 +60,7 @@ export default function ListOfCustomerInfo({
         form={form}
         layout="vertical"
         name="list_of_customers"
+        initialValues={{ customers: initialCustomers }}
         onValuesChange={() => {
           markDirty();
           if (onCustomersChange) onCustomersChange(form.getFieldsValue().customers || []);

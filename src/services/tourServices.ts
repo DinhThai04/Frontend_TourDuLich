@@ -57,9 +57,16 @@ export const getTourById = (id: number, signal?: AbortSignal): Promise<ApiRespon
   return axiosClient.get(`/tour/tours/${id}`, { signal });
 };
 
-export const getDepartureByTourId = (id: number): Promise<ApiResponse<ITourDeparture[]>> => {
-  return axiosClient.get(`/tour/tour-departures/tour/${id}`);
+export const getDepartureByTourId = (id: number, signal?: AbortSignal): Promise<ApiResponse<ITourDeparture[]>> => {
+  return axiosClient.get(`/tour/tour-departures/tour/${id}`, { signal });
 };
+
+export type UpcomingDeparture = Pick<ITourDeparture, 'id' | 'tourId' | 'tourCode' | 'departureDate' | 'availableSeats'> & {
+  tourTitle: string;
+};
+
+export const getUpcomingDepartures = (page: number, day?: string): Promise<ApiResponse<{ items: UpcomingDeparture[]; hasNext: boolean }>> =>
+  axiosClient.get('/tour/tour-departures/upcoming', { params: { page, day } });
 
 /** Admin view: includes past, suspended and cancelled departures. */
 export const getDepartureHistoryByTourId = (id: number): Promise<ApiResponse<ITourDeparture[]>> => {
@@ -70,9 +77,15 @@ export const getAllTourDeparture = (): Promise<ApiResponse<ITourDeparture[]>> =>
   return axiosClient.get(`/tour/tour-departures/list`);
 };
 
-export const getTourDepartureById = (id: number): Promise<ApiResponse<ITourDeparture>> => {
-  return axiosClient.get(`/tour/tour-departures/${id}`);
+export const getTourDepartureById = (id: number, signal?: AbortSignal): Promise<ApiResponse<ITourDeparture>> => {
+  return axiosClient.get(`/tour/tour-departures/${id}`, { signal });
 };
+
+export type MeetingPoint = { address?: string; landmark?: string; arrivalTime?: string | null; directionsUrl?: string };
+export const getMeetingPoint = (id: number): Promise<ApiResponse<MeetingPoint | null>> =>
+  axiosClient.get(`/tour/tour-departures/${id}/meeting-point`);
+export const saveMeetingPoint = (id: number, point: MeetingPoint): Promise<ApiResponse<MeetingPoint | null>> =>
+  axiosClient.put(`/tour/tour-departures/${id}/meeting-point`, point);
 
 export const getItineraryByTourId = (id: number): Promise<ApiResponse<IItinerary[]>> => {
   return axiosClient.get(`/tour/itineraries/tour/${id}`);

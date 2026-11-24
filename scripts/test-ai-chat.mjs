@@ -240,7 +240,7 @@ test('React renders untrusted itinerary as text and creates only local detail li
   const { createElement } = await import('react'); const { renderToStaticMarkup } = await import('react-dom/server'); const { MemoryRouter } = await import('react-router-dom');
   const data = { ...result({ conversationId: id, requestId: randomUUID() }), status: 'ANSWER', detail: { tourId: 7, title: '<img src=x onerror=alert(1)>', itinerary: [{ dayNumber: 1, title: 'Ngày đầu', description: '<script>alert(1)</script>', meal: '' }], truncated: false, dataAsOf: expiry } };
   const html = renderToStaticMarkup(createElement(MemoryRouter, {}, createElement(AiResults, { result: data, onSuggest() {}, disabled: false })));
-  assert.ok(html.includes('&lt;script&gt;')); assert.ok(!html.includes('<script>')); assert.ok(html.includes('href="/tours/detail/7"'));
+  assert.ok(html.includes('&lt;script&gt;')); assert.ok(!html.includes('<script>')); assert.ok(html.includes('href="/tours/detail/7#lich-trinh"'));
 });
 
 
@@ -261,11 +261,12 @@ test('client recognizes a server scope rejection without exposing or retrying it
 });
 
 
-test('tour context survives uncertain reply, persisted pending and retry', async () => {
+test('tour and departure context survive an uncertain reply and retry after reload', async () => {
   const saved=storage();let first=true;const requests=[];
   const api={chat:async request=>{requests.push(request);if(first) throw new AiClientError('AI_UNAVAILABLE',true);return result(request);}};
-  const {controller}=fixture(api,saved);await controller.send('Xem lịch trình tour này',902);
+  const {controller}=fixture(api,saved);await controller.send('Ngày đã chọn còn chỗ không?',902,611);
   assert.equal(controller.getSnapshot().pending.selectedTourId,902);
+  assert.equal(controller.getSnapshot().pending.selectedDepartureId,611);
   first=false;const restored=fixture(api,saved).controller;await restored.retry();
   assert.equal(requests.length,2);assert.deepEqual(requests[1],requests[0]);
   assert.equal(restored.getSnapshot().pending,null);

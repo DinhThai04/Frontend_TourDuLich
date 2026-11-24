@@ -3,8 +3,8 @@ import type { CustomersFormValues, PassengerFormValues, PassengerType, PersonalF
 import type { ITourPrice } from '@/types/Tour';
 import { errorMessage } from '@/utils/errors';
 import { parseDate, formatDatetime, createClientKey } from '@/utils';
-import { Row, Col, Card, Modal, Checkbox, Alert, Spin } from 'antd';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Row, Col, Card, Modal, Checkbox, Alert, Spin, Button } from 'antd';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useContext, useRef, useState, useMemo, useCallback, useEffect } from 'react';
 
@@ -16,7 +16,8 @@ import BookingExpense, { type ExpenseItem } from '@/components/Booking/BookingEx
 import bookingServices from '@/services/bookingServices';
 import { getTourDepartureById } from '@/services/tourServices';
 import { sessionService } from '@/services/sessionServices';
-import { PASSENGER_LABELS, passengerTypeFor, passengersForBooking, vietnamBookingDay } from '@/utils/booking';
+import { bookingHistoryLink, DEFAULT_PARTY, formatParty, parseParty, PARTY_TYPES, PASSENGER_LABELS, passengerTypeFor,
+  passengersForBooking, readPartyDraft, savePartyDraft, unitPriceFor, vietnamBookingDay, type PartyCounts } from '@/utils/booking';
 import { bookingAttemptKey, bookingAttemptScope, clearBookingAttempt, pendingBookingKey } from '@/utils/bookingAttempt';
 
 import type { BookingRequest, CustomerRequest } from '@/types/Booking';
@@ -30,12 +31,44 @@ const previousBookingsLink = (
   </a>
 );
 
+async function validateBookingFields<T>(form: FormInstance<T>, onInvalid: (focus: () => void) => void) {
+  try {
+    await form.validateFields();
+  } catch (failure) {
+    const invalid = failure as { errorFields?: { name: Parameters<typeof form.scrollToField>[0] }[] };
+    const first = invalid.errorFields?.[0];
+    if (first) onInvalid(() => form.scrollToField(first.name, { focus: true, block: 'center' }));
+    throw failure;
+  }
+}
+
 export default function BookingLayout() {
+  const [params] = useSearchParams();
+  const key = [params.get('tourId'), params.get('departureId'), params.get('party')].join(':');
+  return <BookingForm key={key} />;
+}
+
+function BookingForm() {
   const { clearDraft, markDirty } = useContext(BookingDraftContext);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tourDepartureId = searchParams.get('departureId');
   const tourId = searchParams.get('tourId');
+  const currentUser = sessionService.getUser();
+  const scope = currentUser && tourDepartureId ? bookingAttemptScope(currentUser.id, tourDepartureId) : null;
+  const requestedParty = searchParams.get('party');
+  const draftScope = scope ? `${scope}:${parseParty(requestedParty) ? requestedParty : 'default'}` : null;
+  const [draftParty] = useState(() => {
+    const restored = draftScope ? readPartyDraft(draftScope) : undefined;
+    if (restored) return restored;
+    const counts = parseParty(requestedParty) ?? DEFAULT_PARTY;
+    return { counts, includeBooker: counts.ADULT > 0 };
+  });
+  const [initialCustomers] = useState<PassengerFormValues[]>(() => PARTY_TYPES.flatMap(type =>
+    Array.from({ length: draftParty.counts[type] - (type === 'ADULT' && draftParty.includeBooker ? 1 : 0) }, (_, index) => ({
+      id: PARTY_TYPES.indexOf(type) * 40 + index + 1, type, fullName: '', birthDate: null, address: '',
+    })),
+  ));
   const [departureError, setDepartureError] = useState<string | null>(null);
   const [departureReady, setDepartureReady] = useState(false);
   const [availableSeats, setAvailableSeats] = useState<number | null>(null);
@@ -76,9 +109,11 @@ export default function BookingLayout() {
 
   const personalFormRef = useRef<FormInstance<PersonalFormValues> | null>(null);
   const customersFormRef = useRef<FormInstance<CustomersFormValues> | null>(null);
-  const [includeBooker, setIncludeBooker] = useState(true);
-  const [extraCustomers, setExtraCustomers] = useState<PassengerFormValues[]>([]);
+  const [includeBooker, setIncludeBooker] = useState(draftParty.includeBooker);
+  const [extraCustomers, setExtraCustomers] = useState(initialCustomers);
   const [restartNotice, setRestartNotice] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [bookingIssue, setBookingIssue] = useState<string | null>(null);
   const [pricingDay, setPricingDay] = useState(vietnamBookingDay);
   const pricingDate = useMemo(() => parseDate(pricingDay) ?? new Date(), [pricingDay]);
 
@@ -125,11 +160,56 @@ export default function BookingLayout() {
       .map((type) => ({ type, label: PASSENGER_LABELS[type], quantity: counts[type] }));
   }, [includeBooker, extraCustomers, pricingDate]);
 
+  useEffect(() => {
+    if (!draftScope) return;
+    const counts: PartyCounts = { ADULT: 0, CHILD: 0, TODDLER: 0, INFANT: 0 };
+    expenseItems.forEach(item => { counts[item.type] = item.quantity; });
+    savePartyDraft(draftScope, counts, includeBooker);
+  }, [draftScope, expenseItems, includeBooker]);
+
+  async function recoverAttempt() {
+    if (!scope) return false;
+    const key = pendingBookingKey(scope);
+    if (!key) return false;
+    const { code, result } = await bookingServices.findOwnAttempt(key);
+    if (code !== 1000) throw new Error('Chưa kiểm tra được lượt giữ chỗ trước');
+    if (!result?.id) return false;
+    clearBookingAttempt(scope, key);
+    if (result.restartAllowed) {
+      setRestartNotice(true);
+      return true;
+    }
+    clearDraft();
+    navigate(result.reservationStatus === 'PAID' || result.reservationStatus === 'EXPIRED' || result.reservationStatus === 'CANCELLED'
+      ? bookingHistoryLink(Number(result.id)) : `/invoice/booking/${result.id}`);
+    return true;
+  }
+
+  const checkAttempt = async () => {
+    if (recovering) return;
+    setBookingIssue(null);
+    setRecovering(true);
+    try {
+      if (!await recoverAttempt()) setBookingIssue('Hệ thống chưa thấy đơn cho lượt gửi trước. Bạn có thể gửi lại bằng cùng mã giữ chỗ.');
+    } catch {
+      setBookingIssue('Chưa kiểm tra được lượt gửi trước. Vui lòng thử lại khi kết nối ổn định.');
+    } finally { setRecovering(false); }
+  };
+
   /** =====================================================
    *  🔹 Function xử lý khi nhấn "Xác nhận"
    *  ===================================================== */
+  const scheduleBack = `/tours/detail/${Number(tourId)}?party=${formatParty(
+    Object.fromEntries(PARTY_TYPES.map(type => [type, expenseItems.find(item => item.type === type)?.quantity ?? 0])) as PartyCounts,
+  )}#lich-khoi-hanh`;
+
+  const focusInvalid = useRef<(() => void) | null>(null);
+  const rememberInvalidField = (focus: () => void) => { focusInvalid.current = focus; };
+
   const handleConfirm = async () => {
     try {
+      setBookingIssue(null);
+      if (recovering || await recoverAttempt()) return;
       const ensureDisplayedDayIsCurrent = () => {
         const today = vietnamBookingDay();
         if (today === pricingDay) return;
@@ -145,14 +225,15 @@ export default function BookingLayout() {
       if (includeBooker && !personalForm) throw new Error('Form chưa được khởi tạo.');
       if (!customerForm) throw new Error('Form chưa được khởi tạo.');
 
-      if (personalForm && includeBooker) await personalForm.validateFields();
-      await customerForm.validateFields();
+      if (personalForm && includeBooker) await validateBookingFields(personalForm, rememberInvalidField);
+      await validateBookingFields(customerForm, rememberInvalidField);
       ensureDisplayedDayIsCurrent();
       const p = personalForm?.getFieldsValue();
       const extras = customerForm.getFieldsValue().customers || [];
       const passengers = passengersForBooking<PassengerFormValues>(includeBooker,
         { type: 'ADULT', fullName: p?.fullName ?? '', gender: p?.gender, birthDate: p?.birthDate ?? null, address: p?.address }, extras);
       if (!passengers.length) throw new Error('Cần ít nhất một hành khách tham gia tour.');
+      if (passengers.length > 40) throw new Error('Mỗi đơn chỉ nhận tối đa 40 hành khách.');
       if (availableSeats != null && passengers.length > availableSeats)
         throw new Error(`Chuyến đi chỉ còn ${availableSeats} chỗ nhưng đoàn có ${passengers.length} hành khách.`);
 
@@ -175,6 +256,8 @@ export default function BookingLayout() {
         tourDepartureId: String(tourDepartureId),
         clientKey,
         pricingDate: pricingDay,
+        expectedAmount: String(passengers.reduce((sum, passenger) =>
+          sum + unitPriceFor(passengerTypeFor(passenger.birthDate, pricingDate, passenger.type), tourPrice), 0)),
         listOfCustomers: customers.map((c: CustomerRequest) => ({
           fullName: c.fullName,
           birthdate: c.birthDate.format('YYYY-MM-DD'),
@@ -219,6 +302,16 @@ export default function BookingLayout() {
       // AntD rejects validateFields with field info, which the form already highlights.
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       const status = isAxiosError(err) ? err.response?.status : undefined;
+      if (status === 409 && tourDepartureId) {
+        const text = errorMessage(err);
+        const latest = await getTourDepartureById(Number(tourDepartureId)).catch(() => undefined);
+        if (latest?.code === 1000 && latest.result?.tourPrice) {
+          setAvailableSeats(latest.result.availableSeats);
+          setTourPrice(latest.result.tourPrice);
+        }
+        setBookingIssue(text);
+        return;
+      }
       const checkPreviousBooking = isAxiosError(err) && (!status || status === 409 || status >= 500);
       Modal.error({
         title: 'Lỗi',
@@ -233,11 +326,14 @@ export default function BookingLayout() {
   /** =====================================================
    *  🔹 RETURN SCOPE
    *  ===================================================== */
-  const currentUser = sessionService.getUser();
   const hasPendingAttempt = currentUser && tourDepartureId
     && pendingBookingKey(bookingAttemptScope(currentUser.id, tourDepartureId));
   if (departureError) return <Alert type="error" showIcon message={departureError}
-    description={hasPendingAttempt ? previousBookingsLink : undefined} />;
+    description={<div className="flex flex-wrap gap-3">
+      {bookingIssue && <p role="status" className="w-full">{bookingIssue}</p>}
+      {Number(tourId) > 0 && <Link to={scheduleBack}>Chọn ngày khởi hành khác</Link>}
+      {hasPendingAttempt && <Button loading={recovering} onClick={() => void checkAttempt()}>Kiểm tra lượt giữ chỗ trước</Button>}
+    </div>} />;
   if (!departureReady) return <Spin tip="Đang kiểm tra chuyến đi"><div style={{ minHeight: 160 }} /></Spin>;
   return (
     <div className="bg-white min-h-screen" style={{ padding: '24px clamp(16px, 5vw, 160px)' }}>
@@ -245,10 +341,13 @@ export default function BookingLayout() {
         <BookingTitle />
       </Row>
 
+      {bookingIssue && <Alert className="!mb-4" type="warning" showIcon message={bookingIssue}
+        action={Number(tourId) > 0 ? <Link to={scheduleBack}>Xem ngày khác</Link> : undefined} />}
       {hasPendingAttempt && (
         <Alert className="!mb-4" type="info" showIcon
           message="Lần giữ chỗ trước chưa có kết quả xác nhận trên trang này."
-          description={previousBookingsLink} />
+          description={previousBookingsLink}
+          action={<Button loading={recovering} onClick={() => void checkAttempt()}>Kiểm tra lượt giữ chỗ</Button>} />
       )}
       {restartNotice && !hasPendingAttempt && (
         <Alert className="!mb-4" type="info" showIcon
@@ -282,8 +381,9 @@ export default function BookingLayout() {
             <ListOfCustomerInfo
               onFormReady={handleCustomersFormReady}
               onCustomersChange={handleCustomersChange}
+              initialCustomers={initialCustomers}
               pricingDate={pricingDate}
-              maxPassengers={availableSeats == null ? undefined : Math.max(0, availableSeats - (includeBooker ? 1 : 0))}
+              maxPassengers={Math.max(0, Math.min(40, availableSeats ?? 40) - (includeBooker ? 1 : 0))}
             />
           </Card>
         </Col>
@@ -302,6 +402,10 @@ export default function BookingLayout() {
               items={expenseItems}
               tourPrice={tourPrice}
               onConfirm={handleConfirm}
+              onCloseConfirmation={() => {
+                focusInvalid.current?.();
+                focusInvalid.current = null;
+              }}
             />
           </Card>
         </Col>

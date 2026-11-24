@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { hasPermission, type RequiredPermission } from '@/config/access';
+import { hasPermission, OPERATIONS_ACCESS, type RequiredPermission } from '@/config/access';
 import { ALL_PERMISSIONS as P } from '@/config/permissions';
 import { useAppSelector } from '@/store/hooks';
 
@@ -8,6 +8,7 @@ import { useAppSelector } from '@/store/hooks';
  * mà tài khoản thực sự có quyền. Trỏ cứng vào một trang sẽ đẩy các vai trò khác ra ngoài.
  */
 const LANDING_PAGES: Array<{ permission: RequiredPermission; path: string }> = [
+  { permission: OPERATIONS_ACCESS, path: '/admin/operations' },
   { permission: P.BOOKINGS.GET_ALL, path: '/admin/managerBooking' },
   { permission: P.INVOICES.GET_ALL, path: '/admin/managerInvoice' },
   { permission: P.TOURS.GET_LIST, path: '/admin/managerTour/list' },
