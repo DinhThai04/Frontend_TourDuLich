@@ -3,7 +3,6 @@ import type { PassengerType } from '@/types/Booking';
 import type { ITourPrice } from '@/types/Tour';
 import { errorMessage } from '@/utils/errors';
 import { Button, Modal, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
 import { useMemo, useRef } from 'react';
 import { tourPriceNote, unitPriceFor } from '@/utils/booking';
 
@@ -22,7 +21,6 @@ type BookingExpenseProps = {
 };
 
 export default function BookingExpense({ items, tourPrice, onConfirm, onCloseConfirmation }: BookingExpenseProps) {
-  const navigate = useNavigate();
   const confirmOpen = useRef(false);
   const calculatedTotal = useMemo(
     () => items.reduce((sum, item) => sum + unitPriceFor(item.type, tourPrice) * item.quantity, 0),
@@ -38,10 +36,10 @@ export default function BookingExpense({ items, tourPrice, onConfirm, onCloseCon
         onCloseConfirmation?.();
       },
       focusTriggerAfterClose: false,
-      title: 'Xác nhận đặt tour',
-      content: 'Tiếp tục để tạo yêu cầu giữ chỗ. Bạn sẽ xem hạn thanh toán và thanh toán ở bước tiếp theo.',
-      okText: 'Xác nhận',
-      cancelText: 'Hủy',
+      title: 'Xác nhận thông tin hành khách',
+      content: 'Vui lòng kiểm tra kỹ thông tin hành khách trước khi chuyển sang bước thanh toán.',
+      okText: 'Xác nhận & Tiếp theo',
+      cancelText: 'Kiểm tra lại',
       onOk: async () => {
         try {
           await Promise.resolve(onConfirm?.());
@@ -62,18 +60,9 @@ export default function BookingExpense({ items, tourPrice, onConfirm, onCloseCon
         })}
         note={tourPriceNote(tourPrice?.singleSupplementPrice)} />
 
-      <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-        <Button
-          type="link"
-          className="text-[#21776D]!"
-          block
-          size="large"
-          onClick={() => navigate('/profile')}
-        >
-          Lịch sử đặt tour
-        </Button>
+      <div style={{ marginTop: 16 }}>
         <Button type="primary" className="bg-[#21776D]!" block size="large" onClick={handleConfirm}>
-          Tiếp tục giữ chỗ
+          Tiếp theo
         </Button>
       </div>
     </>

@@ -227,11 +227,70 @@ export default function ListOfCustomerInfo({
                       </Form.Item>
                     </Col>
 
-                    <Col xs={24} sm={12} lg={6}>
-                      <Form.Item {...restField} name={[name, 'address']} label="Địa chỉ">
+                    <Col xs={24} sm={12} md={6}>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'address']}
+                        label="Địa chỉ"
+                        rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
+                      >
                         <Input placeholder="Nhập địa chỉ" />
                       </Form.Item>
                     </Col>
+
+                    {passengerTypeFor(customersWatch?.[name]?.birthDate, pricingDate, customersWatch?.[name]?.type) === 'ADULT' ? (
+                      <>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'phone']}
+                            label="Số điện thoại"
+                            rules={[
+                              { required: true, message: 'Vui lòng nhập số điện thoại' },
+                              { pattern: /^\d{9,11}$/, message: 'SĐT phải gồm 9–11 chữ số' },
+                            ]}
+                          >
+                            <Input placeholder="Nhập số điện thoại liên hệ" />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'email']}
+                            label="Email (nếu có)"
+                            rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
+                          >
+                            <Input placeholder="Nhập email (không bắt buộc)" />
+                          </Form.Item>
+                        </Col>
+                      </>
+                    ) : (
+                      <>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'guardianName']}
+                            label="Người giám hộ đi kèm"
+                            rules={[{ required: true, message: 'Trẻ dưới 18 tuổi cần họ tên người giám hộ' }]}
+                          >
+                            <Input placeholder="Họ tên bố/mẹ hoặc người giám hộ" />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'guardianPhone']}
+                            label="SĐT người giám hộ"
+                            rules={[
+                              { required: true, message: 'Vui lòng nhập SĐT người giám hộ' },
+                              { pattern: /^\d{9,11}$/, message: 'SĐT giám hộ gồm 9–11 chữ số' },
+                            ]}
+                          >
+                            <Input placeholder="Nhập số điện thoại người giám hộ" />
+                          </Form.Item>
+                        </Col>
+                      </>
+                    )}
 
                     {/* Hidden type field so type persists */}
                     <Form.Item {...restField} name={[name, 'type']} hidden>

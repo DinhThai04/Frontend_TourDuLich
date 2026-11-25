@@ -1,25 +1,25 @@
 import { SearchOutlined } from '@ant-design/icons';
 import { AutoComplete, Button, Divider, Select, type SelectProps } from 'antd';
 import type { Dayjs } from 'dayjs';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchLocation } from '@/services/tourServices';
+import { getAllDestinations } from '@/services/tourServices';
 import { BUDGET_BUCKETS, budgetParams } from '@/utils/tourSearch';
 import { Calendar, LocationEdit, Ticket } from 'lucide-react';
+import SearchDatePicker from './SearchDatePicker';
 
 interface DestinationOption {
-  value: string | number;
+  value: string;
   label: string;
 }
-const DatePicker = lazy(() => import('./SearchDatePicker'));
 
 const Tours = () => {
   const [destination, setDestination] = useState('');
   const [departureDate, setDepartureDate] = useState<Dayjs | null>(null);
-  const [priceRange, setPriceRange] = useState(null); // Lưu giá trị của Select
-  const [options, setOptions] = useState<DestinationOption[]>([]); // <-- Dùng type đã định nghĩa
+  const [priceRange, setPriceRange] = useState<string | null>(null);
+  const [allLocations, setAllLocations] = useState<DestinationOption[]>([]);
+  const [options, setOptions] = useState<DestinationOption[]>([]);
   const [suggestionQuery, setSuggestionQuery] = useState('');
-  const [calendarLoaded, setCalendarLoaded] = useState(false);
 
   const navigate = useNavigate();
 
@@ -32,22 +32,15 @@ const Tours = () => {
   };
 
   const onChangePrice: SelectProps['onChange'] = (value) => {
-    setPriceRange(value);
+    setPriceRange(value ?? null);
   };
 
   const dataRangePrices = BUDGET_BUCKETS.map(({ key, label }) => ({ value: key, label }));
 
-  const handleSearch = async () => {
+  const handleSearch = () => {
     const params = new URLSearchParams();
-
-    if (destination) {
-      params.append('dest', destination);
-    }
-
-    if (departureDate) {
-      params.append('depD', departureDate.format('YYYY-MM-DD'));
-    }
-
+    if (destination.trim()) params.append('dest', destination.trim());
+    if (departureDate) params.append('depD', departureDate.format('YYYY-MM-DD'));
     if (priceRange) {
       const range = budgetParams(priceRange);
       if (range) {
@@ -55,24 +48,41 @@ const Tours = () => {
         if (range.maxP !== null) params.append('maxP', range.maxP);
       }
     }
-
-    params.append('page', '0'); // Bắt đầu từ trang 0
-    params.append('size', import.meta.env.VITE_PAGE_SIZE || '10');
-
+    params.append('page', '0');
+    params.append('size', '6');
     navigate(`/tours/search?${params.toString()}`);
   };
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      if (!suggestionQuery.trim()) { setOptions([]); return; }
-      void searchLocation(suggestionQuery.trim(), false, controller.signal).then(res => {
-        if (!controller.signal.aborted && res.code === 1000)
-          setOptions(res.result.map(location => ({ value: location.city, label: location.city })));
-      }).catch(() => { if (!controller.signal.aborted) setOptions([]); });
-    }, 300);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [suggestionQuery]);
+    let active = true;
+    void getAllDestinations()
+      .then((res) => {
+        if (!active || res.code !== 1000 || !Array.isArray(res.result)) return;
+        const seen = new Set<string>();
+        const mapped: DestinationOption[] = [];
+        for (const loc of res.result) {
+          const city = (loc.city || '').trim();
+          if (!city || seen.has(city.toLowerCase())) continue;
+          seen.add(city.toLowerCase());
+          mapped.push({ value: city, label: city });
+        }
+        setAllLocations(mapped);
+        setOptions(mapped);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const q = suggestionQuery.trim().toLowerCase();
+    if (!q) {
+      setOptions(allLocations);
+      return;
+    }
+    setOptions(allLocations.filter((opt) => opt.label.toLowerCase().includes(q)));
+  }, [suggestionQuery, allLocations]);
 
   return (
     <div>
@@ -82,20 +92,17 @@ const Tours = () => {
           <p className="!m-0 !mb-1 text-[16px] font-bold flex items-center gap-2 text-[#21776D]">
             <LocationEdit className="text-[12px]" />
             Bạn muốn đi đâu?
-
           </p>
           <AutoComplete
             aria-label="Điểm đến"
-            options={options} // Hiển thị các gợi ý
-            value={destination} // Vẫn kết nối với state của bạn
+            options={options}
+            value={destination}
             onChange={onChangeDestination}
             onSearch={setSuggestionQuery}
             allowClear
             placeholder="Chọn địa điểm"
             variant="borderless"
-            // Thêm w-full để nó lấp đầy container flex
-            className="!p-0 text-[16px] font-medium w-full "
-            // 2. Hiển thị nội dung khi không tìm thấy
+            className="!p-0 text-[16px] font-medium w-full"
             notFoundContent={<div className="text-center p-2">Không có kết quả phù hợp</div>}
           />
         </div>
@@ -108,13 +115,7 @@ const Tours = () => {
             <Calendar />
             Ngày đi
           </p>
-          {calendarLoaded ? <Suspense fallback={<span role="status">Đang tải lịch…</span>}><DatePicker
-            value={departureDate} // <-- Kết nối
-            onChange={onChangeDate} // <-- Kết nối
-          /></Suspense> : <button type="button" onClick={() => setCalendarLoaded(true)}
-            className="text-left min-h-10 text-[18px]" aria-label="Chọn ngày đi">
-            {departureDate ? departureDate.format('DD/MM/YYYY') : 'Chọn ngày đi'}
-          </button>}
+          <SearchDatePicker value={departureDate} onChange={onChangeDate} />
         </div>
 
         <Divider type="vertical" className="hidden md:block h-[70px] w-[1px] ml-3 mr-[11px]" />
@@ -130,14 +131,16 @@ const Tours = () => {
               aria-label="Ngân sách"
               placeholder="Chọn mức giá"
               variant="borderless"
+              allowClear
               value={priceRange}
-              onChange={onChangePrice} // <-- Kết nối
+              onChange={onChangePrice}
               options={dataRangePrices}
               className="!w-[180px]"
             />
           </div>
           <Button type="primary" className="home-search-submit" aria-label="Tìm tour" onClick={handleSearch}>
-            <SearchOutlined /><span>Tìm tour</span>
+            <SearchOutlined />
+            <span>Tìm tour</span>
           </Button>
         </div>
       </div>

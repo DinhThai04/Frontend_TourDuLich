@@ -26,7 +26,7 @@ import { formatCurrencyVND } from '@/utils';
 
 dayjs.locale('vi');
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 /** Show the departure time stored on the schedule instead of a made-up travel window. */
 const clock = (value?: string | null): string =>
@@ -68,6 +68,7 @@ export default function Schedule({
     .sort((left, right) => Math.abs(selectedTime.diff(left.departureDate)) - Math.abs(selectedTime.diff(right.departureDate)))
     .slice(0, 2) : [];
 
+  void refreshDepartures;
   async function refreshDepartures() {
     setDepartureError(false);
     setLoadingDepartures(true);
@@ -140,7 +141,10 @@ export default function Schedule({
 
   //  Hàm render Calendar
   const renderCalendar = () => (
-    <Card style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+    <Card
+      styles={{ body: { padding: '14px 18px 12px' } }}
+      style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+    >
       <ConfigProvider locale={viVN}>
         <Calendar
           fullscreen={false}
@@ -150,16 +154,16 @@ export default function Schedule({
             const month = dayjs(value).month();
             const year = dayjs(value).year();
 
-            const prevMonthStr = dayjs(value).subtract(1, 'month').format('YYYY-MM');
-            const nextMonthStr = dayjs(value).add(1, 'month').format('YYYY-MM');
-
-            const canGoPrev = specialMonths?.includes(prevMonthStr);
-            const canGoNext = specialMonths?.includes(nextMonthStr);
+            const canGoPrev = dayjs(value).isAfter(dayjs(), 'month');
+            const canGoNext = dayjs(value).isBefore(dayjs().add(6, 'month'), 'month');
 
             return (
-              <div style={{ textAlign: 'center', marginBottom: 10 }}>
+              <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: '#1F7A6E', textTransform: 'uppercase', marginBottom: 2 }}>
+                  Lịch khởi hành
+                </div>
                 <Button
-                  size="large"
+                  size="small"
                   aria-label="Tháng trước"
                   disabled={!canGoPrev}
                   onClick={() => {
@@ -169,16 +173,16 @@ export default function Schedule({
                   style={{
                     marginRight: 10,
                     border: 'none',
-                    backgroundColor: canGoPrev ? '#F0F0F0' : '#ddd',
+                    backgroundColor: canGoPrev ? '#E6F4F1' : '#eee',
                     borderRadius: 50,
                   }}
-                  icon={<ArrowLeftOutlined style={{ fontSize: 18 }} />}
+                  icon={<ArrowLeftOutlined style={{ fontSize: 14, color: '#134E48' }} />}
                 />
-                <span style={{ fontWeight: 'bold', fontSize: 20, color: '#155790' }}>
+                <span style={{ fontWeight: 'bold', fontSize: 16, color: '#134E48' }}>
                   THÁNG {month + 1}/{year}
                 </span>
                 <Button
-                  size="large"
+                  size="small"
                   aria-label="Tháng sau"
                   disabled={!canGoNext}
                   onClick={() => {
@@ -188,10 +192,10 @@ export default function Schedule({
                   style={{
                     marginLeft: 10,
                     border: 'none',
-                    backgroundColor: canGoNext ? '#F0F0F0' : '#ddd',
+                    backgroundColor: canGoNext ? '#E6F4F1' : '#eee',
                     borderRadius: 50,
                   }}
-                  icon={<ArrowRightOutlined style={{ fontSize: 18 }} />}
+                  icon={<ArrowRightOutlined style={{ fontSize: 14, color: '#134E48' }} />}
                 />
               </div>
             );
@@ -201,9 +205,10 @@ export default function Schedule({
       <p
         style={{
           color: '#155e54',
-          fontSize: 16,
+          fontSize: 14,
           fontStyle: 'italic',
           fontWeight: 400,
+          marginTop: 4,
           marginBottom: 0,
         }}
       >
@@ -227,12 +232,11 @@ export default function Schedule({
       width: '100%',
       height: '100%',
       textAlign: 'center',
-      padding: 6,
+      padding: '3px 4px',
       borderRadius: 6,
       cursor: special ? 'pointer' : 'default',
-      border: special && isHover ? '1px solid red' : '1px solid transparent',
-      transition: 'all 0.2s',
-      background: 'transparent',
+      border: special && isHover ? '1.5px solid #1F7A6E' : '1px solid transparent',
+      background: special && isHover ? '#E6F4F1' : 'transparent',
       font: 'inherit',
       color: 'inherit',
     };
@@ -245,14 +249,14 @@ export default function Schedule({
     const cellContent = (
       <>
         {/* Ngày */}
-        <div style={{ fontWeight: special ? 'bold' : '450', fontSize: 16 }}>
+        <div style={{ fontWeight: special ? 'bold' : '450', fontSize: 15, lineHeight: 1.25 }}>
           {dayjs(value).date()}
         </div>
 
         {/* Giá */}
         <div
           className="tour-calendar-label"
-          style={{ fontWeight: 700, color: soldOut ? '#7a3e35' : special ? '#155e54' : 'transparent' }}
+          style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.2, color: soldOut ? '#7a3e35' : special ? '#155e54' : 'transparent' }}
         >
           {soldOut ? 'Hết chỗ' : special?.price || '—'}
         </div>
@@ -445,7 +449,7 @@ export default function Schedule({
         </div>
 
         <Divider style={{ margin: '10px 0', fontSize: 15, fontWeight: 'bold', color: '#155790' }}>
-          Giá Combo
+          Bảng giá tour
         </Divider>
 
         <div
@@ -563,71 +567,32 @@ export default function Schedule({
           Thông tin thêm
         </Divider>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'stretch',
-            gap: 24,
-          }}
-        >
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 'bold', fontSize: 13 }}>Địa điểm tập trung</div>
-            <div style={{ display: 'flex' }}>
-              <div style={{ fontWeight: 700, fontSize: 12 }}>Sẽ được thông báo trước ngày đi</div>
-              <div style={{ fontWeight: 500, fontSize: 12, marginLeft: 3 }}>Đang cập nhật</div>
-            </div>
-          </div>
-
-          <Divider
-            type="vertical"
-            style={{
-              height: 'auto',
-              alignSelf: 'stretch',
-              margin: 0,
-            }}
-          />
-
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 'bold', fontSize: 13 }}>Địa điểm khách sạn</div>
-            <div style={{ fontWeight: 500, fontSize: 11 }}>
-              Chưa công bố. Vui lòng liên hệ SGU Tour để xác nhận trước chuyến đi.
-            </div>
-          </div>
+        <div className="mt-3 rounded-lg border border-slate-200 bg-[#F8FAFA] px-3 py-2.5 text-xs leading-relaxed text-[#374151]">
+          <strong className="text-[#134E48]">Điểm tập trung & khách sạn:</strong> Sẽ được SGU Tour thông báo chi tiết trước ngày khởi hành 3 ngày.
         </div>
         <div
           style={{
-            display: 'flex',
-            alignItems: 'stretch',
-            gap: 24,
-            backgroundColor: '#FDF3EB',
-            color: '#EFAF76',
+            backgroundColor: '#FFF7ED',
+            border: '1px solid #FDBA74',
+            color: '#7C2D12',
             fontWeight: 500,
-            fontSize: 11,
-            padding: 10,
+            fontSize: 12,
+            lineHeight: 1.5,
+            padding: '10px 12px',
             borderRadius: 10,
             marginTop: 10,
           }}
         >
-          Giá được tính theo bảng giá và nhóm tuổi của từng hành khách; có thể đặt cho một người.
+          ⚠ Giá được tính theo bảng giá và nhóm tuổi của từng hành khách; có thể đặt cho một người.
           Mỗi hành khách, kể cả trẻ nhỏ, chiếm một chỗ trong chuyến đi.
           Phụ thu phòng đơn chỉ là giá tham khảo và chưa tự động cộng vào thanh toán.
-          Vui lòng đọc chính sách giữ chỗ, thanh toán và dời lịch SGU Tour bên dưới trước khi đặt.
         </div>
       </Card>
     );
   };
 
   return (
-    <div>
-      <Title
-        level={4}
-        style={{ textAlign: 'center', marginTop: 38, marginBottom: 18, fontWeight: 700 }}
-      >
-        LỊCH KHỞI HÀNH
-      </Title>
-      <div className="!mb-3 flex justify-end">
-        <Button size="small" loading={loadingDepartures} onClick={() => void refreshDepartures()}>Cập nhật lịch</Button>
-      </div>
+    <div className="mt-6">
       {loadingDepartures ? <Spin tip="Đang tải lịch khởi hành"><div style={{ minHeight: 120 }} /></Spin>
         : departureError ? <Alert type="error" showIcon message="Chưa tải được lịch khởi hành. Vui lòng thử lại." />
         : specialMonths.length === 0 ? <Empty description="Tour hiện chưa có lịch khởi hành sắp tới." />
@@ -635,9 +600,9 @@ export default function Schedule({
           {!Object.keys(specialDates).length && <Alert className="!mb-3" type="info" showIcon
             message="Các lịch khởi hành sắp tới đã hết chỗ."
             action={<Button href="#tour-tuong-tu">Xem tour tương tự</Button>} />}
-          <Row gutter={[17, 12]}>
-            <Col xs={24} md={4}>{renderMonthSelector()}</Col>
-            <Col xs={24} md={20}>
+          <Row gutter={[16, 12]}>
+            {!selectedDeparture && <Col xs={24} md={4}>{renderMonthSelector()}</Col>}
+            <Col xs={24} md={selectedDeparture ? 24 : 20}>
               <div key={selectedDepartureId || 'calendar'} className="journey-departure-state">
                 {departureLoading ? <Spin /> : selectedDeparture ? renderTravelInfoCard(selectedDeparture) : <>
                   {selectedDepartureId !== null && <Alert className="!mb-3" type="warning" showIcon

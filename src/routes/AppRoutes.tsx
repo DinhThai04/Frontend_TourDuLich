@@ -35,6 +35,7 @@ const PaymentReconciliation = lazy(() => import('@/pages/Admin/PaymentReconcilia
 import ScrollToTop from './ScrollToTop';
 import { AiConversationProvider } from '@/components/AI/AiConversationProvider';
 const PoliciesPage = lazy(() => import('@/pages/Policies/PoliciesPage'));
+const LegalPage = lazy(() => import('@/pages/Legal/LegalPage'));
 
 function RouteContent() {
   return (
@@ -47,6 +48,8 @@ function RouteContent() {
             <Route index element={<Home />} />
             <Route path="about" element={<About />} />
             <Route path="/policies" element={<PoliciesPage />} />
+            <Route path="/terms" element={<LegalPage mode="terms" />} />
+            <Route path="/privacy" element={<LegalPage mode="privacy" />} />
             <Route path="/tours/*" element={<Tours />} />
 
             <Route element={<RouteGuard isPrivate />}>

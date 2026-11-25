@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginUser, loginUserWithGG, refreshCurrentUser } from '@/store/slices/authSlice';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Card, Typography, message, Divider, Space, Alert } from 'antd';
+import { Button, Form, Input, message, Divider, Alert } from 'antd';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import brand from '@/assets/branding/sgu-tour.svg';
 import type { CredentialResponse as GoogleCredentialResponse } from '@react-oauth/google';
@@ -26,17 +26,14 @@ export default function LoginPage() {
   const dispatch = useAppDispatch();
   const { loading, error, isAuth, user } = useAppSelector((state: RootState) => state.auth);
   const returnPath = safeReturnPath(location.state)
-    // An expired session leaves through a hard redirect, which cannot carry router state.
     ?? safeReturnPath({ from: new URLSearchParams(location.search).get('return') });
 
   const onFinish = async (values: { email: string; password: string }) => {
-    // Enter in a field and the button both submit; a second login attempt is never wanted.
     if (loading) return;
     try {
       const res = await dispatch(loginUser(values)).unwrap();
       if (res.code === 1000) {
         message.success('Đăng nhập thành công!', 3);
-        // Revalidate role/permissions before the guards evaluate the destination.
         await dispatch(refreshCurrentUser()).unwrap().catch(() => undefined);
         navigate(returnPath ?? (hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : '/'));
       } else message.error('Đăng nhập thất bại!', 3);
@@ -71,79 +68,95 @@ export default function LoginPage() {
   }
 
   return (
-    <>
-      <div className="flex justify-center items-center flex-col min-h-[100vh] bg-[#f5f5f5]">
-        <Card className="w-[450px] shadow-2xl" style={{ maxWidth: 'calc(100vw - 32px)' }}>
-          <Link to="/" aria-label="Trang chủ SGU Tour" style={{ display: 'block', maxWidth: 280, margin: '0 auto 20px' }}>
-            <img src={brand} alt="SGU Tour — Hành trình bắt đầu từ đây" style={{ display: 'block', width: '100%', height: 'auto' }} />
-          </Link>
-          <Typography.Title level={3} className="text-center !text-[#21776D]">
-            Đăng nhập
-          </Typography.Title>
+    <div
+      className="min-h-screen w-full flex items-center justify-center px-4 py-6"
+      style={{ background: 'linear-gradient(135deg, #F3F8F6 0%, #F8FAFA 55%, #E6F4F1 100%)' }}
+    >
+      <div className="w-full max-w-[420px] bg-white border border-[#E5E7EB] rounded-2xl shadow-[0_16px_40px_rgba(19,78,72,0.10)] px-7 py-6">
+        <Link to="/" aria-label="Trang chủ SGU Tour" className="block w-[184px] mx-auto mb-3">
+          <img src={brand} alt="SGU Tour — Hành trình bắt đầu từ đây" className="block w-full h-auto" />
+        </Link>
 
-          {error && <Alert message={error} type="error" showIcon className="!mb-[16px]" />}
+        <div className="text-center mb-4">
+          <h1 className="m-0 text-[22px] font-bold text-[#134E48] leading-tight">Đăng nhập</h1>
+          <p className="m-0 mt-1 text-[13px] text-[#6B7280]">Chào mừng bạn quay lại với SGU Tour</p>
+        </div>
 
-          <Form
-            name="login_form"
-            initialValues={{ remember: true }}
-            onFinish={onFinish}
-            layout="vertical"
+        {error && (
+          <Alert
+            message={error}
+            type="error"
+            showIcon
+            className="!mb-3.5 !py-2 !rounded-[10px] text-[13px]"
+          />
+        )}
+
+        <Form
+          name="login_form"
+          initialValues={{ remember: true }}
+          onFinish={onFinish}
+          layout="vertical"
+          requiredMark="optional"
+        >
+          <Form.Item
+            name="email"
+            label={<span className="text-[13px] font-medium text-[#1F2937]">Email</span>}
+            rules={[{ required: true, message: 'Vui lòng nhập email' }]}
+            className="!mb-3"
           >
-            <Form.Item
-              name="email"
-              label="Email"
-              rules={[{ required: true, message: 'Nhập email!' }]}
-            >
-              <Input prefix={<UserOutlined />} placeholder="Nhập email" />
-            </Form.Item>
+            <Input
+              prefix={<UserOutlined className="text-[#6B7280]" />}
+              placeholder="Nhập email của bạn"
+              className="!h-[40px] !rounded-[10px]"
+            />
+          </Form.Item>
 
-            <Form.Item
-              name="password"
-              label="Mật khẩu"
-              rules={[{ required: true, message: 'Nhập mật khẩu!' }]}
-            >
-              <Input.Password prefix={<LockOutlined />} placeholder="Nhập mật khẩu" />
-            </Form.Item>
+          <Form.Item
+            name="password"
+            label={<span className="text-[13px] font-medium text-[#1F2937]">Mật khẩu</span>}
+            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+            className="!mb-4"
+          >
+            <Input.Password
+              prefix={<LockOutlined className="text-[#6B7280]" />}
+              placeholder="Nhập mật khẩu"
+              className="!h-[40px] !rounded-[10px]"
+            />
+          </Form.Item>
 
-            <Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                className="w-full !mb-[8px] !bg-[#21776D]"
-                loading={loading}
-              >
-                Đăng nhập
-              </Button>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={loading}
+            className="w-full !h-[42px] !rounded-[10px] !bg-[#1F7A6E] hover:!bg-[#176258] !font-semibold !text-[15px]"
+          >
+            Đăng nhập
+          </Button>
+        </Form>
 
-              {import.meta.env.VITE_GOOGLE_CLIENT_ID && <Divider plain>hoặc</Divider>}
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <>
+            <Divider plain className="!my-3.5 !text-[12px] !text-[#6B7280]">hoặc</Divider>
+            <div className="flex w-full justify-center">
+              <Suspense fallback={null}>
+                <GoogleSignIn onSuccess={handleGGLogin} />
+              </Suspense>
+            </div>
+          </>
+        )}
 
-              <Space direction="vertical" className="w-full">
-                {import.meta.env.VITE_GOOGLE_CLIENT_ID && <Suspense fallback={null}>
-                  <GoogleSignIn onSuccess={handleGGLogin} />
-                </Suspense>}
-              </Space>
-
-              <Typography.Paragraph className="text-center !mb-0">
-                Chưa có tài khoản?{' '}
-                <Button
-                  type="link"
-                  onClick={() => navigate('/register')}
-                  className="!p-0 !text-[#21776D]"
-                >
-                  Đăng kí ngay
-                </Button>
-              </Typography.Paragraph>
-              <Button
-                type="link"
-                onClick={() => navigate('/')}
-                className="w-full text-center !my-0 !mx-auto !text-[#21776D]"
-              >
-                Về trang chủ
-              </Button>
-            </Form.Item>
-          </Form>
-        </Card>
+        <div className="mt-4 pt-3.5 border-t border-[#E5E7EB] flex items-center justify-between text-[13px]">
+          <span className="text-[#6B7280]">
+            Chưa có tài khoản?{' '}
+            <Link to="/register" className="font-semibold text-[#1F7A6E] no-underline hover:underline">
+              Đăng ký ngay
+            </Link>
+          </span>
+          <Link to="/" className="font-medium text-[#6B7280] no-underline hover:text-[#1F7A6E]">
+            ← Trang chủ
+          </Link>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

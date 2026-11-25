@@ -11,9 +11,16 @@ export default function RelatedTours({ tourId, destination }: { tourId: number; 
     if (!destination) return;
     const controller = new AbortController();
     const params = new URLSearchParams({ dest: destination, size: '4' });
-    void searchTours(params, controller.signal).then(({ code, result }) => {
+    void searchTours(params, controller.signal).then(async ({ code, result }) => {
       if (controller.signal.aborted) return;
-      setTours(code === 1000 ? result.content.filter(tour => Number(tour.id) !== Number(tourId)).slice(0, 3) : []);
+      let items = code === 1000 ? result.content.filter(tour => Number(tour.id) !== Number(tourId)).slice(0, 3) : [];
+      if (items.length === 0) {
+        const fallback = await searchTours(new URLSearchParams({ size: '4', page: '0' }), controller.signal);
+        if (!controller.signal.aborted && fallback.code === 1000) {
+          items = fallback.result.content.filter(tour => Number(tour.id) !== Number(tourId)).slice(0, 3);
+        }
+      }
+      if (!controller.signal.aborted) setTours(items);
     }).catch(() => { if (!controller.signal.aborted) setTours([]); });
     return () => controller.abort();
   }, [destination, tourId]);

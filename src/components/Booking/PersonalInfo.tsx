@@ -6,7 +6,7 @@ import { sessionService } from "@/services/sessionServices";
 import { BookingDraftContext } from "@/layouts/BookingDraftContext";
 import { ageOnVietnamDate } from '@/utils/booking';
 
-export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: FormInstance<PersonalFormValues>) => void; }) {
+export default function PersonalInfo({ onFormReady, disabled = false }: { onFormReady?: (form: FormInstance<PersonalFormValues>) => void; disabled?: boolean; }) {
   const [form] = Form.useForm<PersonalFormValues>();
   const { markDirty } = useContext(BookingDraftContext);
 
@@ -31,7 +31,7 @@ export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: For
     <div>
       <h2 className="text-lg font-semibold mb-4">Thông tin cá nhân</h2>
 
-      <Form form={form} layout="vertical" name="personalInfo" autoComplete="off" onValuesChange={markDirty}>
+      <Form form={form} layout="vertical" name="personalInfo" autoComplete="off" disabled={disabled} onValuesChange={markDirty}>
 
         {/* HỌ TÊN */}
         <Form.Item

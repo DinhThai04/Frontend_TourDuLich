@@ -7,7 +7,7 @@ const BOOKING_API = '/booking/book';
 const CUSTOMER_API = '/booking/customer';
 
 export type BookingHistoryRow = {
-  booking: BookingResponse; tourCode?: string; tourTitle?: string; departureDate?: string; returnDate?: string; invoiceStatus?: string;
+  booking: BookingResponse; tourCode?: string; tourTitle?: string; departureDate?: string; returnDate?: string; invoiceStatus?: string; totalAmount?: number;
 };
 
 const bookingServices = {

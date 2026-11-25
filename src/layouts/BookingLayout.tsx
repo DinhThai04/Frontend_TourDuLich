@@ -2,7 +2,7 @@ import type { FormInstance } from 'antd';
 import type { CustomersFormValues, PassengerFormValues, PassengerType, PersonalFormValues } from '@/types/Booking';
 import type { ITourPrice } from '@/types/Tour';
 import { errorMessage } from '@/utils/errors';
-import { parseDate, formatDatetime, createClientKey } from '@/utils';
+import { parseDate, createClientKey } from '@/utils';
 import { Row, Col, Card, Modal, Checkbox, Alert, Spin, Button } from 'antd';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
@@ -111,7 +111,7 @@ function BookingForm() {
   const customersFormRef = useRef<FormInstance<CustomersFormValues> | null>(null);
   const [includeBooker, setIncludeBooker] = useState(draftParty.includeBooker);
   const [extraCustomers, setExtraCustomers] = useState(initialCustomers);
-  const [restartNotice, setRestartNotice] = useState(false);
+  const [, setRestartNotice] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [bookingIssue, setBookingIssue] = useState<string | null>(null);
   const [pricingDay, setPricingDay] = useState(vietnamBookingDay);
@@ -284,19 +284,7 @@ function BookingForm() {
         return;
       }
       clearDraft();
-      const reservationStatus = res.result.reservationStatus;
-      if (reservationStatus === 'EXPIRED' || reservationStatus === 'CANCELLED' || reservationStatus === 'PAID') {
-        navigate(`/invoice/booking/${res.result.id}`);
-        return;
-      }
-      Modal.success({
-        title: res.result.paymentRequiredNow ? 'Vui lòng thanh toán ngay' : 'Đã giữ chỗ',
-        content: res.result.paymentRequiredNow
-          ? 'Chuyến đi còn tối đa 7 ngày. Vui lòng thanh toán VNPay trong thời hạn hiển thị để hoàn tất đặt tour.'
-          : `Chỗ được giữ đến ${res.result.paymentDeadline ? formatDatetime(res.result.paymentDeadline) : 'hạn thanh toán'}. Booking tự hủy nếu chưa thanh toán khi hết hạn.`,
-      });
-
-      // Navigate ABSOLUTE PATH
+      // Navigate directly to step 2 payment page (no blocking modal popup)
       navigate(`/invoice/booking/${res.result.id}`);
     } catch (err: unknown) {
       // AntD rejects validateFields with field info, which the form already highlights.
@@ -336,48 +324,46 @@ function BookingForm() {
     </div>} />;
   if (!departureReady) return <Spin tip="Đang kiểm tra chuyến đi"><div style={{ minHeight: 160 }} /></Spin>;
   return (
-    <div className="bg-white min-h-screen" style={{ padding: '24px clamp(16px, 5vw, 160px)' }}>
+    <div className="bg-[#f4f8f7] min-h-screen" style={{ padding: '24px clamp(16px, 5vw, 140px)' }}>
       <Row gutter={[24, 24]} justify="center">
         <BookingTitle />
       </Row>
 
       {bookingIssue && <Alert className="!mb-4" type="warning" showIcon message={bookingIssue}
         action={Number(tourId) > 0 ? <Link to={scheduleBack}>Xem ngày khác</Link> : undefined} />}
-      {hasPendingAttempt && (
-        <Alert className="!mb-4" type="info" showIcon
-          message="Lần giữ chỗ trước chưa có kết quả xác nhận trên trang này."
-          description={previousBookingsLink}
-          action={<Button loading={recovering} onClick={() => void checkAttempt()}>Kiểm tra lượt giữ chỗ</Button>} />
-      )}
-      {restartNotice && !hasPendingAttempt && (
-        <Alert className="!mb-4" type="info" showIcon
-          message="Đơn trước đã kết thúc. Bạn có thể tạo lượt giữ chỗ mới với thông tin đang nhập." />
-      )}
 
-      <Row gutter={[24, 24]} justify="center">
+      <Row gutter={[24, 24]} justify="center" align="top">
         {/* LEFT COLUMN */}
-        <Col xs={24} lg={16}>
+        <Col xs={24} lg={15}>
           <Card
-            variant="borderless"
-            style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+            style={{ borderRadius: 14, border: '1px solid #d2e4e0', boxShadow: '0 8px 24px rgba(21,94,84,0.08)' }}
           >
-            <PersonalInfo onFormReady={handlePersonalFormReady} />
+            <div className="mb-4 rounded-lg border border-[#cfe3df] bg-[#f4faf8] px-3.5 py-2.5">
+              <Checkbox checked={includeBooker} onChange={event => {
+                markDirty();
+                setIncludeBooker(event.target.checked);
+              }}>
+                <span className="font-semibold text-[#134E48]">
+                  Người đặt cũng tham gia tour (ưu tiên dùng thông tin nhập bên dưới)
+                </span>
+              </Checkbox>
+              {!includeBooker && (
+                <p className="mb-0 mt-1 text-xs text-[#6B7280]">
+                  Bạn đang đặt hộ người khác — vui lòng điền thông tin hành khách tham gia ở khung bên dưới.
+                </p>
+              )}
+            </div>
+            <PersonalInfo onFormReady={handlePersonalFormReady} disabled={!includeBooker} />
           </Card>
 
           <Card
-            variant="borderless"
             style={{
-              borderRadius: 12,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              borderRadius: 14,
+              border: '1px solid #d2e4e0',
+              boxShadow: '0 8px 24px rgba(21,94,84,0.08)',
               marginTop: '20px',
             }}
           >
-            <Checkbox checked={includeBooker} onChange={event => {
-              markDirty();
-              setIncludeBooker(event.target.checked);
-            }}>
-              Người đặt cũng tham gia tour (không cần nhập lại ở danh sách bên dưới)
-            </Checkbox>
             <ListOfCustomerInfo
               onFormReady={handleCustomersFormReady}
               onCustomersChange={handleCustomersChange}
@@ -389,11 +375,13 @@ function BookingForm() {
         </Col>
 
         {/* RIGHT COLUMN */}
-        <Col xs={24} lg={8} className="lg:sticky lg:top-24 lg:self-start">
+        <Col xs={24} lg={9} style={{ position: 'sticky', top: 92, alignSelf: 'flex-start' }}>
           <Card
+            styles={{ body: { padding: 18 } }}
             style={{
-              borderRadius: 12,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              borderRadius: 14,
+              border: '1px solid #d2e4e0',
+              boxShadow: '0 8px 24px rgba(21,94,84,0.08)',
               marginBottom: 16,
               width: '100%',
             }}
