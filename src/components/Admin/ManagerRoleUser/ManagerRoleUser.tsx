@@ -122,28 +122,33 @@ const ManagerRoleUser: React.FC = () => {
     {
       title: 'ID',
       dataIndex: 'id',
-      width: 70,
+      width: 64,
       search: false,
     },
     {
       title: 'Tên quyền',
       dataIndex: 'name',
+      width: 210,
+      ellipsis: true,
       filterSearch: true,
     },
     {
       title: 'Mã quyền',
       dataIndex: 'code',
+      width: 210,
       render: (c) => <Tag color="geekblue">{c}</Tag>,
     },
     {
       title: 'API Path',
       dataIndex: 'apiPath',
+      width: 240,
+      ellipsis: true,
       search: false,
     },
     {
       title: 'Method',
       dataIndex: 'method',
-      width: 120,
+      width: 100,
       render: (text) => <Tag color="blue">{text}</Tag>,
       valueEnum: {
         GET: { text: 'GET', color: 'blue' },
@@ -155,7 +160,7 @@ const ManagerRoleUser: React.FC = () => {
     {
       title: 'Module',
       dataIndex: 'module',
-      width: 120,
+      width: 110,
       render: (m) => <Tag color="purple">{m}</Tag>,
       valueEnum: Array.from(new Set(data.map((d) => d.module))).reduce(
         (acc, cur) => {
@@ -168,6 +173,7 @@ const ManagerRoleUser: React.FC = () => {
     {
       title: 'Thuộc vai trò',
       dataIndex: 'roles',
+      width: 140,
       search: false,
       render: (_, record) =>
         record.roles?.map((r) => (
@@ -179,7 +185,8 @@ const ManagerRoleUser: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 150,
+      width: 136,
+      fixed: 'right',
       render: (_, record) => (
         <Space>
           {canView && (
@@ -238,7 +245,8 @@ const ManagerRoleUser: React.FC = () => {
         rowKey="id"
         actionRef={actionRef}
         search={{ labelWidth: 'auto' }}
-        pagination={{ pageSize: 5 }}
+        scroll={{ x: 1210 }}
+        pagination={{ pageSize: 10 }}
         request={async (params) => {
           const keyword = params.name ? params.name.toLowerCase() : '';
           const CodeName = params.code ? params.code.toLowerCase() : '';

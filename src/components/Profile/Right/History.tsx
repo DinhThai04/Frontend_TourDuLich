@@ -239,43 +239,43 @@ export default function History() {
    * COLUMNS
    * ====================================================== */
   const columns = [
-    { title: 'Mã Booking', dataIndex: 'id', key: 'id', width: '10%' },
+    { title: 'Mã Booking', dataIndex: 'id', key: 'id', width: 115 },
     {
       title: 'Mã Tour',
       dataIndex: 'tourCode',
       key: 'tourCode',
-      width: '15%',
+      width: 140,
       render: (tourCode: string | undefined) => tourCode || '-',
     },
     {
       title: 'Ngày khởi hành',
       dataIndex: 'departureDate',
       render: (d: string) => formatDatetime(d),
-      width: '15%',
+      width: 155,
     },
     {
       title: 'Ngày kết thúc',
       dataIndex: 'returnDate',
       render: (d: string) => formatDatetime(d),
-      width: '15%',
+      width: 155,
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       render: (status: string, record: BookingWithFullInfo) => (
-        <>{record.reservationStatus === 'CHECKOUT' ? <Tag color="orange">Chờ thanh toán ngay</Tag>
+        <Space wrap size={[4, 4]}>{record.reservationStatus === 'CHECKOUT' ? <Tag color="orange">Chờ thanh toán ngay</Tag>
           : record.reservationStatus === 'EXPIRED' ? <Tag color="red">Hết hạn thanh toán</Tag> : renderStatus(status)}{status === 'CONFIRMED' && (
           <Tag color={(record.invoice?.status ?? record.invoiceStatus) === 'PAID' ? 'green' : 'orange'}>
             {(record.invoice?.status ?? record.invoiceStatus) === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
           </Tag>
-        )}</>
+        )}</Space>
       ),
-      width: '15%',
+      width: 165,
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: '15%',
+      width: 185,
       render: (_: unknown, record: BookingResponse) => (
         <>
           <Button type="link" onClick={() => openModal('booking', record)}>
@@ -369,7 +369,7 @@ export default function History() {
         </div>
       )}
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <Input.Search aria-label="Tìm mã đơn đặt tour" placeholder="Nhập mã đơn đặt tour"
           inputMode="numeric" maxLength={10} allowClear enterButton="Tìm"
           onSearch={value => {
@@ -407,7 +407,7 @@ export default function History() {
         rowKey="id"
         pagination={false}
         locale={{ emptyText: <Empty description="Không có booking nào" /> }}
-        scroll={{ y: 420 }}
+        scroll={{ x: 915, y: 420 }}
       />
 
       <Space className="mt-3">

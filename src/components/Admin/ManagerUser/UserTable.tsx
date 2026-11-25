@@ -3,7 +3,7 @@ import { accountStatusLabels } from '@/utils/accounts';
 import React, { useMemo, useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { Space, Tag, Button, Input, Avatar } from 'antd';
+import { Space, Tag, Button, Input, Avatar, Select } from 'antd';
 import { EyeOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import type { User } from '@/types/User';
 import { ALL_PERMISSIONS } from '@/config/permissions';
@@ -11,6 +11,12 @@ import { useHasPermission } from '@/config/useHasPermission';
 
 interface Props {
   data: User[];
+  roles?: { id: number; name: string }[];
+  statusFilter?: string;
+  onStatusFilterChange?: (val: string) => void;
+  roleFilter?: number | null;
+  onRoleFilterChange?: (val: number | null) => void;
+  onResetFilters?: () => void;
   onView: (user: User) => void;
   onEdit: (user: User) => void;
   onAdd: () => void;
@@ -18,7 +24,20 @@ interface Props {
   loading?: boolean;
 }
 
-const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, loading }) => {
+const UserTable: React.FC<Props> = ({
+  data,
+  roles = [],
+  statusFilter = '',
+  onStatusFilterChange,
+  roleFilter = null,
+  onRoleFilterChange,
+  onResetFilters,
+  onView,
+  onEdit,
+  onAdd,
+  fetchData,
+  loading,
+}) => {
   const actionRef = useRef<ActionType>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
 
@@ -37,28 +56,44 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
       title: 'Ảnh đại diện',
       dataIndex: 'avatar',
       search: false,
-      width: 80,
-      render: (_, record) => <Avatar>{(record.username || 'A')[0]}</Avatar>,
+      width: 96,
+      align: 'center',
+      render: (_, record) => <Avatar src={record.avatar}>{(record.username || 'A')[0]?.toUpperCase()}</Avatar>,
     },
-    { title: 'Họ và tên', dataIndex: 'username', width: 150 },
-    { title: 'Trạng thái', dataIndex: 'status', valueType: 'select', valueEnum: { ACTIVE: 'Hoạt động', LOCKED: 'Đã khóa', ARCHIVED: 'Đã lưu trữ' }, render: (_, record) => <Tag color={record.status==='LOCKED'?'orange':record.status==='ARCHIVED'?'default':'green'}>{accountStatusLabels[record.status ?? 'ACTIVE']}</Tag> },
-    { title: 'Email', dataIndex: 'email', width: 250 },
-    { title: 'Số điện thoại', dataIndex: 'phone', search: false },
-    { title: 'Địa chỉ', dataIndex: 'address', ellipsis: true, search: false },
+    { title: 'Họ và tên', dataIndex: 'username', width: 150, ellipsis: true },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      width: 120,
+      valueType: 'select',
+      valueEnum: { ACTIVE: 'Hoạt động', LOCKED: 'Đã khóa', ARCHIVED: 'Đã lưu trữ' },
+      render: (_, record) => <Tag color={record.status === 'LOCKED' ? 'orange' : record.status === 'ARCHIVED' ? 'default' : 'green'}>{accountStatusLabels[record.status ?? 'ACTIVE']}</Tag>,
+    },
+    { title: 'Email', dataIndex: 'email', width: 220, ellipsis: true },
+    {
+      title: 'Số điện thoại',
+      dataIndex: 'phone',
+      width: 130,
+      search: false,
+      render: (_, record) => <span style={{ whiteSpace: 'nowrap' }}>{record.phone || '—'}</span>,
+    },
+    { title: 'Địa chỉ', dataIndex: 'address', width: 160, ellipsis: true, search: false },
     {
       title: 'Vai trò',
       dataIndex: ['role', 'name'],
+      width: 120,
       search: false,
       render: (_, record) => <Tag color="blue">{record.role?.name || '—'}</Tag>,
     },
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 150,
+      width: 240,
+      fixed: 'right',
       valueType: 'option',
       hideInTable: !hasAnyAction, // không có quyền nào thì ẩn luôn cột
       render: (_, record) => (
-        <Space>
+        <Space size={4} wrap>
           {canViewDetail && (
             <Button
               type="text"
@@ -105,17 +140,57 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
       actionRef={actionRef}
       dataSource={filteredData}
       search={false}
-      pagination={{ pageSize: 5 }}
+      scroll={{ x: 'max-content' }}
+      pagination={{ pageSize: 10 }}
       loading={loading}
       toolBarRender={() => [
         <Input.Search
           key="search"
-          placeholder="Tìm kiếm người dùng..."
+          placeholder="Tìm theo tên, email, SĐT..."
           allowClear
-          style={{ width: 260, marginRight: 8 }}
+          style={{ width: 230 }}
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
         />,
+        onStatusFilterChange && (
+          <Select
+            key="status"
+            aria-label="Lọc trạng thái tài khoản"
+            value={statusFilter || undefined}
+            allowClear
+            placeholder="Trạng thái"
+            onChange={(value) => onStatusFilterChange(value ?? '')}
+            options={[
+              { value: 'ACTIVE', label: 'Hoạt động' },
+              { value: 'LOCKED', label: 'Đã khóa' },
+              { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+            ]}
+            style={{ width: 145 }}
+          />
+        ),
+        onRoleFilterChange && roles.length > 0 && (
+          <Select
+            key="role"
+            aria-label="Lọc theo vai trò"
+            value={roleFilter ?? undefined}
+            allowClear
+            placeholder="Vai trò"
+            onChange={(value) => onRoleFilterChange(value ?? null)}
+            options={roles.map((r) => ({ value: r.id, label: r.name }))}
+            style={{ width: 145 }}
+          />
+        ),
+        (searchKeyword || statusFilter || roleFilter) && (
+          <Button
+            key="reset"
+            onClick={() => {
+              setSearchKeyword('');
+              onResetFilters?.();
+            }}
+          >
+            Đặt lại
+          </Button>
+        ),
         canCreateUser && (
           <Button type="primary" key="add" icon={<PlusOutlined />} onClick={onAdd}>
             Thêm người dùng

@@ -65,7 +65,7 @@ export default function OperationsPage() {
   const scope = `${day ?? ''}:${action}:${bookingId ?? ''}`;
   const search = () => setBookingId(input && Number.isInteger(input) && input > 0 ? input : undefined);
 
-  return <div>
+  return <div className="pb-8">
     <Typography.Title level={3}>Việc cần xử lý</Typography.Title>
     {(canReconcile || canSeeDepartures) && <Space direction="vertical" size="small" className="mb-4">
       <Space wrap>

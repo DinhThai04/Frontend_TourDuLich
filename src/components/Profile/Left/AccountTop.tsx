@@ -67,33 +67,34 @@ const AccountTop = () => {
   };
   return (
     <>
-      <Card className="flex items-center gap-4 shadow-md rounded-2xl">
-        <Tooltip title="Ấn để đổi avatar" placement="bottom">
-          <button
-            type="button"
-            aria-label="Đổi ảnh đại diện"
-            className="relative group cursor-pointer bg-transparent border-0 p-0"
-            onClick={showModal}
-          >
-            <Avatar
-              size={80}
-              src={user?.avatar}
-              icon={loading ? <LoadingOutlined /> : <UserOutlined />}
-              className="border-2 border-gray-200"
-            />
-            {!loading && (
-              <span
-                className={`absolute w-full inset-0 bg-[#c1c1c1] bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity`}
-              >
-                <CameraOutlined className="!text-white text-2xl " />
-              </span>
-            )}
-          </button>
-        </Tooltip>
+      <Card className="border border-[#e5ece9] shadow-xs rounded-xl">
+        <div className="flex flex-col items-center text-center gap-3 py-1">
+          <Tooltip title="Ấn để đổi avatar" placement="bottom">
+            <button
+              type="button"
+              aria-label="Đổi ảnh đại diện"
+              className="relative group cursor-pointer bg-transparent border-0 p-0 rounded-full"
+              onClick={showModal}
+            >
+              <Avatar
+                size={80}
+                src={user?.avatar}
+                icon={loading ? <LoadingOutlined /> : <UserOutlined />}
+                className="border-2 border-[#dce7e2]"
+              />
+              {!loading && (
+                <span
+                  className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <CameraOutlined className="!text-white text-2xl" />
+                </span>
+              )}
+            </button>
+          </Tooltip>
 
-        <div>
-          <h2 className="text-xl font-bold text-[#0b5da7] !mt-3">{user?.username}</h2>
-          {/* <p className="text-gray-600 text-sm">{user?.email}</p> */}
+          <div className="min-w-0 w-full">
+            <h2 className="text-lg font-semibold text-[#153a35] truncate m-0">{user?.username}</h2>
+          </div>
         </div>
       </Card>
 

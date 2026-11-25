@@ -61,8 +61,8 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
     {bookingId && <Space wrap className="!mb-3">
       <Tag>Đơn #{bookingId}</Tag><Button size="small" onClick={onClearBooking}>Xem tất cả đơn</Button>
     </Space>}
-    <Alert type="info" showIcon message="Khách đã thanh toán: gửi yêu cầu trước giờ đi ít nhất 72 giờ. Yêu cầu chờ duyệt chưa giữ chỗ ở lịch mới. Chỉ áp dụng cùng tour và không phát sinh chênh lệch tiền." />
-    <Table<ChangeRequest> rowKey="id" size="small" dataSource={rows} pagination={{ pageSize: 4 }} columns={[
+    <Alert className="!mb-4" type="info" showIcon message="Khách đã thanh toán: gửi yêu cầu trước giờ đi ít nhất 72 giờ. Yêu cầu chờ duyệt chưa giữ chỗ ở lịch mới. Chỉ áp dụng cùng tour và không phát sinh chênh lệch tiền." />
+    <Table<ChangeRequest> rowKey="id" size="small" dataSource={rows} pagination={{ pageSize: 4 }} scroll={{ x: 640 }} columns={[
       { title: 'Booking / tour', render: (_, r) => `#${r.booking_id} — ${r.tour_title}` },
       { title: 'Lịch gốc → lịch mới', render: (_, r) => `${dayjs(r.source_departure_at).format('HH:mm DD/MM/YYYY')} → ${dayjs(r.target_departure_at).format('HH:mm DD/MM/YYYY')}` },
       { title: 'Trạng thái', render: (_, r) => <Tag>{labels[r.status] || r.status}</Tag> },

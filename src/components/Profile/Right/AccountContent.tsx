@@ -18,7 +18,7 @@ const AccountContent = ({ activeMenu }: IProps) => {
     }
   };
 
-  return <Card className="!p-2 !shadow-md !rounded-2xl">{renderRightContent()}</Card>;
+  return <Card className="!p-2 border border-[#e5ece9] !shadow-xs !rounded-xl">{renderRightContent()}</Card>;
 };
 
 export default AccountContent;

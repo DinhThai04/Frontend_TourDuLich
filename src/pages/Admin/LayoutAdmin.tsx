@@ -1,8 +1,6 @@
 import { hasPermission, OPERATIONS_ACCESS } from '@/config/access';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
   UserOutlined,
   GlobalOutlined,
   ScheduleOutlined,
@@ -31,7 +29,8 @@ import { Bounce, ToastContainer } from 'react-toastify';
 const { Content, Sider } = Layout;
 
 const AdminSidebar: React.FC = () => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeMenu, setActiveMenu] = useState('/admin');
   const location = useLocation();
   const navigate = useNavigate();
@@ -41,6 +40,27 @@ const AdminSidebar: React.FC = () => {
   useEffect(() => {
     setActiveMenu(location.pathname || '/admin');
   }, [location.pathname]);
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    };
+  }, []);
+
+  const handleSidebarEnter = () => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+    setCollapsed(false);
+  };
+
+  const handleSidebarLeave = () => {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    collapseTimerRef.current = setTimeout(() => {
+      setCollapsed(true);
+    }, 1500);
+  };
 
   // Xây menu theo đúng quyền mà từng route yêu cầu, tránh hiện mục rồi bị chặn khi bấm.
   const menuItems: MenuProps['items'] = [];
@@ -205,10 +225,13 @@ const AdminSidebar: React.FC = () => {
       <Sider
         theme="light"
         collapsible
+        trigger={null}
         collapsed={collapsed}
-        onCollapse={(value) => setCollapsed(value)}
         width={250}
-        collapsedWidth={80}
+        collapsedWidth={76}
+        onMouseEnter={handleSidebarEnter}
+        onMouseLeave={handleSidebarLeave}
+        style={{ borderRight: '1px solid #e5ece9' }}
       >
         <div
           style={{
@@ -216,7 +239,7 @@ const AdminSidebar: React.FC = () => {
             margin: 16,
             textAlign: 'center',
             fontWeight: 'bold',
-            color: '#1890ff',
+            color: '#21776d',
           }}
         >
           <Link to="/" aria-label="Trang chủ SGU Tour" title="Hệ thống quản trị SGU Tour" style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
@@ -228,6 +251,7 @@ const AdminSidebar: React.FC = () => {
           mode="inline"
           items={menuItems}
           onClick={(e) => setActiveMenu(e.key)}
+          style={{ borderInlineEnd: 'none' }}
         />
       </Sider>
 
@@ -237,23 +261,18 @@ const AdminSidebar: React.FC = () => {
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            marginRight: 20,
-            padding: '0 1rem',
+            justifyContent: 'flex-end',
+            padding: '0 24px',
             alignItems: 'center',
             height: 64,
             background: '#fff',
+            borderBottom: '1px solid #e5ece9',
           }}
         >
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{ fontSize: '16px', width: 64, height: 64 }}
-          />
           <Dropdown menu={{ items: itemsDropdown }} trigger={['click']}>
             <Space style={{ cursor: 'pointer' }}>
-              Xin chào {user?.username || 'Admin'} <Avatar>{(user?.username || 'A')[0]}</Avatar>
+              <span>Xin chào {user?.username || 'Admin'}</span>
+              <Avatar style={{ backgroundColor: '#21776d' }}>{(user?.username || 'A')[0]?.toUpperCase()}</Avatar>
             </Space>
           </Dropdown>
         </div>

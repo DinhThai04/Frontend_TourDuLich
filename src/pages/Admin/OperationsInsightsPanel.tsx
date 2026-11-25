@@ -185,7 +185,7 @@ function Integrity() {
 
 export default function OperationsInsightsPanel({ bookings, invoices, admin }: { bookings: boolean; invoices: boolean; admin: boolean }) {
   if (!bookings && !admin) return null;
-  return <Collapse className="mt-4" accordion destroyOnHidden items={[
+  return <Collapse className="!mt-6" accordion destroyOnHidden items={[
     ...(bookings && invoices ? [{ key: 'report', label: 'Báo cáo theo ngày', children: <Report /> }] : []),
     ...(bookings ? [
       { key: 'mail', label: 'Trạng thái email theo đơn', children: <Deliveries admin={admin} /> },
