@@ -1,5 +1,5 @@
 import Container from '@/components/Share/Container';
-import Filter, { formatVehicleLabel } from '@/components/Tours/Filter/Filter';
+import Filter from '@/components/Tours/Filter/Filter';
 import Sort from '@/components/Tours/Content/Sort/Sort';
 import List, { type TourRatingInfo } from '@/components/Tours/Content/List/List';
 import { Alert, Button, Drawer, Empty, Pagination, Skeleton } from 'antd';
@@ -9,7 +9,7 @@ import type { ITour, IVehicle } from '@/types/Tour';
 import { Link, useSearchParams } from 'react-router-dom';
 import { searchTours } from '@/services/tourServices';
 import { getHighReviews } from '@/services/authServices';
-import { BUDGET_BUCKETS, budgetKeyFromParams, clearTourFilters, TOUR_FILTER_KEYS, tourSearchQuery } from '@/utils/tourSearch';
+import { BUDGET_BUCKETS, budgetKeyFromParams, clearTourFilters, formatVehicleLabel, TOUR_FILTER_KEYS, tourSearchQuery } from '@/utils/tourSearch';
 import { tourInterests } from '@/components/Home/tourInterests';
 import dayjs from 'dayjs';
 
@@ -48,7 +48,7 @@ export default function ToursPage() {
 
   useEffect(() => {
     let active = true;
-    void getHighReviews(50)
+    void getHighReviews(20)
       .then((res) => {
         if (!active || res.code !== 1000 || !Array.isArray(res.result)) return;
         const grouped: Record<number, { sum: number; count: number }> = {};

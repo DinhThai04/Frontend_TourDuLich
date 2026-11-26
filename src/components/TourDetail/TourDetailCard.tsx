@@ -5,7 +5,7 @@ import { countParty, PARTY_TYPES, PASSENGER_LABELS, quoteParty } from '@/utils/b
 import dayjs from 'dayjs';
 import type { ITour, ITourDeparture } from '@/types/Tour';
 import { formatCurrencyVND } from '@/utils';
-import { departureAdultPrice, isBookableDeparture } from '@/utils/tourSchedule';
+import { departureAdultPrice, formatBookingClose, isBookableDeparture, isDepartureSalesClosed } from '@/utils/tourSchedule';
 
 type TourDetailCardProps = {
   tourData: ITour;
@@ -28,6 +28,8 @@ export default function TourDetailCard({
   tourData, selectedDeparture, departureLoading, party, onPartyChange, onSelectDeparture, onBook,
 }: TourDetailCardProps) {
   const departureDate = selectedDeparture && dayjs(selectedDeparture.departureDate).format('DD/MM/YYYY');
+  const closed = selectedDeparture && isDepartureSalesClosed(selectedDeparture);
+  const cutoff = selectedDeparture && formatBookingClose(selectedDeparture);
   const adultPrice = departureAdultPrice(tourData, selectedDeparture);
   const partySize = countParty(party);
   const maxSeats = selectedDeparture ? Math.min(40, selectedDeparture.availableSeats) : 40;
@@ -54,7 +56,7 @@ export default function TourDetailCard({
         </Typography.Text>
         {selectedDeparture && (
           <span className="inline-block rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[11px] font-semibold text-[#C2410C]">
-            Còn {selectedDeparture.availableSeats} chỗ
+            {closed ? 'Đã đóng đặt chỗ' : `Còn ${selectedDeparture.availableSeats} chỗ`}
           </span>
         )}
       </div>
@@ -66,6 +68,7 @@ export default function TourDetailCard({
         <Descriptions.Item label="Mã">{selectedDeparture?.tourCode ?? tourData.tourProgram}</Descriptions.Item>
         <Descriptions.Item label="Thời gian">{tourData.duration} ngày</Descriptions.Item>
         <Descriptions.Item label="Khởi hành" span={2}>{tourData.departureCity?.city ?? '—'}</Descriptions.Item>
+        {cutoff && <Descriptions.Item label="Nhận đặt đến" span={2}>{cutoff}</Descriptions.Item>}
       </Descriptions>
 
       <fieldset className="mt-2.5 border-0 p-0">

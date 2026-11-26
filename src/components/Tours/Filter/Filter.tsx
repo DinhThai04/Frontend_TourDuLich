@@ -6,19 +6,11 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { getAllDepartures, getAllDestinations, getAllVehicles } from '@/services/tourServices';
 import { settledRows } from '@/utils/settledRows';
-import { BUDGET_BUCKETS, budgetKeyFromParams, budgetParams, TOUR_FILTER_KEYS } from '@/utils/tourSearch';
+import { BUDGET_BUCKETS, budgetKeyFromParams, budgetParams, formatVehicleLabel, TOUR_FILTER_KEYS } from '@/utils/tourSearch';
 import type { ILocation, ITour, IVehicle } from '@/types/Tour';
 import type { useSearchParams } from 'react-router-dom';
 
 dayjs.locale('vi');
-
-export function formatVehicleLabel(name?: string | null): string {
-  const clean = (name || '').trim();
-  if (!clean) return 'Đang cập nhật';
-  if (clean.toLowerCase() === 'xe du lịch') return 'Xe du lịch (tiêu chuẩn)';
-  if (clean.toLowerCase() === 'xe du lịch cao cấp') return 'Xe du lịch cao cấp (Limousine)';
-  return clean;
-}
 
 interface IProps {
   tours: ITour[] | null;

@@ -21,7 +21,7 @@ import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { getDepartureByTourId } from '@/services/tourServices';
 import type { ITour, ITourDeparture } from '@/types/Tour';
 import { ArrowLeft, Bus } from 'lucide-react';
-import { departureCalendar, departureMonthStart, isBookableDeparture } from '@/utils/tourSchedule';
+import { departureCalendar, departureMonthStart, isBookableDeparture, isDepartureSalesClosed } from '@/utils/tourSchedule';
 import { formatCurrencyVND } from '@/utils';
 
 dayjs.locale('vi');
@@ -54,7 +54,7 @@ export default function Schedule({
   const [departureUpdates, setDepartureUpdates] = useState<Record<number, ITourDeparture>>({});
   const [refreshedDepartures, setRefreshedDepartures] = useState<ITourDeparture[]>();
   const { id, basePrice, departures } = tourData;
-  const { dates: specialDates, months: specialMonths, upcoming, soldOutDays } = useMemo(() => {
+  const { dates: specialDates, months: specialMonths, upcoming, soldOutDays, closedDays } = useMemo(() => {
     const updated = (refreshedDepartures ?? departures ?? []).map(
       item => selectedDeparture?.id === item.id ? selectedDeparture : departureUpdates[item.id] ?? item,
     );
@@ -258,7 +258,7 @@ export default function Schedule({
           className="tour-calendar-label"
           style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.2, color: soldOut ? '#7a3e35' : special ? '#155e54' : 'transparent' }}
         >
-          {soldOut ? 'Hết chỗ' : special?.price || '—'}
+          {closedDays.has(dateStr) ? 'Đóng đặt chỗ' : soldOut ? 'Hết chỗ' : special?.price || '—'}
         </div>
       </>
     );
@@ -309,7 +309,7 @@ export default function Schedule({
           </Col>
         </Row>
         {(!isBookableDeparture(dataDetailTourDeparture) || dataDetailTourDeparture.availableSeats < partySize) && <Alert type="warning" showIcon
-          message={dataDetailTourDeparture.availableSeats > 0
+          message={isDepartureSalesClosed(dataDetailTourDeparture) ? 'Lịch này đã đóng đặt chỗ' : dataDetailTourDeparture.availableSeats > 0
             ? `Ngày này còn ${dataDetailTourDeparture.availableSeats} chỗ cho nhóm ${partySize} người`
             : 'Ngày khởi hành này đã hết chỗ.'}
           description={alternatives.length ? <div className="flex flex-wrap gap-2">

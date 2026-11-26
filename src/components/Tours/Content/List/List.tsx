@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import FALLBACK_IMAGE_URL from '@/assets/images/fallback.png';
 import dayjs from 'dayjs';
 import ResponsiveImage from '@/components/Share/ResponsiveImage';
-import { formatVehicleLabel } from '@/components/Tours/Filter/Filter';
+import { formatVehicleLabel } from '@/utils/tourSearch';
 
 export interface TourRatingInfo {
   avg: number;

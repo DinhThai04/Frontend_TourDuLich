@@ -146,6 +146,7 @@ export interface ITourResponse {
 }
 
 export interface ITourDeparture {
+  bookingCloseAt?: string;
   operationalStatus?: 'OPEN' | 'SUSPENDED' | 'REPLACEMENT_ONLY' | 'CANCELLED';
   capacity?: number | null;
   version?: number;
