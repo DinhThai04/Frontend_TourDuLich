@@ -21,6 +21,7 @@ export type InvoiceCustomerResponse = {
 };
 
 export type BookingRequest = {
+  pickupConfirmationKey?: string;
 	userId: string; // account id as string (comes from session)
 	tourDepartureId: string; // id from url
 	listOfCustomers: { fullName: string; birthdate: string; address?: string; gender: string }[]; // customers from the booking form
@@ -37,6 +38,8 @@ export type BookingResponse = {
 	message?: string;
 	id: string;
 	accountId?: string;
+	tripCompleted?: boolean;
+	pickup?: { address: string; landmark?: string; arrivalTime?: string; directionsUrl?: string } | null;
 	tourDepartureId?: string;
 	createdAt?: string;
 	status?: string;

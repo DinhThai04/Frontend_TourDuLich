@@ -61,7 +61,7 @@ export const getDepartureByTourId = (id: number, signal?: AbortSignal): Promise<
   return axiosClient.get(`/tour/tour-departures/tour/${id}`, { signal });
 };
 
-export type UpcomingDeparture = Pick<ITourDeparture, 'id' | 'tourId' | 'tourCode' | 'departureDate' | 'availableSeats'> & {
+export type UpcomingDeparture = Pick<ITourDeparture, 'id' | 'tourId' | 'tourCode' | 'departureDate' | 'availableSeats' | 'capacity'> & {
   tourTitle: string;
 };
 
@@ -81,11 +81,16 @@ export const getTourDepartureById = (id: number, signal?: AbortSignal): Promise<
   return axiosClient.get(`/tour/tour-departures/${id}`, { signal });
 };
 
-export type MeetingPoint = { address?: string; landmark?: string; arrivalTime?: string | null; directionsUrl?: string };
-export const getMeetingPoint = (id: number): Promise<ApiResponse<MeetingPoint | null>> =>
-  axiosClient.get(`/tour/tour-departures/${id}/meeting-point`);
+export type MeetingPoint = { confirmationKey?: string; address?: string; landmark?: string; arrivalTime?: string | null; directionsUrl?: string };
+export const getMeetingPoint = (id: number, tourId?: number): Promise<ApiResponse<MeetingPoint | null>> =>
+  axiosClient.get(`/tour/tour-departures/${id}/meeting-point`, { params: { tourId } });
 export const saveMeetingPoint = (id: number, point: MeetingPoint): Promise<ApiResponse<MeetingPoint | null>> =>
   axiosClient.put(`/tour/tour-departures/${id}/meeting-point`, point);
+
+export const getMeetingPointOptions = (id: number, tourId?: number): Promise<ApiResponse<MeetingPoint[]>> =>
+  axiosClient.get(`/tour/tour-departures/${id}/meeting-point/options`, { params: { tourId } });
+export const saveMeetingPointOptions = (id: number, points: MeetingPoint[]): Promise<ApiResponse<MeetingPoint[]>> =>
+  axiosClient.put(`/tour/tour-departures/${id}/meeting-point/options`, points);
 
 export const getItineraryByTourId = (id: number): Promise<ApiResponse<IItinerary[]>> => {
   return axiosClient.get(`/tour/itineraries/tour/${id}`);
@@ -249,6 +254,9 @@ export const updateTourDeparture = (
 export const getDepartureCapacity = (id: number): Promise<{ code: number; result: import('@/utils/departureCapacity').DepartureCapacity }> => {
   return axiosClient.get(`tour/tour-departures/${id}/capacity`);
 };
+
+export const deleteTour = (id: number): Promise<ApiResponse<void>> =>
+  axiosClient.delete(`/tour/tours/${id}`);
 
 export const deleteItinerary = (id: number): Promise<ApiResponse<void>> => {
   return axiosClient.delete(`tour/itineraries/${id}`);

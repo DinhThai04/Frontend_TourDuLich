@@ -44,7 +44,7 @@ const AccountBody = ({ activeMenu, setActiveMenu }: IProps) => {
               aria-current={active ? 'page' : undefined}
               className={`flex h-[44px] w-full cursor-pointer items-center gap-3 rounded-[10px] border-0 px-3.5 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1F7A6E] ${
                 active
-                  ? 'border-l-[3px] border-solid border-[#1F7A6E] bg-[#E6F4F1] font-semibold text-[#134E48]'
+                  ? 'bg-[#E6F4F1] font-semibold text-[#134E48]'
                   : 'bg-transparent font-medium text-[#1F2937] hover:bg-[#F3F4F6]'
               }`}
             >

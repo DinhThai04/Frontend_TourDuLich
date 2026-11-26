@@ -15,8 +15,8 @@ const bookingServices = {
     return axiosClient.post(`${BOOKING_API}/create`, data);
   },
 
-  getAll: (query?: ListQuery): Promise<ApiResponse<BookingResponse[]>> => {
-    return axiosClient.get(`${BOOKING_API}/all`, { params: listPageParams(query) });
+  getAll: (query?: ListQuery & { departureId?: number }): Promise<ApiResponse<BookingResponse[]>> => {
+    return axiosClient.get(`${BOOKING_API}/all`, { params: { ...listPageParams(query), departureId: query?.departureId } });
   },
 
   paymentStatus: (id: number, signal?: AbortSignal): Promise<ApiResponse<{ bookings: { bookingId: number; state: string }[] }>> => {

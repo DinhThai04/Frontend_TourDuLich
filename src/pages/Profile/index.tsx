@@ -14,7 +14,8 @@ function tabFromHash(hash: string): ProfileTab {
 }
 
 const ProfilePage = () => {
-  const { hash } = useLocation();
+  const { hash, search } = useLocation();
+  const supportBookingId = Number(new URLSearchParams(search).get('bookingId'));
   const navigate = useNavigate();
   const [activeMenu, setActiveMenu] = useState<ProfileTab>(() => tabFromHash(hash));
 
@@ -22,10 +23,10 @@ const ProfilePage = () => {
     setActiveMenu(tabFromHash(hash));
   }, [hash]);
 
-  const handleSelectMenu = (tab: ProfileTab) => {
+  const handleSelectMenu = (tab: ProfileTab, bookingId?: number) => {
     setActiveMenu(tab);
     const nextHash = tab === 'bookings' ? '#don-dat-tour' : tab === 'support' ? '#yeu-cau-ho-tro' : '';
-    navigate({ pathname: '/profile', hash: nextHash }, { replace: true });
+    navigate({ pathname: '/profile', hash: nextHash, search: bookingId ? `?bookingId=${bookingId}` : '' }, { replace: true });
   };
 
   return (
@@ -37,7 +38,7 @@ const ProfilePage = () => {
             <AccountBody activeMenu={activeMenu} setActiveMenu={handleSelectMenu} />
           </aside>
           <section className="min-w-0">
-            <AccountContent activeMenu={activeMenu} onOpenSupport={() => handleSelectMenu('support')} />
+            <AccountContent activeMenu={activeMenu} supportBookingId={supportBookingId || undefined} onOpenSupport={(id) => handleSelectMenu('support', id)} />
           </section>
         </div>
       </Container>

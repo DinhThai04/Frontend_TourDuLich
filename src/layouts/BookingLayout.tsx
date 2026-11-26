@@ -2,8 +2,8 @@ import type { FormInstance } from 'antd';
 import type { CustomersFormValues, PassengerFormValues, PassengerType, PersonalFormValues } from '@/types/Booking';
 import type { ITourPrice } from '@/types/Tour';
 import { errorMessage } from '@/utils/errors';
-import { parseDate, createClientKey } from '@/utils';
-import { Row, Col, Card, Modal, Checkbox, Alert, Spin, Button } from 'antd';
+import { parseDate, createClientKey, formatDate } from '@/utils';
+import { Row, Col, Card, Modal, Checkbox, Alert, Spin, Button, Select } from 'antd';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useContext, useRef, useState, useMemo, useCallback, useEffect } from 'react';
@@ -14,7 +14,8 @@ import BookingTitle from '@/components/Booking/BookingTitle';
 import BookingExpense, { type ExpenseItem } from '@/components/Booking/BookingExpense';
 
 import bookingServices from '@/services/bookingServices';
-import { getTourDepartureById } from '@/services/tourServices';
+import { getMeetingPointOptions, getTourDepartureById, type MeetingPoint } from '@/services/tourServices';
+import { isDepartureSalesClosed } from '@/utils/tourSchedule';
 import { sessionService } from '@/services/sessionServices';
 import { bookingHistoryLink, DEFAULT_PARTY, formatParty, parseParty, PARTY_TYPES, PASSENGER_LABELS, passengerTypeFor,
   passengersForBooking, readPartyDraft, savePartyDraft, unitPriceFor, vietnamBookingDay, type PartyCounts } from '@/utils/booking';
@@ -71,6 +72,11 @@ function BookingForm() {
   ));
   const [departureError, setDepartureError] = useState<string | null>(null);
   const [departureReady, setDepartureReady] = useState(false);
+  const [pickupDepartureDay, setPickupDepartureDay] = useState('');
+  const [pickupOptions, setPickupOptions] = useState<MeetingPoint[]>([]);
+  const [pickupKey, setPickupKey] = useState<string>();
+  const pickup = pickupOptions.find(point => point.confirmationKey === pickupKey);
+  const [pickupConfirmed, setPickupConfirmed] = useState(false);
   const [availableSeats, setAvailableSeats] = useState<number | null>(null);
   const [tourPrice, setTourPrice] = useState<ITourPrice | null>(null);
   useEffect(() => {
@@ -92,9 +98,19 @@ function BookingForm() {
         if (tourId && String(departure.tourId) !== tourId) throw new Error('Chuyến đi không thuộc tour đã chọn.');
         const start = parseDate(departure.departureDate)?.getTime() ?? NaN;
         if (!Number.isFinite(start) || start <= Date.now()) throw new Error('Chuyến đi đã khởi hành; vui lòng chọn chuyến khác.');
+        if (isDepartureSalesClosed(departure)) throw new Error('Chuyến đi đã đóng đặt chỗ; vui lòng chọn chuyến khác.');
         const seats = Number(departure.availableSeats);
         if (!Number.isFinite(seats) || seats <= 0) throw new Error('Chuyến đi đã hết chỗ.');
+        const pickupResponse = await getMeetingPointOptions(id, Number(departure.tourId));
+        if (pickupResponse.code !== 1000 || !Array.isArray(pickupResponse.result)
+          || pickupResponse.result.some(point => !point.confirmationKey)) {
+          throw new Error('Không thể xác minh điểm tập trung. Vui lòng tải lại trang.');
+        }
         if (active) {
+          setPickupDepartureDay(formatDate(departure.departureDate));
+          setPickupOptions(pickupResponse.result);
+          setPickupKey(pickupResponse.result.length === 1 ? pickupResponse.result[0]?.confirmationKey : undefined);
+          setPickupConfirmed(false);
           setAvailableSeats(Number.isFinite(seats) ? seats : null);
           setTourPrice(departure.tourPrice);
           setDepartureReady(true);
@@ -218,6 +234,8 @@ function BookingForm() {
       };
       ensureDisplayedDayIsCurrent();
       if (!departureReady) throw new Error('Chưa xác nhận được chuyến đi hợp lệ.');
+      if (pickupOptions.length && !pickup) throw new Error('Vui lòng chọn điểm tập trung cho cả đoàn.');
+      if (pickup && !pickupConfirmed) throw new Error('Vui lòng xác nhận cả đoàn có thể đến điểm tập trung.');
       const personalForm = personalFormRef.current;
       const customerForm = customersFormRef.current;
 
@@ -256,6 +274,7 @@ function BookingForm() {
         tourDepartureId: String(tourDepartureId),
         clientKey,
         pricingDate: pricingDay,
+        pickupConfirmationKey: pickup?.confirmationKey,
         expectedAmount: String(passengers.reduce((sum, passenger) =>
           sum + unitPriceFor(passengerTypeFor(passenger.birthDate, pricingDate, passenger.type), tourPrice), 0)),
         listOfCustomers: customers.map((c: CustomerRequest) => ({
@@ -338,6 +357,35 @@ function BookingForm() {
           <Card
             style={{ borderRadius: 14, border: '1px solid #d2e4e0', boxShadow: '0 8px 24px rgba(21,94,84,0.08)' }}
           >
+            <Alert className="!mb-4" showIcon type="info" message="Điểm tập trung"
+              description={pickupOptions.length > 0 ? (
+                <div className="space-y-2">
+                  {pickupOptions.length > 1 && <Select aria-label="Điểm tập trung cho cả đoàn"
+                    placeholder="Chọn điểm tập trung cho cả đoàn" className="w-full" value={pickupKey}
+                    options={pickupOptions.map(point => ({
+                      value: point.confirmationKey,
+                      label: `${point.arrivalTime ? point.arrivalTime.slice(0, 5) + ' · ' : ''}${point.address}`,
+                    }))} onChange={value => {
+                      setPickupKey(value);
+                      setPickupConfirmed(false);
+                    }} />}
+                  {pickup && <>
+                  <div className="font-semibold">{pickup.address}</div>
+                  <div>Ngày khởi hành {pickupDepartureDay}</div>
+                  {pickup.arrivalTime && <div>Có mặt lúc {pickup.arrivalTime.slice(0, 5)} (giờ Việt Nam)</div>}
+                  {pickup.landmark && <div>{pickup.landmark}</div>}
+                  {pickup.directionsUrl?.startsWith('https://') && (
+                    <a href={pickup.directionsUrl} target="_blank" rel="noopener noreferrer">Xem chỉ đường</a>
+                  )}
+                  <div>
+                    <Checkbox checked={pickupConfirmed} onChange={event => setPickupConfirmed(event.target.checked)}>
+                      Tôi xác nhận cả đoàn tự túc có mặt tại điểm tập trung theo thông tin trên.
+                    </Checkbox>
+                  </div>
+                  </>}
+                </div>
+              ) : 'Điều hành sẽ xác nhận điểm tập trung trước chuyến đi.'}
+            />
             <div className="mb-4 rounded-lg border border-[#cfe3df] bg-[#f4faf8] px-3.5 py-2.5">
               <Checkbox checked={includeBooker} onChange={event => {
                 markDirty();

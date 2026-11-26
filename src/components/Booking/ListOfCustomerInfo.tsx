@@ -1,3 +1,4 @@
+import { contactEmail, personName, streetAddress, vietnamesePhone } from '@/utils/contactValidation';
 import type { FormInstance } from 'antd';
 import type { CustomersFormValues, PassengerFormValues } from '@/types/Booking';
 import { useContext, useRef, useEffect } from 'react';
@@ -179,7 +180,7 @@ export default function ListOfCustomerInfo({
                         {...restField}
                         name={[name, 'fullName']}
                         label="Họ tên"
-                        rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+                        rules={[{ required: true, message: 'Vui lòng nhập họ tên' }, { pattern: personName, min: 2, max: 100, message: 'Nhập họ tên từ 2 đến 100 ký tự chữ' }]}
                       >
                         <Input placeholder="Nhập họ tên" />
                       </Form.Item>
@@ -232,7 +233,7 @@ export default function ListOfCustomerInfo({
                         {...restField}
                         name={[name, 'address']}
                         label="Địa chỉ"
-                        rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
+                        rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }, { pattern: streetAddress, max: 255, message: 'Địa chỉ chứa ký tự không hợp lệ' }]}
                       >
                         <Input placeholder="Nhập địa chỉ" />
                       </Form.Item>
@@ -247,7 +248,7 @@ export default function ListOfCustomerInfo({
                             label="Số điện thoại"
                             rules={[
                               { required: true, message: 'Vui lòng nhập số điện thoại' },
-                              { pattern: /^\d{9,11}$/, message: 'SĐT phải gồm 9–11 chữ số' },
+                              { pattern: vietnamesePhone, message: 'SĐT bắt đầu bằng 0 và gồm 10–11 chữ số' },
                             ]}
                           >
                             <Input placeholder="Nhập số điện thoại liên hệ" />
@@ -258,7 +259,7 @@ export default function ListOfCustomerInfo({
                             {...restField}
                             name={[name, 'email']}
                             label="Email (nếu có)"
-                            rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
+                            rules={[{ type: 'email', pattern: contactEmail, max: 254, message: 'Email không hợp lệ' }]}
                           >
                             <Input placeholder="Nhập email (không bắt buộc)" />
                           </Form.Item>
@@ -283,7 +284,7 @@ export default function ListOfCustomerInfo({
                             label="SĐT người giám hộ"
                             rules={[
                               { required: true, message: 'Vui lòng nhập SĐT người giám hộ' },
-                              { pattern: /^\d{9,11}$/, message: 'SĐT giám hộ gồm 9–11 chữ số' },
+                              { pattern: vietnamesePhone, message: 'SĐT giám hộ bắt đầu bằng 0 và gồm 10–11 chữ số' },
                             ]}
                           >
                             <Input placeholder="Nhập số điện thoại người giám hộ" />

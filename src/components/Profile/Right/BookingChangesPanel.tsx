@@ -17,74 +17,92 @@ const STATUS_BADGE: Record<string, { bg: string; text: string; dot: string; labe
   WITHDRAWN: { bg: '#F3F4F6', text: '#4B5563', dot: '#9CA3AF', label: 'Đã kết thúc' },
 };
 
-export default function BookingChangesPanel({ onChanged, bookingId, onClearBooking }: {
-  onChanged: () => void;
-  bookingId?: number;
-  onClearBooking: () => void;
-}) {
+export default function BookingChangesPanel({ initialBookingId }: { initialBookingId?: number }) {
   const [rows, setRows] = useState<ChangeRequest[]>([]);
   const [eligible, setEligible] = useState<EligibleBooking[]>([]);
   const [options, setOptions] = useState<DepartureOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eligibilityError, setEligibilityError] = useState('');
+  const [optionsError, setOptionsError] = useState('');
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [mode, setMode] = useState<'new' | 'respond' | null>(null);
   const [selected, setSelected] = useState<ChangeRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [clientKey, setClientKey] = useState('');
-  const [form] = Form.useForm<{ bookingId: number; requestType?: string; targetId?: number; reason: string; action: string }>();
-  const requestType = Form.useWatch('requestType', form) || 'RESCHEDULE';
+  const [form] = Form.useForm<{ bookingId: number; targetId?: number; reason: string; action: string }>();
+  const bookingId = Form.useWatch('bookingId', form);
+  const activeRequest = rows.find((row) => row.booking_id === initialBookingId && row.active_key === 1);
+  const consumedBooking = useRef<number>(undefined);
   const optionsSeq = useRef(0);
   const requestsSeq = useRef(0);
 
   const refresh = useCallback(async () => {
     const request = ++requestsSeq.current;
     setLoading(true);
-    const [changes, bookings] = await Promise.allSettled([bookingChanges.mine(bookingId), bookingChanges.eligible()]);
+    const [changes, bookings] = await Promise.allSettled([bookingChanges.mine(), bookingChanges.eligible()]);
     if (requestsSeq.current !== request) return;
     if (changes.status === 'fulfilled') setRows(changes.value);
-    if (bookings.status === 'fulfilled') {
-      setEligible(bookings.value.filter(b => dayjs(b.departure_date).isAfter(dayjs())));
-    }
-    const failure = changes.status === 'rejected' ? changes.reason
-      : bookings.status === 'rejected' ? bookings.reason : null;
-    if (failure) message.error(changeError(failure));
+    if (changes.status === 'rejected') message.error(changeError(changes.reason));
+    setEligible(bookings.status === 'fulfilled' ? bookings.value : []);
+    setEligibilityError(bookings.status === 'rejected' ? changeError(bookings.reason) : '');
     setLoading(false);
-  }, [bookingId]);
+  }, []);
 
   useEffect(() => {
     void refresh();
     return () => { requestsSeq.current += 1; };
   }, [refresh]);
 
-  async function loadOptions(id: number) {
+  const loadOptions = useCallback(async (id: number) => {
     const seq = ++optionsSeq.current;
-    setBusy(true);
+    setLoadingOptions(true);
+    setOptionsError('');
     setOptions([]);
     form.setFieldValue('targetId', undefined);
     try {
       const loaded = await bookingChanges.options(id);
       if (seq === optionsSeq.current) setOptions(loaded);
     } catch (e) {
-      if (seq === optionsSeq.current) message.error(changeError(e));
+      if (seq === optionsSeq.current) setOptionsError(changeError(e));
     } finally {
-      if (seq === optionsSeq.current) setBusy(false);
+      if (seq === optionsSeq.current) setLoadingOptions(false);
     }
-  }
+  }, [form]);
+
+  const openNew = useCallback((id?: number) => {
+    optionsSeq.current += 1;
+    form.resetFields();
+    setOptions([]);
+    setOptionsError('');
+    setLoadingOptions(false);
+    setClientKey(createClientKey());
+    setMode('new');
+    if (id) {
+      form.setFieldValue('bookingId', id);
+      void loadOptions(id);
+    }
+  }, [form, loadOptions]);
+
+  useEffect(() => {
+    if (loading || eligibilityError || !initialBookingId || consumedBooking.current === initialBookingId) return;
+    consumedBooking.current = initialBookingId;
+    if (eligible.some((booking) => booking.id === initialBookingId)) openNew(initialBookingId);
+  }, [eligible, eligibilityError, initialBookingId, loading, openNew]);
 
   async function save() {
-    let values: { bookingId: number; requestType?: string; targetId?: number; reason: string; action: string };
+    let values: { bookingId: number; targetId?: number; reason: string; action: string };
     try { values = await form.validateFields(); } catch { return; }
     setBusy(true);
     try {
       if (mode === 'new') {
-        const prefix = values.requestType && values.requestType !== 'RESCHEDULE' ? `[${values.requestType}] ` : '';
-        await bookingChanges.customer(values.bookingId, values.targetId || options[0]?.id || 0, `${prefix}${values.reason}`, clientKey);
+        if (values.targetId == null) return;
+        await bookingChanges.customer(values.bookingId, values.targetId, values.reason, clientKey);
       } else if (selected) {
         await bookingChanges.respond(selected, values.action, values.reason || 'Khách lựa chọn trên tài khoản', values.targetId);
       }
       setMode(null);
       message.success('Đã gửi yêu cầu thành công!');
       await refresh();
-      onChanged();
     } catch (e) {
       message.error(changeError(e), 8);
     } finally {
@@ -97,7 +115,7 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="m-0 text-[22px] font-semibold leading-[28px] text-[#1F2937]">Yêu cầu hỗ trợ</h1>
-          <p className="mb-0 mt-1 text-sm text-[#6B7280]">Gửi yêu cầu dời lịch, cập nhật hành khách hoặc hỗ trợ cho các đơn đã thanh toán.</p>
+          <p className="mb-0 mt-1 text-sm text-[#6B7280]">Gửi yêu cầu dời lịch và theo dõi phản hồi từ SGU Tour.</p>
         </div>
         <Space wrap>
           <Button
@@ -107,18 +125,12 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
           >
             Cập nhật
           </Button>
-          <Tooltip title={!eligible.length ? 'Bạn chỉ có thể tạo yêu cầu khi có đơn đã thanh toán và chưa khởi hành' : undefined}>
+          <Tooltip title={!loading && !eligibilityError && !eligible.length ? 'Chưa có đơn đủ điều kiện dời lịch' : undefined}>
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              disabled={!eligible.length}
-              onClick={() => {
-                form.resetFields();
-                form.setFieldValue('requestType', 'RESCHEDULE');
-                setOptions([]);
-                setClientKey(createClientKey());
-                setMode('new');
-              }}
+              disabled={loading || !eligible.length}
+              onClick={() => openNew(eligible.length === 1 ? eligible[0]?.id : undefined)}
               className={
                 eligible.length
                   ? '!h-[40px] !rounded-[10px] !bg-[#1F7A6E] hover:!bg-[#176258]'
@@ -134,14 +146,33 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
       {/* Teal Alert (no default blue) */}
       <div className="mb-5 flex items-start gap-2.5 rounded-[10px] border border-[#A7D7CF] bg-[#E6F4F1] px-4 py-3 text-sm text-[#134E48]">
         <InfoCircleOutlined className="mt-0.5 text-base text-[#1F7A6E]" />
-        <span>Bạn chỉ có thể tạo yêu cầu hỗ trợ hoặc dời lịch cho đơn <strong>đã thanh toán</strong> và <strong>chưa hoàn thành</strong>.</span>
+        <span>Bạn có thể yêu cầu dời lịch cho đơn đã thanh toán trước giờ khởi hành ít nhất <strong>72 giờ</strong>.</span>
       </div>
 
-      {bookingId && (
-        <div className="mb-4 flex items-center gap-2">
-          <span className="rounded-full bg-[#E6F4F1] px-3 py-1 text-xs font-semibold text-[#134E48]">Đơn #{bookingId}</span>
-          <Button size="small" onClick={onClearBooking}>Xem tất cả</Button>
-        </div>
+      {eligibilityError && (
+        <p role="alert" className="mb-4 text-sm text-red-700">{eligibilityError}</p>
+      )}
+      {!loading && !eligibilityError && initialBookingId && !eligible.some((booking) => booking.id === initialBookingId) && (
+        <p role="status" className="mb-4 text-sm text-[#4B5563]">
+          {activeRequest
+            ? `Đơn #${initialBookingId} đã có yêu cầu đang xử lý.`
+            : `Đơn #${initialBookingId} hiện không đủ điều kiện tạo yêu cầu dời lịch.`}
+        </p>
+      )}
+      {!loading && eligible.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-2 text-base font-semibold">Đơn đủ điều kiện dời lịch</h2>
+          <ul className="m-0 list-none divide-y divide-[#E5E7EB] p-0">
+            {eligible.map((booking) => (
+              <li key={booking.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-sm">
+                  <strong>#{booking.id}</strong> · {booking.tour_title} · {dayjs(booking.departure_date).format('DD/MM/YYYY')}
+                </span>
+                <Button size="small" onClick={() => openNew(booking.id)}>Tạo yêu cầu</Button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {loading ? (
@@ -152,7 +183,6 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
           description={
             <div className="space-y-1 text-sm text-[#6B7280]">
               <div>Chưa có yêu cầu hỗ trợ nào.</div>
-              <div className="text-xs">Bạn chỉ có thể tạo yêu cầu cho đơn đã thanh toán và chưa hoàn thành.</div>
             </div>
           }
         />
@@ -225,13 +255,15 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
       )}
 
       <Modal
-        title={mode === 'new' ? 'Tạo yêu cầu hỗ trợ' : 'Phản hồi đề xuất của SGU Tour'}
+        title={mode === 'new' ? 'Tạo yêu cầu dời lịch' : 'Phản hồi đề xuất của SGU Tour'}
         open={mode !== null}
+        forceRender
         onCancel={() => setMode(null)}
         onOk={() => void save()}
         okText="Gửi yêu cầu"
         cancelText="Hủy"
         confirmLoading={busy}
+        okButtonProps={{ disabled: loadingOptions || (mode === 'new' && options.length === 0) }}
         maskClosable={!busy}
         closable={!busy}
       >
@@ -248,16 +280,6 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
                   }))}
                 />
               </Form.Item>
-              <Form.Item name="requestType" label="Loại yêu cầu" initialValue="RESCHEDULE">
-                <Select
-                  options={[
-                    { value: 'RESCHEDULE', label: 'Dời lịch khởi hành' },
-                    { value: 'PASSENGER_INFO', label: 'Thay đổi thông tin hành khách' },
-                    { value: 'REFUND', label: 'Hủy và hoàn tiền' },
-                    { value: 'OTHER', label: 'Yêu cầu khác' },
-                  ]}
-                />
-              </Form.Item>
             </>
           )}
           {mode === 'respond' && (
@@ -271,21 +293,28 @@ export default function BookingChangesPanel({ onChanged, bookingId, onClearBooki
               />
             </Form.Item>
           )}
-          {(mode === 'respond' || requestType === 'RESCHEDULE') && (
+          {mode !== null && (
             <Form.Item
               name="targetId"
               label="Chọn lịch khởi hành mới"
-              rules={mode === 'new' && requestType === 'RESCHEDULE' ? [{ required: true, message: 'Vui lòng chọn ngày mới' }] : []}
+              rules={mode === 'new' ? [{ required: true, message: 'Vui lòng chọn ngày mới' }] : []}
             >
               <Select
                 allowClear
+                loading={loadingOptions}
+                disabled={loadingOptions}
                 placeholder="Chọn ngày còn chỗ"
+                notFoundContent="Không có lịch thay thế phù hợp"
                 options={options.map((d) => ({
                   value: d.id,
                   label: `${dayjs(d.departure_date).format('HH:mm · DD/MM/YYYY')} — còn ${d.available_seats} chỗ`,
                 }))}
               />
             </Form.Item>
+          )}
+          {optionsError && <p role="alert" className="text-sm text-red-700">{optionsError}</p>}
+          {mode === 'new' && bookingId && !loadingOptions && !optionsError && options.length === 0 && (
+            <p className="text-sm text-[#4B5563]">Đơn này hiện chưa có lịch thay thế phù hợp.</p>
           )}
           <Form.Item name="reason" label="Nội dung yêu cầu" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập nội dung' }]}>
             <Input.TextArea showCount maxLength={500} rows={3} placeholder="Mô tả chi tiết yêu cầu của bạn..." />

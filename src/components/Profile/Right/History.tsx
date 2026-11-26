@@ -1,5 +1,6 @@
 import { errorMessage } from '@/utils/errors';
-import StatusBadge, { resolveOrderBadgeStatus } from '../StatusBadge';
+import StatusBadge from '../StatusBadge';
+import { resolveOrderBadgeStatus } from '../orderBadgeStatus';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Input,
@@ -13,7 +14,6 @@ import {
   Space,
   Spin,
   Skeleton,
-  Dropdown,
   Tooltip,
   QRCode,
 } from 'antd';
@@ -21,7 +21,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
   CloseOutlined,
-  EllipsisOutlined,
   InfoCircleOutlined,
   SearchOutlined,
   StarFilled,
@@ -71,7 +70,7 @@ function fmtShortDateTime(val?: string) {
   return d.isValid() ? d.format('HH:mm · DD/MM/YYYY') : '';
 }
 
-export default function History({ onOpenSupport }: { onOpenSupport?: () => void }) {
+export default function History({ onOpenSupport }: { onOpenSupport?: (bookingId?: number) => void }) {
   const navigate = useNavigate();
   const { search, hash, pathname } = useLocation();
   const { user } = useAppSelector((s) => s.auth);
@@ -244,16 +243,18 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
 
   const columns = [
     {
-      title: 'Mã đơn',
+      title: <span className="whitespace-nowrap">Mã đơn</span>,
+      align: 'center' as const,
       dataIndex: 'id',
       key: 'id',
       render: (id: string) => <span className="font-semibold text-[#134E48]">#{id}</span>,
     },
     {
       title: 'Tour',
+      align: 'center' as const,
       key: 'tour',
       render: (_: unknown, record: BookingWithFullInfo) => (
-        <div className="min-w-0 max-w-[260px]">
+        <div className="mx-auto min-w-0 max-w-[260px]">
           <div className="truncate text-sm font-semibold text-[#1F2937]">
             {record.tourTitle || `Tour ${record.tourCode || `#${record.id}`}`}
           </div>
@@ -263,6 +264,7 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
     },
     {
       title: 'Ngày đi',
+      align: 'center' as const,
       dataIndex: 'departureDate',
       key: 'departureDate',
       render: (d: string | undefined) => (
@@ -274,7 +276,7 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
     {
       title: 'Tổng tiền',
       key: 'totalAmount',
-      align: 'right' as const,
+      align: 'center' as const,
       render: (_: unknown, record: BookingWithFullInfo) => {
         const amt = record.invoice?.totalBookingTourExpense ?? record.totalAmount;
         return (
@@ -286,6 +288,7 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
     },
     {
       title: 'Trạng thái',
+      align: 'center' as const,
       key: 'status',
       render: (_: unknown, record: BookingWithFullInfo) => (
         <StatusBadge
@@ -293,7 +296,7 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
             status: record.status,
             reservationStatus: record.reservationStatus,
             invoiceStatus: record.invoice?.status ?? record.invoiceStatus,
-            returnDate: record.returnDate,
+            tripCompleted: record.tripCompleted,
           })}
         />
       ),
@@ -301,46 +304,23 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
     {
       title: 'Thao tác',
       key: 'action',
-      align: 'right' as const,
+      align: 'center' as const,
       render: (_: unknown, record: BookingWithFullInfo) => {
         const badge = resolveOrderBadgeStatus({
           status: record.status,
           reservationStatus: record.reservationStatus,
           invoiceStatus: record.invoice?.status ?? record.invoiceStatus,
-          returnDate: record.returnDate,
+          tripCompleted: record.tripCompleted,
         });
         const isTicket = badge === 'PAID' || badge === 'COMPLETED';
         return (
-          <Space size={6}>
-            <Button
-              size="small"
-              onClick={() => openTicket(record)}
-              className="!h-[32px] !rounded-[8px] !border-[#1F7A6E] !text-[#1F7A6E] hover:!bg-[#E6F4F1]"
-            >
-              {isTicket ? 'Xem vé' : 'Xem chi tiết'}
-            </Button>
-            {badge === 'PAID' && onOpenSupport && (
-              <Dropdown
-                trigger={['click']}
-                menu={{
-                  items: [
-                    {
-                      key: 'support',
-                      label: 'Yêu cầu hỗ trợ',
-                      onClick: () => onOpenSupport(),
-                    },
-                  ],
-                }}
-              >
-                <Button
-                  size="small"
-                  aria-label="Thao tác khác"
-                  icon={<EllipsisOutlined />}
-                  className="!h-[32px] !w-[32px] !rounded-[8px]"
-                />
-              </Dropdown>
-            )}
-          </Space>
+          <Button
+            size="small"
+            onClick={() => openTicket(record)}
+            className="!h-[32px] !rounded-[8px] !border-[#1F7A6E] !text-[#1F7A6E] hover:!bg-[#E6F4F1]"
+          >
+            {isTicket ? 'Xem vé' : 'Xem chi tiết'}
+          </Button>
         );
       },
     },
@@ -351,7 +331,7 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
         status: selectedBooking.status,
         reservationStatus: selectedBooking.reservationStatus,
         invoiceStatus: selectedBooking.invoice?.status ?? selectedBooking.invoiceStatus,
-        returnDate: selectedBooking.returnDate,
+        tripCompleted: selectedBooking.tripCompleted,
       })
     : 'PENDING';
 
@@ -361,7 +341,7 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
   const visibleCustomers = expandPassengers ? customers : customers.slice(0, 4);
 
   return (
-    <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_rgba(16,24,40,.06)]">
+    <div className="@container rounded-[16px] border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_rgba(16,24,40,.06)]">
       {/* Header */}
       <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-center gap-3">
@@ -439,7 +419,6 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
         )}
       </div>
 
-      {/* Content: Skeleton -> Empty -> Desktop Table / Mobile Cards (NO scrollbars) */}
       {isLoading ? (
         <Skeleton active paragraph={{ rows: 5 }} />
       ) : bookingData.length === 0 ? (
@@ -457,24 +436,25 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
         </Empty>
       ) : (
         <>
-          <div className="hidden md:block">
+          <div className="hidden @min-[680px]:block">
             <Table
               dataSource={bookingData}
               columns={columns}
               rowKey="id"
+              size="small"
+              scroll={{ x: 'max-content' }}
               pagination={false}
               rowClassName="hover:bg-[#F8FAFA] transition-colors"
             />
           </div>
 
-          {/* Mobile Card List (< 768px) */}
-          <div className="flex flex-col gap-3 md:hidden">
+          <div className="flex flex-col gap-3 @min-[680px]:hidden">
             {bookingData.map((record) => {
               const badge = resolveOrderBadgeStatus({
                 status: record.status,
                 reservationStatus: record.reservationStatus,
                 invoiceStatus: record.invoice?.status ?? record.invoiceStatus,
-                returnDate: record.returnDate,
+                tripCompleted: record.tripCompleted,
               });
               const amt = record.invoice?.totalBookingTourExpense ?? record.totalAmount;
               return (
@@ -736,6 +716,17 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
                       </div>
                     </div>
 
+                    {isPaidOrDone && selectedBooking.pickup && (
+                      <div className="rounded-xl border border-[#E5E7EB] bg-white p-3.5 text-xs">
+                        <div className="font-semibold text-[#134E48]">Điểm tập trung đã xác nhận</div>
+                        <div className="mt-1 text-[#1F2937]">{selectedBooking.pickup.address}</div>
+                        {selectedBooking.pickup.landmark && <div>{selectedBooking.pickup.landmark}</div>}
+                        {selectedBooking.pickup.arrivalTime && <div>Giờ có mặt {selectedBooking.pickup.arrivalTime.slice(0, 5)} (giờ Việt Nam)</div>}
+                        {selectedBooking.pickup.directionsUrl && /^https:\/\//i.test(selectedBooking.pickup.directionsUrl)
+                          && <a href={selectedBooking.pickup.directionsUrl} target="_blank" rel="noopener noreferrer">Xem chỉ đường</a>}
+                      </div>
+                    )}
+
                     {/* Invoice Section */}
                     <div>
                       <h3 className="m-0 mb-2 text-sm font-semibold uppercase tracking-wide text-[#134E48]">
@@ -827,14 +818,13 @@ export default function History({ onOpenSupport }: { onOpenSupport?: () => void 
                           <Button
                             className="!h-[40px] !rounded-[10px] !border-[#1F7A6E] !text-[#1F7A6E]"
                             onClick={() => {
-                              closeModal();
-                              onOpenSupport();
+                              onOpenSupport(Number(selectedBooking.id));
                             }}
                           >
                             Yêu cầu hỗ trợ
                           </Button>
                         )}
-                        <Tooltip title="Bạn có thể đánh giá sau khi chuyến đi kết thúc">
+                        <Tooltip title="Bạn có thể đánh giá sau khi SGU Tour xác nhận chuyến đi đã hoàn thành">
                           <Button
                             disabled
                             icon={<StarFilled />}

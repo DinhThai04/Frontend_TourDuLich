@@ -6,17 +6,18 @@ type ProfileTab = 'info' | 'bookings' | 'support';
 
 interface IProps {
   activeMenu: ProfileTab;
-  onOpenSupport?: () => void;
+  onOpenSupport?: (bookingId?: number) => void;
+  supportBookingId?: number;
 }
 
-const AccountContent = ({ activeMenu, onOpenSupport }: IProps) => {
+const AccountContent = ({ activeMenu, onOpenSupport, supportBookingId }: IProps) => {
   switch (activeMenu) {
     case 'info':
       return <Info />;
     case 'bookings':
       return <History onOpenSupport={onOpenSupport} />;
     case 'support':
-      return <BookingChangesPanel onChanged={() => {}} onClearBooking={() => {}} />;
+      return <BookingChangesPanel initialBookingId={supportBookingId} />;
     default:
       return <Info />;
   }

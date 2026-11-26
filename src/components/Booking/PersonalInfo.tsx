@@ -1,3 +1,4 @@
+import { contactEmail, personName, streetAddress, vietnamesePhone } from '@/utils/contactValidation';
 import type { FormInstance } from 'antd';
 import type { PersonalFormValues } from '@/types/Booking';
 import { Form, Input, Select, DatePicker } from "antd";
@@ -37,7 +38,7 @@ export default function PersonalInfo({ onFormReady, disabled = false }: { onForm
         <Form.Item
           label="Họ tên"
           name="fullName"
-          rules={[{ required: true, message: "Vui lòng nhập họ tên!" }]}
+          rules={[{ required: true, message: "Vui lòng nhập họ tên!" }, { pattern: personName, min: 2, max: 100, message: "Nhập họ tên từ 2 đến 100 ký tự chữ" }]}
         >
           <Input placeholder="Nhập họ tên" />
         </Form.Item>
@@ -87,7 +88,7 @@ export default function PersonalInfo({ onFormReady, disabled = false }: { onForm
           name="email"
           rules={[
             { required: true, message: "Vui lòng nhập email!" },
-            { type: "email", message: "Email không hợp lệ!" },
+            { type: "email", pattern: contactEmail, max: 254, message: "Email không hợp lệ!" },
           ]}
         >
           <Input placeholder="Nhập email" />
@@ -99,7 +100,7 @@ export default function PersonalInfo({ onFormReady, disabled = false }: { onForm
           name="phone"
           rules={[
             { required: true, message: "Vui lòng nhập số điện thoại!" },
-            { pattern: /^\d{9,11}$/, message: "SĐT phải có từ 9 đến 11 chữ số" },
+            { pattern: vietnamesePhone, message: "SĐT bắt đầu bằng 0 và gồm 10–11 chữ số" },
           ]}
         >
           <Input placeholder="Nhập số điện thoại" />
@@ -109,9 +110,9 @@ export default function PersonalInfo({ onFormReady, disabled = false }: { onForm
         <Form.Item
           label="Địa chỉ"
           name="address"
-          rules={[{ required: true, message: "Vui lòng nhập địa chỉ!" }]}
+          rules={[{ required: true, message: "Vui lòng nhập địa chỉ!" }, { pattern: streetAddress, max: 255, message: "Địa chỉ chứa ký tự không hợp lệ" }]}
         >
-          <Input.TextArea rows={2} placeholder="Nhập địa chỉ" />
+          <Input placeholder="Nhập số nhà, đường và khu vực" />
         </Form.Item>
 
       </Form>

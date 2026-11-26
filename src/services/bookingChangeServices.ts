@@ -12,6 +12,7 @@ export interface ChangeRequest {
 export interface DepartureOption { id: number; departure_date: string; return_date: string; available_seats: number }
 export type PendingScheduleChange = Pick<ChangeRequest, 'id' | 'booking_id' | 'kind' | 'status' | 'source_departure_at' | 'tour_title'> & {
   tour_id: number;
+  created_at?: string;
 };
 export interface EligibleBooking { id: number; tour_title: string; departure_date: string }
 export interface ShopProposal { id: number; source_departure_id: number; target_departure_id: number; status: string; reason: string; evidence: string; response_deadline: string }
@@ -43,7 +44,7 @@ export const bookingChanges = {
     unwrap<{ requests: ChangeRequest[]; proposals: ShopProposal[] }>(
       api.get(`${root}/admin`, { params: { ...listPageParams(query), tourId, requestId } }),
     ),
-  pending: (page: number, filters?: { bookingId?: number; day?: string; customerAction?: boolean }) => unwrap<{ items: PendingScheduleChange[]; hasNext: boolean }>(
+  pending: (page: number, filters?: { bookingId?: number; day?: string; customerAction?: boolean; size?: number }) => unwrap<{ items: PendingScheduleChange[]; hasNext: boolean; total?: number }>(
     api.get(`${root}/admin/pending`, { params: { page, ...filters } }),
   ),
   preview: (input: ShopInput) => unwrap<{ bookingCount: number; occupiedSeats: number; capacity: number; version: number }>(api.post(`${root}/shop/preview`, input)),

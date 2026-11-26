@@ -1,4 +1,4 @@
-export type OrderBadgeStatus = 'PENDING' | 'PAID' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
+import type { OrderBadgeStatus } from './orderBadgeStatus';
 
 const BADGE_STYLES: Record<OrderBadgeStatus, { bg: string; text: string; dot: string; label: string }> = {
   PENDING: { bg: '#FEF3C7', text: '#92400E', dot: '#F59E0B', label: 'Chờ thanh toán' },
@@ -7,27 +7,6 @@ const BADGE_STYLES: Record<OrderBadgeStatus, { bg: string; text: string; dot: st
   EXPIRED: { bg: '#F3F4F6', text: '#4B5563', dot: '#9CA3AF', label: 'Hết hạn thanh toán' },
   CANCELLED: { bg: '#FEE2E2', text: '#991B1B', dot: '#DC2626', label: 'Đã hủy' },
 };
-
-export function resolveOrderBadgeStatus(input: {
-  status?: string | null;
-  reservationStatus?: string | null;
-  invoiceStatus?: string | null;
-  returnDate?: string | null;
-}): OrderBadgeStatus {
-  const s = (input.status || '').toUpperCase();
-  const r = (input.reservationStatus || '').toUpperCase();
-  const inv = (input.invoiceStatus || '').toUpperCase();
-
-  if (s === 'CANCELLED' || s === 'UNCONFIRMED' || r === 'CANCELLED') return 'CANCELLED';
-  if (s === 'EXPIRED' || r === 'EXPIRED') return 'EXPIRED';
-
-  const isPaid = r === 'PAID' || inv === 'PAID';
-  if (isPaid) {
-    const ended = input.returnDate ? new Date(input.returnDate).getTime() < Date.now() : false;
-    return s === 'COMPLETED' || ended ? 'COMPLETED' : 'PAID';
-  }
-  return 'PENDING';
-}
 
 export default function StatusBadge({ status }: { status: OrderBadgeStatus }) {
   const cfg = BADGE_STYLES[status];
