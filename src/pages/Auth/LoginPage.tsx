@@ -1,9 +1,9 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginUser, loginUserWithGG, refreshCurrentUser } from '@/store/slices/authSlice';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Form, Input, message, Divider, Alert } from 'antd';
+import { Alert, Button, Divider, Form, Input, message } from 'antd';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import brand from '@/assets/branding/sgu-tour.svg';
 import type { CredentialResponse as GoogleCredentialResponse } from '@react-oauth/google';
 import type { RootState } from '@/store';
@@ -24,9 +24,14 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const { loading, error, isAuth, user } = useAppSelector((state: RootState) => state.auth);
   const returnPath = safeReturnPath(location.state)
     ?? safeReturnPath({ from: new URLSearchParams(location.search).get('return') });
+
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const onFinish = async (values: { email: string; password: string }) => {
     if (loading) return;
@@ -35,8 +40,10 @@ export default function LoginPage() {
       if (res.code === 1000) {
         message.success('Đăng nhập thành công!', 3);
         await dispatch(refreshCurrentUser()).unwrap().catch(() => undefined);
-        navigate(returnPath ?? (hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : '/'));
-      } else message.error('Đăng nhập thất bại!', 3);
+        navigate(hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : (returnPath ?? '/'), { replace: true });
+      } else {
+        message.error('Đăng nhập thất bại!', 3);
+      }
     } catch {
       // Lỗi đăng nhập đã được lưu trong state `error` của authSlice và hiển thị bên dưới.
     }
@@ -54,7 +61,7 @@ export default function LoginPage() {
       if (res.code === 1000) {
         message.success('Đăng nhập thành công!', 3);
         await dispatch(refreshCurrentUser()).unwrap().catch(() => undefined);
-        navigate(returnPath ?? (hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : '/'));
+        navigate(hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : (returnPath ?? '/'), { replace: true });
       } else {
         message.error('Đăng nhập thất bại!', 3);
       }
@@ -64,99 +71,131 @@ export default function LoginPage() {
   };
 
   if (isAuth) {
-    return <Navigate to={returnPath ?? (hasPermission(user, ADMIN_ACCESS) ? '/admin' : '/')} replace />;
+    return <Navigate to={hasPermission(user, ADMIN_ACCESS) ? '/admin' : (returnPath ?? '/')} replace />;
   }
 
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center px-4 py-6"
-      style={{ background: 'linear-gradient(135deg, #F3F8F6 0%, #F8FAFA 55%, #E6F4F1 100%)' }}
-    >
-      <div className="w-full max-w-[420px] bg-white border border-[#E5E7EB] rounded-2xl shadow-[0_16px_40px_rgba(19,78,72,0.10)] px-7 py-6">
-        <Link to="/" aria-label="Trang chủ SGU Tour" className="block w-[184px] mx-auto mb-3">
-          <img src={brand} alt="SGU Tour — Hành trình bắt đầu từ đây" className="block w-full h-auto" />
+    <section aria-labelledby="login-heading">
+      {/* Brand Logo */}
+      <div className="auth-stagger-1 auth-brand-wrap mb-5">
+        <Link to="/" aria-label="Trang chủ SGU Tour" className="auth-brand-logo inline-block w-[160px]">
+          <img src={brand} alt="SGU Tour" className="block w-full h-auto" />
         </Link>
+      </div>
 
-        <div className="text-center mb-4">
-          <h1 className="m-0 text-[22px] font-bold text-[#134E48] leading-tight">Đăng nhập</h1>
-          <p className="m-0 mt-1 text-[13px] text-[#6B7280]">Chào mừng bạn quay lại với SGU Tour</p>
-        </div>
+      {/* Heading */}
+      <header className="auth-stagger-2 auth-heading-wrap mb-5">
+        <h1
+          id="login-heading"
+          ref={headingRef}
+          tabIndex={-1}
+          className="auth-heading-title m-0 mb-1.5 text-[28px] sm:text-[31px] leading-[1.2] font-bold text-[#182C2A] tracking-[-0.02em] outline-none"
+        >
+          Chào mừng trở lại!
+        </h1>
+        <p className="auth-heading-desc m-0 text-[14.5px] leading-[1.55] text-[#5C6E76]">
+          Đăng nhập để tiếp tục hành trình cùng SGU Tour.
+        </p>
+      </header>
 
-        {error && (
+      {/* Form-level Error */}
+      {error && (
+        <div className="mb-4" role="alert" aria-live="assertive">
           <Alert
             message={error}
             type="error"
             showIcon
-            className="!mb-3.5 !py-2 !rounded-[10px] text-[13px]"
+            className="!rounded-[10px] !py-2 text-[13.5px]"
           />
-        )}
+        </div>
+      )}
 
+      {/* Login Form */}
+      <div className="auth-stagger-3">
         <Form
           name="login_form"
-          initialValues={{ remember: true }}
           onFinish={onFinish}
           layout="vertical"
-          requiredMark="optional"
+          validateTrigger="onBlur"
         >
           <Form.Item
             name="email"
-            label={<span className="text-[13px] font-medium text-[#1F2937]">Email</span>}
-            rules={[{ required: true, message: 'Vui lòng nhập email' }]}
-            className="!mb-3"
+            label="Email"
+            rules={[
+              { required: true, message: 'Vui lòng nhập địa chỉ email' },
+              { type: 'email', max: 254, message: 'Nhập email hợp lệ, tối đa 254 ký tự' },
+            ]}
+            className="!mb-3.5"
           >
             <Input
-              prefix={<UserOutlined className="text-[#6B7280]" />}
-              placeholder="Nhập email của bạn"
-              className="!h-[40px] !rounded-[10px]"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              prefix={<Mail size={17} strokeWidth={1.85} className="auth-field-icon" aria-hidden="true" />}
+              placeholder="ten@email.com"
             />
           </Form.Item>
 
           <Form.Item
             name="password"
-            label={<span className="text-[13px] font-medium text-[#1F2937]">Mật khẩu</span>}
+            label="Mật khẩu"
             rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
-            className="!mb-4"
+            className="!mb-5"
           >
             <Input.Password
-              prefix={<LockOutlined className="text-[#6B7280]" />}
-              placeholder="Nhập mật khẩu"
-              className="!h-[40px] !rounded-[10px]"
+              autoComplete="current-password"
+              prefix={<Lock size={17} strokeWidth={1.85} className="auth-field-icon" aria-hidden="true" />}
+              placeholder="Nhập mật khẩu của bạn"
+              iconRender={(visible) => (
+                <span
+                  aria-label={visible ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
+                  className="inline-flex items-center text-[#5C6E76] hover:text-[#20786D] transition-colors"
+                >
+                  {visible ? <EyeOff size={17} strokeWidth={1.85} /> : <Eye size={17} strokeWidth={1.85} />}
+                </span>
+              )}
             />
           </Form.Item>
 
           <Button
             type="primary"
             htmlType="submit"
+            block
             loading={loading}
-            className="w-full !h-[42px] !rounded-[10px] !bg-[#1F7A6E] hover:!bg-[#176258] !font-semibold !text-[15px]"
+            disabled={loading}
+            className="auth-primary-btn"
           >
-            Đăng nhập
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </Button>
         </Form>
+      </div>
 
+      {/* Google OAuth + Unified Navigation */}
+      <div className="auth-stagger-4">
         {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
           <>
-            <Divider plain className="!my-3.5 !text-[12px] !text-[#6B7280]">hoặc</Divider>
-            <div className="flex w-full justify-center">
-              <Suspense fallback={null}>
-                <GoogleSignIn onSuccess={handleGGLogin} />
-              </Suspense>
-            </div>
+            <Divider plain className="!my-4 !text-[13px] !text-[#5C6E76]">
+              hoặc tiếp tục với
+            </Divider>
+            <Suspense fallback={<div className="h-[44px] flex items-center justify-center text-[13px] text-[#5C6E76]">Đang tải Google...</div>}>
+              <GoogleSignIn onSuccess={handleGGLogin} />
+            </Suspense>
           </>
         )}
 
-        <div className="mt-4 pt-3.5 border-t border-[#E5E7EB] flex items-center justify-between text-[13px]">
-          <span className="text-[#6B7280]">
-            Chưa có tài khoản?{' '}
-            <Link to="/register" className="font-semibold text-[#1F7A6E] no-underline hover:underline">
+        <footer className="auth-footer-nav mt-5 pt-4 border-t border-[#D7E2DF] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[14px]">
+          <p className="m-0 text-[#5C6E76]">
+            Bạn chưa có tài khoản?{' '}
+            <Link to="/register" className="auth-link-primary">
               Đăng ký ngay
             </Link>
-          </span>
-          <Link to="/" className="font-medium text-[#6B7280] no-underline hover:text-[#1F7A6E]">
-            ← Trang chủ
+          </p>
+          <Link to="/" className="auth-link-back">
+            <ArrowLeft size={15} strokeWidth={2} aria-hidden="true" />
+            <span>Về trang chủ</span>
           </Link>
-        </div>
+        </footer>
       </div>
-    </div>
+    </section>
   );
 }

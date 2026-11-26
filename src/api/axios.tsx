@@ -94,7 +94,17 @@ axiosClient.interceptors.response.use(response => response.data, async error => 
     throw error;
   }
   // Late 401s can arrive after another request has already refreshed the same session.
-  const token = currentToken !== usedToken ? currentToken : (await refreshSession(refreshToken)).result.token;
+  async function tokenForRetry() {
+    const latest = sessionService.getToken();
+    if (!latest || request?._sessionUserId !== userId()) throw error;
+    if (latest !== usedToken) return latest;
+    const latestRefresh = sessionService.getRefreshToken();
+    if (!latestRefresh) throw error;
+    return (await refreshSession(latestRefresh)).result.token;
+  }
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+  const token = currentToken !== usedToken ? currentToken : locks
+    ? await locks.request('sgu-auth-refresh', tokenForRetry) : await tokenForRetry();
   if (sessionService.getToken() !== token || request._sessionUserId !== userId() || request.signal?.aborted) throw error;
   request.headers.set('Authorization', `Bearer ${token}`);
   return axiosClient(request);

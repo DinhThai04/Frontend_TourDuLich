@@ -9,7 +9,7 @@ import { sessionService } from '@/services/sessionServices';
 import type { IUserUpdate, User } from '@/types/User';
 import { getUserById, updateAvt, updateProfile } from '@/services/userServices';
 
-/** sessionStorage owns the persisted session; every login path goes through this helper. */
+/** localStorage owns the persisted session; every login path goes through this helper. */
 const persistSession = (result: { token: string; refreshToken: string; user: User }) => {
   sessionService.setSession(result.token, result.refreshToken, result.user);
 };
@@ -52,7 +52,7 @@ export const loginUserWithGG = createAsyncThunk(
 
 /**
  * Refresh the signed-in profile from the server (role/permissions/name/avatar) and keep
- * sessionStorage in sync. A failed refresh keeps the current session instead of logging out.
+ * localStorage in sync. A failed refresh keeps the current session instead of logging out.
  */
 export const refreshCurrentUser = createAsyncThunk<User, void, { rejectValue: string }>(
   'auth/refreshCurrentUser',
@@ -148,6 +148,9 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       state.expiryTime = action.payload.expiryTime;
     },
+    sessionShared(_state, action: PayloadAction<{ token: string; user: User }>) {
+      return { ...initialState, isAuth: true, token: action.payload.token, user: action.payload.user };
+    },
     sessionExpired() { return { ...initialState }; },
   },
   extraReducers: (builder) => {
@@ -242,5 +245,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { sessionRefreshed, sessionExpired } = authSlice.actions;
+export const { sessionRefreshed, sessionExpired, sessionShared } = authSlice.actions;
 export default authSlice.reducer;

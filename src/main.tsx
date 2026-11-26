@@ -9,6 +9,7 @@ import { ConfigProvider } from 'antd';
 import '@ant-design/v5-patch-for-react-19';
 import 'antd/dist/reset.css';
 import './index.css';
+import './pages/Admin/admin.css';
 
 // Static message/notification/modals render in their own root, outside the app tree.
 // Give that root the app locale and register holderRender (otherwise antd warns that
@@ -20,11 +21,19 @@ ConfigProvider.config({
 // Import hàm inject vừa tạo
 import { injectPersistor, injectSessionHooks } from '@/api/axios';
 import { sessionService } from '@/services/sessionServices';
-import { sessionRefreshed, sessionExpired, refreshCurrentUser } from '@/store/slices/authSlice'; // Đường dẫn tới file axios của bạn
+import { sessionRefreshed, sessionExpired, sessionShared, refreshCurrentUser } from '@/store/slices/authSlice'; // Đường dẫn tới file axios của bạn
 injectPersistor(persistor);
 injectSessionHooks({
   refreshed: result => { store.dispatch(sessionRefreshed(result)); },
   expired: () => { store.dispatch(sessionExpired()); },
+});
+
+window.addEventListener('storage', event => {
+  if (event.storageArea !== localStorage || (event.key !== 'token' && event.key !== null)) return;
+  const token = sessionService.getToken();
+  const user = sessionService.getUser();
+  if (token && user) store.dispatch(sessionShared({ token, user }));
+  else store.dispatch(sessionExpired());
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -34,15 +43,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           loading={null}
           persistor={persistor}
           onBeforeLift={() => {
-            const { isAuth } = store.getState().auth;
-            // A persisted isAuth without a token is a half-cleared session; expire it
-            // instead of rendering an authenticated shell that can only receive 401s.
-            if (isAuth && !sessionService.getToken()) {
-              store.dispatch(sessionExpired());
-              return;
-            }
-            // Rehydrated roles may be stale after an admin changed them; refresh once per start.
-            if (isAuth) void store.dispatch(refreshCurrentUser());
+            const token = sessionService.getToken();
+            const user = sessionService.getUser();
+            if (token && user) {
+              store.dispatch(sessionShared({ token, user }));
+              void store.dispatch(refreshCurrentUser());
+            } else store.dispatch(sessionExpired());
           }}
         >
           <ErrorBoundary>

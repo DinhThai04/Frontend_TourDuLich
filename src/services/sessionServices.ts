@@ -6,7 +6,7 @@ const USER_KEY = 'user';
 
 /**
  * Giữ định dạng lưu trữ hiện có bằng Base64. Đây không phải mã hóa bảo mật:
- * JavaScript cùng origin (kể cả mã XSS) vẫn có thể đọc token trong sessionStorage.
+ * JavaScript cùng origin (kể cả mã XSS) vẫn có thể đọc token trong localStorage.
  */
 function obfuscate(value: string): string {
   return btoa(encodeURIComponent(value));
@@ -23,21 +23,21 @@ function deobfuscate(value: string | null): string | null {
 
 export const sessionService = {
   setSession(token: string, refreshToken: string, user: User) {
-    sessionStorage.setItem(TOKEN_KEY, obfuscate(token));
-    sessionStorage.setItem(REFRESH_TOKEN_KEY, obfuscate(refreshToken));
-    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(REFRESH_TOKEN_KEY, obfuscate(refreshToken));
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(TOKEN_KEY, obfuscate(token));
   },
 
   getToken(): string | null {
-    return deobfuscate(sessionStorage.getItem(TOKEN_KEY));
+    return deobfuscate(localStorage.getItem(TOKEN_KEY));
   },
 
   getRefreshToken(): string | null {
-    return deobfuscate(sessionStorage.getItem(REFRESH_TOKEN_KEY));
+    return deobfuscate(localStorage.getItem(REFRESH_TOKEN_KEY));
   },
 
   getUser(): User | null {
-    const raw = sessionStorage.getItem(USER_KEY);
+    const raw = localStorage.getItem(USER_KEY);
     if (!raw) return null;
     try {
       const parsed: unknown = JSON.parse(raw);
@@ -47,20 +47,20 @@ export const sessionService = {
     } catch {
       // Fall through to clearing the corrupt entry.
     }
-    sessionStorage.removeItem(USER_KEY);
+    localStorage.removeItem(USER_KEY);
     return null;
   },
 
   updateCurrentUser(id: string | number | undefined, changes: Partial<User>): boolean {
     const current = this.getUser();
     if (!current || id == null || String(current.id) !== String(id)) return false;
-    sessionStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...changes, id: current.id }));
+    localStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...changes, id: current.id }));
     return true;
   },
 
   clearSession() {
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    sessionStorage.removeItem(USER_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
   },
 };
