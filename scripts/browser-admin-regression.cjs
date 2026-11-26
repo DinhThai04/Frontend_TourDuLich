@@ -50,15 +50,23 @@ async function main() {
       () => dialog.waitFor(), closeDialog);
 
     await go('/admin/tours');
-    await overlay('Dropdown', () => page.getByRole('button', { name: /^Thao tác tour/ }).first().click(),
-      () => page.getByRole('menuitem', { name: 'Sửa' }).waitFor(),
+    await page.getByRole('button', { name: 'Sửa', exact: true }).first().waitFor();
+    await page.getByRole('button', { name: 'Xóa', exact: true }).first().waitFor();
+    const sidebarIcons = () => page.locator('.admin-push-sider .admin-nav-icon')
+      .evaluateAll(icons => icons.map(icon => icon.getBoundingClientRect().y));
+    const collapsedIcons = await sidebarIcons();
+    const collapsedEdges = await edges();
+    await page.getByRole('button', { name: 'Mở menu quản trị' }).click();
+    await page.waitForFunction(() => document.querySelector('.admin-push-sider').getBoundingClientRect().width === 264);
+    assert.deepEqual(await edges(), collapsedEdges);
+    assert.deepEqual(await sidebarIcons(), collapsedIcons);
+    await page.getByRole('button', { name: 'Đóng menu quản trị' }).click();
+    await page.waitForFunction(() => document.querySelector('.admin-push-sider').getBoundingClientRect().width === 72);
+    assert.deepEqual(await edges(), collapsedEdges);
+    await go('/admin/departures');
+    await overlay('Dropdown', () => page.getByRole('button', { name: /^Thao tác lịch/ }).first().click(),
+      () => page.getByRole('menuitem', { name: 'Sức chứa/lịch' }).waitFor(),
       () => page.keyboard.press('Escape'));
-    await overlay('Sidebar', () => page.mouse.move(22, 110),
-      () => page.waitForFunction(() => document.querySelector('.admin-sidebar').getBoundingClientRect().width >= 263),
-      async () => {
-        await page.keyboard.press('Escape');
-        await page.waitForFunction(() => document.querySelector('.admin-sidebar').getBoundingClientRect().width === 72);
-      });
 
     await go('/admin/managerRole?page=1&size=10');
     const deleteButton = page.getByRole('button', { name: 'Xóa quyền', exact: true }).first();

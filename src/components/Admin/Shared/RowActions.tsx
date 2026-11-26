@@ -12,8 +12,8 @@ export default function RowActions({ subject, href, onDetails, items = [] }: {
     {href ? <Link className="ant-btn ant-btn-default admin-row-detail" to={href}>Chi tiết</Link>
       : onDetails && <Button className="admin-row-detail" onClick={onDetails}>Chi tiết</Button>}
     {single && <Button className="admin-row-detail" disabled={single.disabled} danger={single.danger} onClick={single.onClick}>{single.label}</Button>}
-    {items.length >= 2 && <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight" align={{ offset: [0, 4] }}>
-      <Button aria-label={`Thao tác ${subject}`} icon={<MoreOutlined />} title={`Thao tác ${subject}`} />
+    {items.length >= 2 && <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight" rootClassName="admin-row-menu" getPopupContainer={trigger => trigger.ownerDocument.body} align={{ offset: [0, 4] }}>
+      <Button type="text" size="small" aria-label={`Thao tác ${subject}`} icon={<MoreOutlined />} title={`Thao tác ${subject}`} />
     </Dropdown>}
   </Space>;
 }

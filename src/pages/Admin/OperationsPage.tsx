@@ -1,5 +1,5 @@
 import AdminInbox from './AdminInbox';
-import { ReloadOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { formatAdminDatetime as formatDatetime } from '@/components/Admin/Shared/adminDate';
 import { ArrowRight, CreditCard, CalendarClock } from 'lucide-react';
 import AdminPageHeader from '@/components/Admin/Shared/AdminPageHeader';
@@ -77,11 +77,18 @@ function PriorityQueue({ payments, changes }: { payments: boolean; changes: bool
     return { items, totals, partial: paymentPage.status === 'rejected' || changePage.status === 'rejected'
       || (paymentPage.status === 'fulfilled' && !!paymentPage.value && paymentPage.value.code !== 1000) };
   }, { deps: [payments, changes] });
+  if (!loading && !error && data && !data.partial && data.items.length === 0
+    && data.totals.every(item => Number(item.count) === 0)) {
+    return <div className="admin-action-empty">
+      <Space><CheckCircleOutlined aria-hidden />Không có việc cần xử lý</Space>
+      <Link to="/admin/inbox">Mở hộp công việc</Link>
+    </div>;
+  }
   return <Card size="small" className="admin-action-panel" title="Cần xử lý" extra={<Link to="/admin/inbox">Mở hộp công việc</Link>}>
     {loading ? <Skeleton active title={false} paragraph={{ rows: 3 }} /> : <>
       {(error || data?.partial) && <Alert type="warning" showIcon message="Một số công việc chưa tải được." />}
-      {!error && data && !data.partial && !data.items.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có việc cần xử lý" />}
-      {(data?.items.length || data?.partial) ? <div className="admin-inbox-summary">{data.totals.map(item => {
+      {!error && data && !data.partial && !data.items.length && data.totals.every(item => Number(item.count) === 0) && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có việc cần xử lý" />}
+      {(data && (data.totals.some(item => Number(item.count) > 0) || data.items.length || data.partial)) ? <div className="admin-inbox-summary">{data.totals.map(item => {
         const Icon = item.key === 'PAYMENT' ? CreditCard : CalendarClock;
         const examples = data.items.filter(example => example.icon === Icon);
         return <Tooltip key={item.key} title={examples.length ? examples.map(example => <div key={example.key}>{example.label} · {example.context}</div>) : undefined}>

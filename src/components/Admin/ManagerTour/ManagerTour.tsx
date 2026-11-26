@@ -3,8 +3,8 @@ import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable'
 import type { TourFormValues } from '@/types/adminForms';
 import React, { useState } from 'react';
 import { type ProColumns } from '@ant-design/pro-components';
-import { Button, message, Modal, Alert, Input, Select } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Button, message, Modal, Alert, Input, Select, Popconfirm, Space, Tooltip } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import AddNewTour from './ModelTour/AddNewTour';
 import EditTour from './ModelTour/EditTour';
 import type { ITour, TourRequest } from '@/types/Tour';
@@ -12,7 +12,6 @@ import { addTour, deleteTour, getAllTours, updateTour, retryTourImages } from '@
 import { mediaError, submitTourMedia } from '@/utils/tourMedia';
 import TourMediaCleanup from './TourMediaCleanup';
 import { Link } from 'react-router-dom';
-import RowActions from '../Shared/RowActions';
 import { useHasPermission } from '@/config/useHasPermission';
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { isApiSuccess } from '@/utils/apiResult';
@@ -140,24 +139,21 @@ const ManagerTourList: React.FC = () => {
     { title: 'Thời lượng', responsive: ['lg'], render: (_, row) => `${row.duration} ngày ${Math.max(0, row.duration - 1)} đêm` },
     { title: 'Giá từ', align: 'right', render: (_, row) => formatCurrencyVND(row.basePrice) },
     { title: 'Lịch khởi hành', render: (_, row) => canViewDepartures && <Link to={`/admin/tours/${row.id}/departures`}>Xem lịch</Link> },
-    { title: 'Thao tác', width: 136, render: (_, row) => <RowActions subject={`tour #${row.id}`} href={`/admin/tours/${row.id}`}
-      items={[...(canUpdate ? [{ key: 'edit', label: 'Sửa', onClick: () => { setSelectedTour(row); setOpenEdit(true); } }] : []),
-        ...(canDelete ? [{ key: 'delete', label: 'Xóa', danger: true, onClick: () => Modal.confirm({
-          title: `Xóa tour #${row.id}?`,
-          content: 'Lịch trình của tour sẽ bị xóa. Tour đã có lịch khởi hành cần xử lý các lịch trước.',
-          okText: 'Xóa tour', cancelText: 'Hủy', okButtonProps: { danger: true },
-          onOk: async () => {
-            try {
-              const result = await deleteTour(row.id);
-              if (!isApiSuccess(result)) throw new Error(result.message || 'Chưa xóa được tour');
-              message.success('Đã xóa tour');
-              await refresh();
-            } catch (error) {
-              message.error(mediaError(error));
-              throw error;
-            }
-          },
-        }) }] : [])]} /> },
+    { title: 'Thao tác', width: 152, render: (_, row) => <Space size={2}>
+      <Link to={`/admin/tours/${row.id}`}>Chi tiết</Link>
+      {canUpdate && <Tooltip title="Sửa"><Button type="text" aria-label="Sửa" icon={<EditOutlined />}
+        onClick={() => { setSelectedTour(row); setOpenEdit(true); }} /></Tooltip>}
+      {canDelete && <Popconfirm title={`Xóa tour #${row.id}?`}
+        description="Tour có lịch khởi hành cần xử lý lịch trước khi xóa."
+        okText="Xóa tour" cancelText="Hủy" okButtonProps={{ danger: true }} onConfirm={async () => {
+          try {
+            const result = await deleteTour(row.id);
+            if (!isApiSuccess(result)) throw new Error(result.message || 'Chưa xóa được tour');
+            message.success('Đã xóa tour');
+            await refresh();
+          } catch (error) { message.error(mediaError(error)); throw error; }
+        }}><Tooltip title="Xóa"><Button type="text" danger aria-label="Xóa" icon={<DeleteOutlined />} /></Tooltip></Popconfirm>}
+    </Space> },
   ];
 
   return (

@@ -16,7 +16,8 @@ const { ALL_PERMISSIONS: P } = await import(permissionsUrl);
 const uiUrl = dataUrl(`import React from ${JSON.stringify(reactUrl)};
   const Container = ({children}) => React.createElement('div',null,children);
   export const Layout = Object.assign(Container,{Content:Container,Sider:Container});
-  export const Menu = ({items}) => {globalThis.priceMenuItems=items;return null;};
+  export const Grid={useBreakpoint:()=>({lg:true})};
+  export const Drawer=Container, Divider=Container, Tooltip=Container;
   export const Dropdown=Container,Space=Container,Avatar=Container,Button=Container;
   export const message={success(){}};`);
 const icons = ['MenuFoldOutlined','MenuUnfoldOutlined','UserOutlined','GlobalOutlined','ScheduleOutlined',
@@ -43,20 +44,19 @@ for (const [specifier, replacement] of Object.entries(modules)) {
 const { default: Sidebar } = await import(dataUrl(source));
 const staff = permissions => ({ id: 2, username: 'Staff', status: 'ACTIVE', role: { name: 'staff', active: true, permissions } });
 function menuKeys(user) {
-  globalThis.priceMenuUser = user; globalThis.priceMenuItems = [];
-  renderToStaticMarkup(React.createElement(Sidebar));
-  const collect = items => items.flatMap(item => [item.key, ...collect(item.children ?? [])]);
-  return collect(globalThis.priceMenuItems);
+  globalThis.priceMenuUser = user;
+  const markup = renderToStaticMarkup(React.createElement(Sidebar));
+  return [...markup.matchAll(/href="([^"]+)"/g)].map(match => match[1]);
 }
 
 test('price-only staff see the price menu without requiring tour permissions', () => {
   const keys = menuKeys(staff([P.PRICE.GET_LIST]));
   assert.ok(keys.includes('/admin/managerTour/price'));
-  assert.ok(!keys.includes('/admin/managerTour/list'));
+  assert.ok(!keys.includes('/admin/tours'));
 });
 test('tour-only staff do not receive a price menu whose route they cannot open', () => {
   const keys = menuKeys(staff([P.TOURS.GET_LIST]));
-  assert.ok(keys.includes('/admin/managerTour/list'));
+  assert.ok(keys.includes('/admin/tours'));
   assert.ok(!keys.includes('/admin/managerTour/price'));
 });
 test('the operations menu is available to staff with reconciliation or departure read access', () => {
@@ -68,7 +68,7 @@ test('the operations menu is available to staff with reconciliation or departure
 test('active admins retain both tour and price navigation', () => {
   const user = staff([]); user.role.name = 'admin';
   const keys = menuKeys(user);
-  assert.ok(keys.includes('/admin/managerTour/list'));
+  assert.ok(keys.includes('/admin/tours'));
   assert.ok(keys.includes('/admin/managerTour/price'));
 });
 test('locked, archived or inactive-role accounts do not receive price navigation', () => {

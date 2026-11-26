@@ -1,5 +1,5 @@
 import { hasPermission, OPERATIONS_ACCESS } from '@/config/access';
-import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import {
   UserOutlined,
   ScheduleOutlined,
@@ -17,7 +17,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from '@ant-design/icons';
-import { Menu, Dropdown, Avatar, Button, message } from 'antd';
+import { Grid, Layout, Drawer, Divider, Dropdown, Avatar, Button, message } from 'antd';
 import type { MenuProps } from 'antd';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -32,8 +32,6 @@ export type AdminTourBreadcrumb = { id: number; name: string; tab: string };
 const AdminQuickSearch = lazy(() => import('./AdminQuickSearch'));
 const AdminNotifications = lazy(() => import('./AdminNotifications'));
 
-const SIDEBAR_OPEN_DELAY = 200;
-const SIDEBAR_CLOSE_DELAY = 320;
 
 const pageTitles: Record<string, string> = {
   '/admin/operations': 'Tổng quan',
@@ -62,67 +60,41 @@ const AdminSidebar: React.FC = () => {
   const updateInboxLabel = useCallback((count: number, partial: boolean) => {
     setInboxLabel(count ? `${count}${partial ? '+' : ''}` : '');
   }, []);
-  const [hovered, setHovered] = useState(false);
-  const [manual, setManual] = useState(false);
-  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1536px)').matches);
-  const [pinPreference, setPinPreference] = useState(() => typeof window !== 'undefined' && localStorage.getItem('sgu-admin-pinned') === '1');
-  const pinned = wide && pinPreference;
-  const [openGroups, setOpenGroups] = useState<string[]>([]);
-  const [flyouts, setFlyouts] = useState<string[]>([]);
-  const collapsed = !hovered && !manual && !pinned;
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const desktop = Grid.useBreakpoint().lg;
+  const [manualOpen, setManualOpen] = useState(false);
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const hoverTimer = useRef<number | undefined>(undefined);
+  const collapsed = !manualOpen && !hoverOpen;
+
+  function cancelHoverTimer() {
+    window.clearTimeout(hoverTimer.current);
+  }
+
+  function scheduleHover(open: boolean) {
+    cancelHoverTimer();
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    hoverTimer.current = window.setTimeout(() => setHoverOpen(open), open ? 200 : 320);
+  }
+
+  useEffect(() => {
+    if (!desktop) setHoverOpen(false);
+    return cancelHoverTimer;
+  }, [desktop]);
+
+  function toggleSidebar() {
+    if (!desktop) {
+      setMobileOpen(value => !value);
+      return;
+    }
+    cancelHoverTimer();
+    setManualOpen(collapsed);
+    setHoverOpen(false);
+  }
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAppSelector((state: RootState) => state.auth);
   const dispatch = useAppDispatch();
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 1536px)');
-    const change = () => setWide(media.matches);
-    media.addEventListener('change', change);
-    return () => media.removeEventListener('change', change);
-  }, []);
-
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      setManual(false); setHovered(false); setFlyouts([]);
-    };
-    const outside = (event: PointerEvent) => {
-      if (event.target instanceof Element && !event.target.closest('.admin-rail, .admin-header-toggle, .admin-tour-flyout')) {
-        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        setHovered(false); setManual(false);
-      }
-    };
-    window.addEventListener('keydown', close);
-    window.addEventListener('pointerdown', outside);
-    return () => {
-      window.removeEventListener('keydown', close);
-      window.removeEventListener('pointerdown', outside);
-    };
-  }, []);
-
-  const cancelHoverTimer = () => {
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = null;
-  };
-
-  const scheduleHover = (open: boolean) => {
-    cancelHoverTimer();
-    if (pinned || manual || hovered === open || (open && !window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)').matches)) return;
-    hoverTimerRef.current = setTimeout(() => {
-      hoverTimerRef.current = null;
-      setFlyouts([]);
-      setHovered(open);
-    }, open ? SIDEBAR_OPEN_DELAY : SIDEBAR_CLOSE_DELAY);
-  };
 
   // Xây menu theo đúng quyền mà từng route yêu cầu, tránh hiện mục rồi bị chặn khi bấm.
   const menuItems: MenuProps['items'] = [];
@@ -267,37 +239,53 @@ const AdminSidebar: React.FC = () => {
     },
   ];
 
+  const sidebar = (compact: boolean) => <div className="admin-sidebar">
+    <Link to="/admin" className="admin-sidebar-brand" aria-label="Trang quản trị SGU Tour" onClick={() => setMobileOpen(false)}>
+      <img className="admin-brand-symbol" src={brandIcon} alt="" />
+      <span className="admin-brand-label"><strong>SGU Tour</strong><small>Điều hành tour</small></span>
+    </Link>
+    <nav className="admin-sidebar-scroll" aria-label="Menu quản trị">
+      {groups.map(group => <div key={group.key}>
+        <div className="admin-nav-heading">{compact ? <Divider /> : group.label}</div>
+        {group.children.map(item => {
+          if (!item || !('icon' in item) || !('label' in item) || !React.isValidElement<{ to: string; children: React.ReactNode }>(item.label)) return null;
+          const active = currentMenu === item.key;
+          return <Link key={item.key} to={item.label.props.to} onClick={() => setMobileOpen(false)}
+              aria-current={active ? 'page' : undefined}
+              className={`admin-nav-link${active ? ' active' : ''}`}>
+              <span className="admin-nav-icon">{item.icon}</span><span className="admin-nav-text">{item.label.props.children}</span>
+            </Link>;
+        })}
+      </div>)}
+    </nav>
+    <div className="admin-sidebar-footer">
+      <Link to="/" className="admin-nav-link"><span className="admin-nav-icon"><SwapOutlined /></span><span className="admin-nav-text">Về trang khách hàng</span></Link>
+    </div>
+  </div>;
+
   return (
     <>
       <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false}
         newestOnTop={false} closeOnClick={false} rtl={false} pauseOnFocusLoss draggable
         pauseOnHover theme="light" transition={Bounce} />
-    <div className={`admin-shell${collapsed ? '' : ' admin-shell-expanded'}${pinned ? ' admin-shell-pinned' : ''}`}>
-      <aside className="admin-rail" onMouseEnter={() => scheduleHover(true)} onMouseLeave={() => scheduleHover(false)}
-        aria-label="Menu quản trị">
-        <div className="admin-sidebar">
-          <Link to="/admin" className="admin-sidebar-brand" aria-label="Trang quản trị SGU Tour">
-            <img className="admin-brand-symbol" src={brandIcon} alt="" />
-            <span className="admin-brand-label"><strong>SGU Tour</strong><small>Điều hành tour</small></span>
-          </Link>
-          <Menu theme="dark" selectedKeys={[currentMenu]} mode="inline" inlineCollapsed={collapsed}
-            openKeys={collapsed ? flyouts : openGroups} onOpenChange={collapsed ? setFlyouts : setOpenGroups} onClick={() => { setManual(false); setHovered(false); }} items={groups} />
-          {!collapsed && <div className="admin-sidebar-footer"><Link to="/">Về trang khách hàng</Link></div>}
-        </div>
-      </aside>
-      {manual && !pinned && <button tabIndex={-1} aria-label="Đóng menu" className="admin-sidebar-dismiss"
-        onClick={() => { cancelHoverTimer(); setManual(false); setHovered(false); setFlyouts([]); }} />}
+    <Layout className={`admin-shell admin-workspace${desktop && !collapsed ? ' admin-shell-expanded' : ''}`}>
+      {desktop ? <div className="admin-sidebar-slot"><Layout.Sider width={264} collapsedWidth={72} trigger={null} collapsed={collapsed} className="admin-push-sider"
+        onMouseEnter={() => scheduleHover(true)} onMouseLeave={() => scheduleHover(false)}>
+        {sidebar(collapsed)}
+        {!collapsed && <Button type="text" className="admin-sidebar-close" aria-label="Đóng menu quản trị"
+          aria-expanded icon={<MenuFoldOutlined />} onClick={toggleSidebar} />}
+      </Layout.Sider></div> : <Drawer title="Menu quản trị" placement="left" width={264} open={mobileOpen}
+        onClose={() => setMobileOpen(false)} styles={{ body: { padding: 0 } }}>
+        {sidebar(false)}
+      </Drawer>}
       <div className="admin-main">
         <header className="admin-header">
           <div className="admin-header-leading">
-          <Button type="text" className="admin-header-toggle" aria-label={collapsed ? 'Mở menu quản trị' : 'Đóng menu quản trị'}
-            aria-expanded={!collapsed} disabled={pinned} title={pinned ? 'Thu gọn menu' : 'Mở rộng menu'}
-            icon={pinned ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-            onClick={() => { cancelHoverTimer(); setFlyouts([]); setManual(collapsed); setHovered(false); }} />
-          {wide && <Button type="text" size="small" aria-pressed={pinned} onClick={() => {
-            localStorage.setItem('sgu-admin-pinned', pinned ? '0' : '1');
-            setPinPreference(!pinned); setManual(false); setHovered(false);
-          }}>{pinned ? 'Bỏ ghim' : 'Ghim menu'}</Button>}
+          <Button type="text" className={`admin-header-toggle${desktop && !collapsed ? ' admin-toggle-covered' : ''}`}
+            aria-label={!desktop && mobileOpen ? 'Đóng menu quản trị' : 'Mở menu quản trị'}
+            aria-expanded={desktop ? !collapsed : mobileOpen}
+            icon={<MenuUnfoldOutlined />}
+            onClick={toggleSidebar} />
           <nav aria-label="Vị trí hiện tại" className="admin-breadcrumb">
             {activeTourBreadcrumb ? <>
               <Link to="/admin/tours">Tour</Link><span aria-hidden="true">›</span>
@@ -321,7 +309,7 @@ const AdminSidebar: React.FC = () => {
         </header>
         <main className="admin-content"><Outlet context={setTourBreadcrumb} /></main>
       </div>
-    </div>
+    </Layout>
     </>
   );
 };

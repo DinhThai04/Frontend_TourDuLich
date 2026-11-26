@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs';
 import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import ScheduleChangesPanel from './ScheduleChangesPanel';
 import { useRef, useState } from 'react';
-import { MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import { MoreOutlined, PlusOutlined, CalendarOutlined, TeamOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { Button, Modal, message, Alert, DatePicker, Dropdown, Progress, Select, Space } from 'antd';
 import { type ProColumns } from '@ant-design/pro-components';
 import type { ITourDeparture } from '@/types/Tour';
@@ -129,12 +129,13 @@ export default function ManagerTourDeparture() {
       const label = departureStatus(row);
       return <AdminStatus tone={label === 'Mở bán' ? 'success' : label === 'Gần đầy' ? 'attention' : label === 'Đã hủy' ? 'danger' : label === 'Đã khởi hành' ? 'info' : 'neutral'}>{label}</AdminStatus>;
     } },
-    { title: 'Thao tác', hideInTable: !canUpdate, render: (_, row) => canUpdate && <Dropdown menu={{ items: [
-      ...(canSeeBookings ? [{ key: 'bookings', label: 'Xem đặt chỗ của lịch này', onClick: () => navigate(`/admin/managerBooking?departureId=${row.id}`) }] : []),
-      { key: 'capacity', label: 'Sức chứa/lịch', onClick: () => void loadCapacity(Number(row.id)) },
-      ...(canOperate ? [{ key: 'manifest', label: 'Vận hành chuyến', onClick: () => setManifestDeparture(row) }] : []),
-      { key: 'meeting', label: 'Điểm tập trung', onClick: () => setMeetingDeparture(row) },
-    ] }} trigger={['click']}><Button aria-label={`Thao tác lịch #${row.id}`} title="Thao tác lịch" icon={<MoreOutlined />} /></Dropdown> },
+    { title: 'Thao tác', hideInTable: !canUpdate, render: (_, row) => canUpdate && <Space size={4}>
+      {canOperate && <Button type="link" size="small" onClick={() => setManifestDeparture(row)}>Vận hành</Button>}
+      <Dropdown placement="bottomRight" rootClassName="admin-row-menu" getPopupContainer={trigger => trigger.ownerDocument.body} menu={{ items: [
+      ...(canSeeBookings ? [{ key: 'bookings', icon: <TeamOutlined />, label: 'Xem đặt chỗ của lịch này', onClick: () => navigate(`/admin/managerBooking?departureId=${row.id}`) }] : []),
+      { key: 'capacity', icon: <CalendarOutlined />, label: 'Sức chứa/lịch', onClick: () => void loadCapacity(Number(row.id)) },
+      { key: 'meeting', icon: <EnvironmentOutlined />, label: 'Điểm tập trung', onClick: () => setMeetingDeparture(row) },
+    ] }} trigger={['click']}><Button type="text" size="small" aria-label={`Thao tác lịch #${row.id}`} title="Thao tác lịch" icon={<MoreOutlined />} /></Dropdown></Space> },
   ];
   return <>
     {!routeTourId && <AdminPageHeader title={focusDepartureId ? `Lịch khởi hành #${focusDepartureId}` : 'Lịch khởi hành'} description="Theo dõi lịch, sức chứa và điểm tập trung." />}

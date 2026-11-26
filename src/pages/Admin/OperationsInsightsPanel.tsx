@@ -72,6 +72,7 @@ const headlineMetrics = [
 export function Report({ priority }: { priority?: ReactNode }) {
   const [query, setQuery] = useState(initialReportQuery);
   const [draft, setDraft] = useState(query);
+  const [chosenPreset, setChosenPreset] = useState('Tháng này');
   const [metric, setMetric] = useState<ReportMetric>('collected');
   const { data, loading, error } = useApiQuery(() => read<ReportData>('/report', query), { deps: [query] });
   const dayCount = dayjs(query.through).diff(dayjs(query.from), 'day') + 1;
@@ -101,12 +102,20 @@ export function Report({ priority }: { priority?: ReactNode }) {
 
   const apply = (next: ReportQuery) => { setDraft(next); setQuery(next); };
   const today = dayjs(initialReportQuery().through);
+  const todayKey = today.format('YYYY-MM-DD');
+  const presets = [
+    { label: 'Hôm nay', from: today }, { label: '7 ngày', from: today.subtract(6, 'day') },
+    { label: '30 ngày', from: today.subtract(29, 'day') }, { label: 'Tháng này', from: today.startOf('month') },
+  ].map(item => ({ label: item.label, from: item.from.format('YYYY-MM-DD') }));
+  const matches = presets.filter(item => item.from === draft.from && draft.through === todayKey);
+  const activePreset = matches.find(item => item.label === chosenPreset)?.label ?? matches[0]?.label;
   return <div className="admin-report">
     <Card size="small" className="admin-filter-card"><div className="admin-report-filters">
-      {[
-        { label: 'Hôm nay', from: today }, { label: '7 ngày', from: today.subtract(6, 'day') },
-        { label: '30 ngày', from: today.subtract(29, 'day') }, { label: 'Tháng này', from: today.startOf('month') },
-      ].map(item => <Button key={item.label} onClick={() => apply({ ...draft, from: item.from.format('YYYY-MM-DD'), through: today.format('YYYY-MM-DD') })}>{item.label}</Button>)}
+      {presets.map(item => <Button key={item.label} type={activePreset === item.label ? 'primary' : 'default'}
+        aria-pressed={activePreset === item.label} onClick={() => {
+          setChosenPreset(item.label);
+          apply({ ...draft, from: item.from, through: todayKey });
+        }}>{item.label}</Button>)}
       <DatePicker.RangePicker aria-label="Kỳ báo cáo" format="DD/MM/YYYY" allowClear={false}
         value={[dayjs(draft.from), dayjs(draft.through)]} onChange={range => {
           if (range?.[0] && range[1] && !range[1].isAfter(range[0].add(1, 'year').subtract(1, 'day'), 'day')) {
@@ -127,7 +136,7 @@ export function Report({ priority }: { priority?: ReactNode }) {
       <div className="admin-kpi-grid">
         {headlineMetrics.map(({ key, label, icon: Icon, tone, detail }) => <article className="admin-kpi" data-tone={tone} key={key}>
           <div className="admin-kpi-header"><span className="admin-metric-icon"><Icon size={19} aria-hidden="true" /></span><h2>{label}</h2><Tooltip title={detail}><span tabIndex={0} aria-label={detail}><InfoCircleOutlined /></span></Tooltip></div>
-          <strong>{key === 'expired' ? (data.bookings ? `${(100 * data.expired / data.bookings).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%` : '—') : metricValue(key, data[key])}</strong>
+          <strong title={key === 'collected' ? metricValue(key, data[key]) : undefined}>{key === 'expired' ? (data.bookings ? `${(100 * data.expired / data.bookings).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%` : '—') : metricValue(key, data[key])}</strong>
           {previous && previous[key] > 0 && (key !== 'expired' || (previous.bookings > 0 && data.bookings > 0)) && (() => {
             const before = key === 'expired' ? previous.expired / previous.bookings : previous[key];
             const after = key === 'expired' ? data.expired / data.bookings : data[key];
@@ -145,7 +154,7 @@ export function Report({ priority }: { priority?: ReactNode }) {
             <Tooltip title={`Dời lịch ${formatCurrencyVND(data.schedule_refunds)} · Đối soát ${formatCurrencyVND(data.reconciliation_refunds)}`}>
               <span tabIndex={0} aria-label="Chi tiết hoàn tiền"><InfoCircleOutlined /></span>
             </Tooltip></div>
-          <strong>{formatCurrencyVND(Number(data.schedule_refunds) + Number(data.reconciliation_refunds))}</strong>
+          <strong title={formatCurrencyVND(Number(data.schedule_refunds) + Number(data.reconciliation_refunds))}>{formatCurrencyVND(Number(data.schedule_refunds) + Number(data.reconciliation_refunds))}</strong>
         </article>
       </div>
       <div className={priority ? 'admin-analysis' : undefined}>
