@@ -1,6 +1,14 @@
-import { useSearchParams } from 'react-router-dom';
+import { Deliveries } from '@/pages/Admin/OperationsInsightsPanel';
+import AdminLookup from '../Shared/AdminLookup';
+import { adminDayKey } from '../Shared/adminDate';
+import type { Dayjs } from 'dayjs';
+import { formatAdminDatetime as formatDatetime } from '@/components/Admin/Shared/adminDate';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
+import { AdminStatus } from '../Shared/AdminStatus';
+import { adminPagination } from '../Shared/adminPagination';
+import AdminPageHeader from '../Shared/AdminPageHeader';
+import { Link, useSearchParams } from 'react-router-dom';
 import React, { useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import type { BookingResponse, CustomerResponse } from '@/types/Booking';
 import type { ITourDeparture } from '@/types/Tour';
@@ -8,13 +16,15 @@ import type { InvoiceResponse } from '@/types/Invoice';
 
 import bookingServices from '@/services/bookingServices';
 import { getUserDisplayNames } from '@/services/userServices';
-import { getAllTourDeparture, getTourDepartureById } from '@/services/tourServices';
+import { getAllTourDeparture, getTourDepartureById, getAllTours } from '@/services/tourServices';
 import invoiceServices from '@/services/invoiceServices';
-import { formatCurrencyVND, formatDate, formatDatetime, isListCapped } from '@/utils';
+import { formatCurrencyVND, formatDate, isListCapped } from '@/utils';
 import { passengerLabel } from '@/utils/booking';
 import { settledRows } from '@/utils/settledRows';
 import { useApiQuery } from '@/hooks';
-import { Alert, Tag, Modal, Button, Input, Space, message } from 'antd';
+import { Alert, Tag, Drawer, Button, DatePicker, Select, Space, Descriptions, Empty, Tabs, message } from 'antd';
+import { useHasPermission } from '@/config/useHasPermission';
+import { ALL_PERMISSIONS as P } from '@/config/permissions';
 
 type BookingWithFullInfo = BookingResponse & {
   userName?: string;
@@ -51,8 +61,22 @@ const MAX_DEPARTURE_LOOKUPS = 50;
 const ManagerBooking: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const bookingId = params.get('bookingId');
+  const departureFilter = Number(params.get('departureId')) || undefined;
   const [detail, setDetail] = useState<BookingWithFullInfo | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [status, setStatus] = useState<string>();
+  const [tourFilter, setTourFilter] = useState<number>();
+  const [paymentFilter, setPaymentFilter] = useState<string>();
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const canRetryEmail = useHasPermission({ code: 'SGU_SUPER_ADMIN' });
+  const canSeeInvoice = useHasPermission(P.INVOICES.GET_ALL);
+  const canSeeDeparture = useHasPermission(P.TOUR_DEPARTURES.GET_LIST);
+  const canReconcile = useHasPermission(P.PAYMENT_RECONCILIATION.GET_LIST);
+  const canSeeTours = useHasPermission(P.TOURS.GET_LIST);
+  const { data: tours = [] } = useApiQuery(async () => {
+    const response = await getAllTours();
+    return response.code === 1000 ? response.result : [];
+  }, { enabled: canSeeTours });
+  const tourName = (row: BookingWithFullInfo) => tours.find(tour => Number(tour.id) === Number(row.tourDeparture?.tourId))?.tourTitle;
 
   /** Load toàn bộ dữ liệu; nguồn phụ lỗi thì chỉ thiếu thông tin trang trí, không làm trắng bảng. */
   const { data, loading, error: loadError } = useApiQuery(
@@ -80,7 +104,7 @@ const ManagerBooking: React.FC = () => {
         return { rows: [row], capped: false };
       }
       const [bookingRes, tourRes, customerRes, invoiceRes] = await Promise.allSettled([
-        bookingServices.getAll(),
+        bookingServices.getAll({ departureId: departureFilter }),
         getAllTourDeparture(),
         bookingServices.getAllCustomers(),
         invoiceServices.getAll(),
@@ -155,56 +179,45 @@ const ManagerBooking: React.FC = () => {
         missingDepartureIds.length > MAX_DEPARTURE_LOOKUPS;
       return { rows, capped };
     },
-    { deps: [bookingId], onError: (msg) => message.error(msg) },
+    { deps: [bookingId, departureFilter], onError: (msg) => message.error(msg) },
   );
   const rows = loading || loadError ? [] : data?.rows ?? [];
 
-  /** Cột bảng */
+  const lifecycle = (row: BookingWithFullInfo) => row.reservationStatus === 'EXPIRED' ? 'EXPIRED' : row.status;
+  const scopedRows = rows.filter(row => {
+    const day = adminDayKey(row.tourDeparture?.departureDate);
+    return (!departureFilter || Number(row.tourDepartureId) === departureFilter) && (!tourFilter || Number(row.tourDeparture?.tourId) === tourFilter) &&
+      (!paymentFilter || row.invoice?.status === paymentFilter) &&
+      (!range?.[0] || day >= range[0].format('YYYY-MM-DD')) && (!range?.[1] || day <= range[1].format('YYYY-MM-DD'));
+  });
+  const statusOptions = [...new Set(scopedRows.map(lifecycle).filter(Boolean))];
+
   const columns: ProColumns<BookingWithFullInfo>[] = [
-    { title: 'Mã đặt chỗ', dataIndex: 'id', width: 90 },
-    { title: 'Tài khoản', dataIndex: 'userName', width: 120 },
-    {
-      title: 'Tour khởi hành',
-      dataIndex: 'tourDepartureId',
-      width: 140,
-      render: (_, row) =>
-        row.tourDeparture?.departureDate
-          ? formatDate(row.tourDeparture.departureDate)
-          : `#${row.tourDepartureId}`,
-    },
-    {
-      title: 'Ngày đặt',
-      dataIndex: 'createdAt',
-      render: (val) => (val ? formatDatetime(String(val)) : '—'),
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      render: (_, row) => {
-        const item = bookingStatus(row.status);
-        return <Tag color={item.color}>{item.label}</Tag>;
-      },
-    },
-    {
-      title: 'Hành động',
-      valueType: 'option',
-      render: (_, record) => [
-        <Button
-          type="link"
-          key="view"
-          onClick={() => {
-            setDetail(record);
-            setModalOpen(true);
-          }}
-        >
-          Xem chi tiết
-        </Button>,
-      ],
-    },
+    { title: 'Đơn đặt chỗ', key: 'identity', render: (_, row) => <>
+      <strong className="admin-booker-name">#{row.id} · {row.userName}</strong>
+      <div className="text-xs text-slate-600">{row.createdAt ? formatDatetime(row.createdAt) : '—'}</div>
+    </> },
+    { title: 'Tour và lịch', key: 'departure', render: (_, row) => <>
+      <strong>{tourName(row) || row.tourDeparture?.tourCode || 'Chưa rõ tour'}</strong>
+      <div className="text-xs text-slate-600">{row.tourDeparture?.departureDate ? formatDatetime(row.tourDeparture.departureDate) : '—'}
+        {row.listOfCustomers && ` · ${row.listOfCustomers.length} khách`}</div>
+    </> },
+    { title: 'Đặt chỗ', key: 'status', render: (_, row) => {
+      const item = bookingStatus(lifecycle(row));
+      return <AdminStatus tone={item.color === 'green' ? 'success' : item.color === 'orange' ? 'warning' : lifecycle(row) === 'EXPIRED' ? 'neutral' : item.color === 'red' ? 'danger' : 'info'}>{item.label}</AdminStatus>;
+    } },
+    { title: 'Thanh toán', key: 'payment', align: 'right', render: (_, row) => row.invoice ? <>
+      <strong className="admin-money">{formatCurrencyVND(Number(row.invoice.totalBookingTourExpense))}</strong>
+      {row.invoice.status === 'REFUNDED' && <div><AdminStatus tone="info">Đã hoàn tiền</AdminStatus></div>}
+    </> : '—' },
+
+    { title: 'Thao tác', key: 'actions', width: 110,
+      render: (_, row) => <Button size="small" onClick={() => setDetail(row)}>Chi tiết</Button> },
   ];
 
   return (
-    <>
+    <div className="admin-dashboard">
+      <AdminPageHeader title="Quản lý đặt chỗ" description="Tra cứu hồ sơ và theo dõi trạng thái giữ chỗ, thanh toán và khởi hành." />
       {loadError && (
         <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
       )}
@@ -216,123 +229,88 @@ const ManagerBooking: React.FC = () => {
           message="Danh sách đã đạt giới hạn 500 bản ghi mỗi nguồn. Dữ liệu có thể chưa đầy đủ, hãy thu hẹp phạm vi hoặc kiểm tra trực tiếp trước khi kết luận."
         />
       )}
-      <ProTable<BookingWithFullInfo>
-        headerTitle="Quản lý đặt tour"
+      <Tabs activeKey={status ?? 'ALL'} onChange={key => setStatus(key === 'ALL' ? undefined : key)}
+        items={[{ key: 'ALL', label: `Tất cả (${scopedRows.length})` }, ...statusOptions.map(key => ({
+          key: key!, label: `${bookingStatus(key).label} (${scopedRows.filter(row => lifecycle(row) === key).length})`,
+        }))]} />
+      {departureFilter && <Alert type="info" message={`Đặt chỗ của lịch #${departureFilter}`}
+        action={<Button onClick={() => { const next = new URLSearchParams(params); next.delete('departureId'); setParams(next); }}>Bỏ lọc lịch</Button>} />}
+      <ProTable<BookingWithFullInfo> filterKey={JSON.stringify([status, tourFilter, paymentFilter, range, departureFilter])}
+
+        headerTitle="Hồ sơ đặt tour"
+        className="admin-data-table"
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={bookingId || status ? 'Không có đơn khớp bộ lọc' : 'Chưa có đơn đặt tour'} /> }}
+        size="small"
+        scroll={{ x: 720 }}
         columns={columns}
         loading={loading}
-        dataSource={rows}
+        dataSource={status ? scopedRows.filter(row => lifecycle(row) === status) : scopedRows}
         rowKey="id"
         search={false}
         toolBarRender={() => [<Space key="lookup" wrap>
-          <Input.Search aria-label="Mã đơn chính xác" placeholder="Nhập mã đơn" enterButton="Tra cứu"
-            maxLength={10} onSearch={value => {
-              const id = value.trim();
-              if (!/^[0-9]{1,10}$/.test(id) || Number(id) < 1 || Number(id) > 2147483647) {
-                message.warning('Nhập mã đơn dạng số'); return;
-              }
-              setParams({ bookingId: id });
-            }} />
-          {bookingId && <Button onClick={() => setParams({})}>Xem tất cả đơn</Button>}
+          <AdminLookup value={bookingId ?? ''} maxLength={10} placeholder="Nhập mã đơn"
+            onLookup={id => { if (!id || /^[1-9][0-9]{0,9}$/.test(id) && Number(id) <= 2147483647) setParams(id ? { bookingId: id } : {}, { replace: true }); }} />
+          <Select aria-label="Tour" showSearch optionFilterProp="label" allowClear placeholder="Tour" value={tourFilter} onChange={setTourFilter}
+            options={tours.map(tour => ({ value: Number(tour.id), label: tour.tourTitle }))} />
+          <DatePicker.RangePicker aria-label="Ngày khởi hành" format="DD/MM/YYYY" value={range} onChange={setRange} />
+          <Select aria-label="Thanh toán" allowClear placeholder="Thanh toán" value={paymentFilter} onChange={setPaymentFilter}
+            options={[{ value: 'PAID', label: 'Đã thanh toán' }, { value: 'REFUNDED', label: 'Đã hoàn tiền' }]} />
+          {(bookingId || tourFilter || range || paymentFilter || status) && <Button onClick={() => {
+            setParams({}); setTourFilter(undefined); setRange(null); setPaymentFilter(undefined); setStatus(undefined);
+          }}>Xóa lọc</Button>}
         </Space>]}
-        pagination={{ pageSize: 10 }}
+        pagination={adminPagination('đơn')}
       />
 
-      {/* Modal chi tiết Booking */}
-      <Modal
-        centered
-        title={`Chi tiết đặt tour #${detail?.id ?? ''}`}
-        open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        footer={null}
-      >
-        {detail ? (
-          <div>
-            <p>
-              <b>Mã booking:</b> {detail.id}
-            </p>
-            <p>
-              <b>Tài khoản:</b> {detail.userName}
-            </p>
-            <p>
-              <b>Ngày đặt:</b> {detail.createdAt ? formatDatetime(detail.createdAt) : '—'}
-            </p>
-
-            <p>
-              <b>Tour khởi hành:</b>
-            </p>
-            {detail.tourDeparture ? (
-              <ul>
-                <li>
-                  <b>Mã lịch khởi hành:</b> {detail.tourDeparture.id}
-                </li>
-                <li>
-                  <b>Ngày đi:</b>{' '}
-                  {detail.tourDeparture.departureDate
-                    ? formatDate(detail.tourDeparture.departureDate)
-                    : '—'}
-                </li>
-                <li>
-                  <b>Ngày về:</b>{' '}
-                  {detail.tourDeparture.returnDate
-                    ? formatDate(detail.tourDeparture.returnDate)
-                    : '—'}
-                </li>
-              </ul>
-            ) : (
-              <i>Không có dữ liệu tour</i>
-            )}
-
-            <p>
-              <b>Danh sách khách:</b>
-            </p>
-            {detail.listOfCustomers === undefined ? (
-              <i>Không tải được dữ liệu khách.</i>
-            ) : detail.listOfCustomers.length ? (
-              <ul>
-                {detail.listOfCustomers.map((c) => (
-                  <li key={c.id}>
-                    {c.id} - {c.fullName} - {passengerLabel(c.bookingType)} -{' '}
-                    {(c.status && CUSTOMER_STATUS[c.status]) || c.status || '—'} -{' '}
-                    {c.dateOfBirth ? formatDate(c.dateOfBirth) : '—'} - {c.address || '—'}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <i>Không có khách</i>
-            )}
-
-            <p>
-              <b>Hóa đơn:</b>
-            </p>
-            {detail.invoiceLoadFailed ? (
-              <i>Không tải được dữ liệu hóa đơn.</i>
-            ) : detail.invoice ? (
-              <>
-                <p>Mã hóa đơn: {detail.invoice.id}</p>
-                <p>Số tiền: {formatCurrencyVND(Number(detail.invoice.totalBookingTourExpense))}</p>
-                <p>Ngày thanh toán: {detail.invoice.dayOfPay ? formatDatetime(detail.invoice.dayOfPay) : '—'}</p>
-                <p>
-                  Trạng thái hóa đơn:{' '}
-                  {detail.invoice.status === 'PAID'
-                    ? 'Đã thanh toán'
-                    : detail.invoice.status === 'REFUNDED'
-                      ? 'Đã hoàn tiền'
-                      : 'Chưa thanh toán'}
-                </p>
-              </>
-            ) : (
-              <i>Chưa có hóa đơn, hoặc hóa đơn nằm ngoài dữ liệu được cấp.</i>
-            )}
-
-            <p>
-              <b>Trạng thái đăng ký:</b> {bookingStatus(detail.status).label}
-            </p>
+      <Drawer width={640} className="admin-record-drawer" title={`Hồ sơ đặt chỗ #${detail?.id ?? ''}`}
+        open={!!detail} onClose={() => setDetail(null)} destroyOnHidden>
+        {detail && <div className="admin-dossier">
+          <div className="admin-case-hero">
+            <h2>{tourName(detail) || detail.tourDeparture?.tourCode || 'Chưa rõ tour'}</h2>
+            <div className="admin-case-facts">
+              <div><small>Đặt chỗ</small><Tag color={bookingStatus(detail.status).color}>{bookingStatus(detail.status).label}</Tag></div>
+              <div><small>Giữ chỗ</small><strong>{detail.reservationStatus ? bookingStatus(detail.reservationStatus).label : '—'}</strong></div>
+              <div><small>Thanh toán</small><strong>{detail.invoice?.status === 'PAID' ? 'Đã thanh toán' : detail.invoice?.status === 'REFUNDED' ? 'Đã hoàn tiền' : detail.invoice ? 'Chưa thanh toán' : detail.invoiceLoadFailed ? 'Chưa xác minh' : 'Chưa có hóa đơn'}</strong></div>
+            </div>
           </div>
-        ) : (
-          <p>Không có dữ liệu</p>
-        )}
-      </Modal>
-    </>
+          <nav aria-label="Hồ sơ liên quan" className="admin-related-links">
+            {canSeeDeparture && detail.tourDepartureId && <Link to={`/admin/managerTour/tourDeparture?departureId=${detail.tourDepartureId}`}>Mở lịch khởi hành</Link>}
+            {canSeeInvoice && detail.invoice && <Link to={`/admin/managerInvoice?bookingId=${detail.id}`}>Mở hóa đơn #{detail.invoice.id}</Link>}
+            {canReconcile && <Link to={`/admin/paymentReconciliation?bookingId=${detail.id}`}>Tra giao dịch để đối soát</Link>}
+            <Link to={`/admin/audit?bookingId=${detail.id}&tab=mail`}>Kiểm tra email</Link>
+          </nav>
+          <Tabs items={[{ key: 'overview', label: 'Tổng quan', children: <section className="admin-dossier-pair">
+            <Descriptions title="Thông tin đặt chỗ" size="small" column={1} items={[
+              { key: 'user', label: 'Tài khoản', children: detail.userName || '—' },
+              { key: 'created', label: 'Ngày đặt', children: detail.createdAt ? formatDatetime(detail.createdAt) : '—' },
+              ...(detail.paymentDeadline ? [{ key: 'deadline', label: 'Hạn thanh toán', children: formatDatetime(detail.paymentDeadline) }] : []),
+            ]} />
+            <Descriptions title="Lịch khởi hành" size="small" column={1} items={[
+              { key: 'id', label: 'Mã lịch', children: detail.tourDepartureId ? `#${detail.tourDepartureId}` : '—' },
+              { key: 'out', label: 'Ngày đi', children: detail.tourDeparture?.departureDate ? formatDatetime(detail.tourDeparture.departureDate) : '—' },
+              { key: 'back', label: 'Ngày về', children: detail.tourDeparture?.returnDate ? formatDatetime(detail.tourDeparture.returnDate) : '—' },
+            ]} />
+          </section> }, { key: 'passengers', label: 'Hành khách', children: <section className="admin-dossier-section">
+            <h3>Hành khách {detail.listOfCustomers && <Tag>{detail.listOfCustomers.length}</Tag>}</h3>
+            {detail.listOfCustomers === undefined ? <Alert type="warning" message="Chưa tải được dữ liệu khách." /> :
+              detail.listOfCustomers.length ? <ul className="admin-passenger-list">
+                {detail.listOfCustomers.map((customer, index) => <li key={customer.id ?? index}>
+                  <div><strong>{customer.fullName}</strong><div>{customer.dateOfBirth ? formatDate(customer.dateOfBirth) : '—'} · {customer.address || '—'}</div></div>
+                  <div>{passengerLabel(customer.bookingType)} · {(customer.status && CUSTOMER_STATUS[customer.status]) || customer.status || '—'}</div>
+                </li>)}
+              </ul> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có hành khách" />}
+          </section> }, { key: 'payment', label: 'Thanh toán', children: <section className="admin-dossier-section">
+            <h3>Chứng từ thanh toán</h3>
+            {detail.invoiceLoadFailed ? <Alert type="warning" message="Chưa tải được dữ liệu hóa đơn." /> : detail.invoice ?
+              <Descriptions size="small" column={1} items={[
+                { key: 'id', label: 'Mã hóa đơn', children: `#${detail.invoice.id}` },
+                { key: 'amount', label: 'Số tiền', children: <strong>{formatCurrencyVND(Number(detail.invoice.totalBookingTourExpense))}</strong> },
+                { key: 'paid', label: 'Ngày thanh toán', children: detail.invoice.dayOfPay ? formatDatetime(detail.invoice.dayOfPay) : '—' },
+              ]} /> : <p>Chưa có hóa đơn trong dữ liệu được cấp.</p>}
+          </section> }, { key: 'email', label: 'Email', children: <Deliveries admin={canRetryEmail} initialBookingId={Number(detail.id)} /> }]} />
+        </div>}
+      </Drawer>
+    </div>
   );
 };
 

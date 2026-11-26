@@ -1,65 +1,127 @@
 import { hasPermission, OPERATIONS_ACCESS } from '@/config/access';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import {
   UserOutlined,
-  GlobalOutlined,
   ScheduleOutlined,
   StarOutlined,
-  UnorderedListOutlined,
   CalendarOutlined,
   EnvironmentOutlined,
-  UsergroupAddOutlined,
   SafetyOutlined,
-  GiftOutlined,
+  FileTextOutlined,
+  SwapOutlined,
+  TagsOutlined,
+  InboxOutlined,
+  CompassOutlined,
   FieldTimeOutlined,
-  MoneyCollectOutlined,
   DashboardOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
-import { Layout, Menu, Dropdown, Space, Avatar, Button, message } from 'antd';
+import { Menu, Dropdown, Avatar, Button, message } from 'antd';
 import type { MenuProps } from 'antd';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { RootState } from '@/store';
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { logoutUser } from '@/store/slices/authSlice';
-import brand from '@/assets/branding/sgu-tour-header.svg';
 import brandIcon from '@/assets/branding/sgu-tour-icon.svg';
 import { Bounce, ToastContainer } from 'react-toastify';
 
-const { Content, Sider } = Layout;
+
+export type AdminTourBreadcrumb = { id: number; name: string; tab: string };
+const AdminQuickSearch = lazy(() => import('./AdminQuickSearch'));
+const AdminNotifications = lazy(() => import('./AdminNotifications'));
+
+const SIDEBAR_OPEN_DELAY = 200;
+const SIDEBAR_CLOSE_DELAY = 320;
+
+const pageTitles: Record<string, string> = {
+  '/admin/operations': 'Tổng quan',
+  '/admin/authorization': 'Phân quyền',
+  '/admin/tours': 'Tour',
+  '/admin/departures': 'Lịch khởi hành',
+  '/admin/inbox': 'Hộp công việc',
+  '/admin/audit': 'Nhật ký hoạt động',
+  '/admin/managerUser': 'Người dùng',
+  '/admin/managerBooking': 'Đặt chỗ',
+  '/admin/managerInvoice': 'Hóa đơn',
+  '/admin/paymentReconciliation': 'Đối soát',
+  '/admin/managerRole': 'Quyền hạn',
+  '/admin/role': 'Vai trò',
+  '/admin/managerTour/list': 'Danh sách tour',
+  '/admin/managerTour/tourDeparture': 'Lịch khởi hành',
+  '/admin/managerTour/price': 'Bảng giá',
+  '/admin/managerTour/destination': 'Địa điểm',
+  '/admin/managerTour/reviews': 'Đánh giá',
+  '/admin/managerTour/itinerary': 'Lịch trình',
+};
 
 const AdminSidebar: React.FC = () => {
-  const [collapsed, setCollapsed] = useState(true);
-  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [activeMenu, setActiveMenu] = useState('/admin');
+  const [tourBreadcrumb, setTourBreadcrumb] = useState<AdminTourBreadcrumb>();
+  const [inboxLabel, setInboxLabel] = useState('');
+  const updateInboxLabel = useCallback((count: number, partial: boolean) => {
+    setInboxLabel(count ? `${count}${partial ? '+' : ''}` : '');
+  }, []);
+  const [hovered, setHovered] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1536px)').matches);
+  const [pinPreference, setPinPreference] = useState(() => typeof window !== 'undefined' && localStorage.getItem('sgu-admin-pinned') === '1');
+  const pinned = wide && pinPreference;
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [flyouts, setFlyouts] = useState<string[]>([]);
+  const collapsed = !hovered && !manual && !pinned;
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAppSelector((state: RootState) => state.auth);
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    setActiveMenu(location.pathname || '/admin');
-  }, [location.pathname]);
-
-  useEffect(() => {
     return () => {
-      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     };
   }, []);
 
-  const handleSidebarEnter = () => {
-    if (collapseTimerRef.current) {
-      clearTimeout(collapseTimerRef.current);
-      collapseTimerRef.current = null;
-    }
-    setCollapsed(false);
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1536px)');
+    const change = () => setWide(media.matches);
+    media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      setManual(false); setHovered(false); setFlyouts([]);
+    };
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Element && !event.target.closest('.admin-rail, .admin-header-toggle, .admin-tour-flyout')) {
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+        setHovered(false); setManual(false);
+      }
+    };
+    window.addEventListener('keydown', close);
+    window.addEventListener('pointerdown', outside);
+    return () => {
+      window.removeEventListener('keydown', close);
+      window.removeEventListener('pointerdown', outside);
+    };
+  }, []);
+
+  const cancelHoverTimer = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
   };
 
-  const handleSidebarLeave = () => {
-    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    collapseTimerRef.current = setTimeout(() => {
-      setCollapsed(true);
-    }, 1500);
+  const scheduleHover = (open: boolean) => {
+    cancelHoverTimer();
+    if (pinned || manual || hovered === open || (open && !window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)').matches)) return;
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      setFlyouts([]);
+      setHovered(open);
+    }, open ? SIDEBAR_OPEN_DELAY : SIDEBAR_CLOSE_DELAY);
   };
 
   // Xây menu theo đúng quyền mà từng route yêu cầu, tránh hiện mục rồi bị chặn khi bấm.
@@ -69,7 +131,7 @@ const AdminSidebar: React.FC = () => {
     menuItems.push({
       key: '/admin/operations',
       icon: <DashboardOutlined />,
-      label: <Link to="/admin/operations">Việc cần xử lý</Link>,
+      label: <Link to="/admin/operations">Tổng quan vận hành</Link>,
     });
   }
 
@@ -89,35 +151,18 @@ const AdminSidebar: React.FC = () => {
   if (hasPermission(user, ALL_PERMISSIONS.TOURS.GET_LIST)) {
     tourChildren.push({
       key: '/admin/managerTour/list',
-      icon: <UnorderedListOutlined />,
-      label: <Link to="/admin/managerTour/list">Danh sách tour</Link>,
+      icon: <CompassOutlined />,
+      label: <Link to="/admin/tours">Danh sách tour</Link>,
     });
 
-  }
-
-  if (hasPermission(user, ALL_PERMISSIONS.PRICE.GET_LIST)) {
-    tourChildren.push({
-      key: '/admin/managerTour/price',
-      icon: <MoneyCollectOutlined />,
-      label: <Link to="/admin/managerTour/price">Giá</Link>,
-    });
   }
 
   // Ngày khởi hành
   if (hasPermission(user, ALL_PERMISSIONS.TOUR_DEPARTURES.GET_LIST)) {
     tourChildren.push({
-      key: '/admin/managerTour/tourDeparture',
+      key: '/admin/departures',
       icon: <CalendarOutlined />,
-      label: <Link to="/admin/managerTour/tourDeparture">Ngày khởi hành</Link>,
-    });
-  }
-
-  // Lịch trình
-  if (hasPermission(user, ALL_PERMISSIONS.ITINERARIES.GET_BY_TOUR)) {
-    tourChildren.push({
-      key: '/admin/managerTour/itinerary',
-      icon: <FieldTimeOutlined />,
-      label: <Link to="/admin/managerTour/itinerary">Lịch trình</Link>,
+      label: <Link to="/admin/departures">Ngày khởi hành</Link>,
     });
   }
 
@@ -126,7 +171,15 @@ const AdminSidebar: React.FC = () => {
     tourChildren.push({
       key: '/admin/managerTour/destination',
       icon: <EnvironmentOutlined />,
-      label: <Link to="/admin/managerTour/destination">Địa điểm</Link>,
+      label: <Link to="/admin/managerTour/destination">Điểm đến</Link>,
+    });
+  }
+
+  if (hasPermission(user, ALL_PERMISSIONS.PRICE.GET_LIST)) {
+    tourChildren.push({
+      key: '/admin/managerTour/price',
+      icon: <TagsOutlined />,
+      label: <Link to="/admin/managerTour/price">Bảng giá</Link>,
     });
   }
 
@@ -136,16 +189,6 @@ const AdminSidebar: React.FC = () => {
       key: '/admin/managerTour/reviews',
       icon: <StarOutlined />,
       label: <Link to="/admin/managerTour/reviews">Đánh giá tour</Link>,
-    });
-  }
-
-  // Chỉ push group "Quản lý tour du lịch" nếu có ít nhất 1 mục con
-  if (tourChildren.length > 0) {
-    menuItems.push({
-      key: '/admin/managerTour',
-      icon: <GlobalOutlined />,
-      label: 'Quản lý tour du lịch',
-      children: tourChildren,
     });
   }
 
@@ -161,36 +204,52 @@ const AdminSidebar: React.FC = () => {
   if (hasPermission(user, ALL_PERMISSIONS.INVOICES.GET_ALL)) {
     menuItems.push({
       key: '/admin/managerInvoice',
-      icon: <GiftOutlined />,
+      icon: <FileTextOutlined />,
       label: <Link to="/admin/managerInvoice">Quản lý hóa đơn</Link>,
     });
   }
 
-  // Quản lý quyền hạn (PERMISSIONS)
+  // Quyền hạn (PERMISSIONS)
   if (hasPermission(user, ALL_PERMISSIONS.PAYMENT_RECONCILIATION.GET_LIST)) {
-    menuItems.push({ key: '/admin/paymentReconciliation', icon: <MoneyCollectOutlined />,
+    menuItems.push({ key: '/admin/paymentReconciliation', icon: <SwapOutlined />,
       label: <Link to="/admin/paymentReconciliation">Đối soát thanh toán</Link> });
   }
 
-  // Quản lý quyền hạn (PERMISSIONS)
-  if (hasPermission(user, ALL_PERMISSIONS.PERMISSIONS.GET_LIST)) {
-    menuItems.push({
-      key: '/admin/managerRole',
-      icon: <UsergroupAddOutlined />,
-      label: <Link to="/admin/managerRole">Quản lý quyền hạn</Link>,
-    });
+  if (hasPermission(user, { anyOf: [ALL_PERMISSIONS.ROLES.GET_LIST.code, ALL_PERMISSIONS.PERMISSIONS.GET_LIST.code] })) {
+    menuItems.push({ key: '/admin/authorization', icon: <SafetyOutlined />,
+      label: <Link to="/admin/authorization">Phân quyền</Link> });
   }
 
-  // Quản lý vai trò (ROLES)
-  if (hasPermission(user, ALL_PERMISSIONS.ROLES.GET_LIST)) {
-    menuItems.push({
-      key: '/admin/role',
-      icon: <SafetyOutlined />,
-      label: <Link to="/admin/role">Quản lý vai trò</Link>,
-    });
+  if (hasPermission(user, OPERATIONS_ACCESS)) {
+    menuItems.push({ key: '/admin/inbox', icon: <InboxOutlined />, label: <Link to="/admin/inbox">Hộp công việc {inboxLabel && <small className="admin-inbox-count">{inboxLabel}</small>}</Link> });
+    menuItems.push({ key: '/admin/audit', icon: <FieldTimeOutlined />, label: <Link to="/admin/audit">Nhật ký hoạt động</Link> });
   }
+  const accounts = new Set(['/admin/managerUser', '/admin/authorization', '/admin/audit']);
+  const overview = new Set(['/admin/operations', '/admin/inbox']);
+  const groups = [
+    { key: 'overview', label: 'Tổng quan', children: menuItems.filter(item => overview.has(String(item?.key))) },
+    { key: 'operations', label: 'Vận hành', children: menuItems.filter(item => item && item.key === '/admin/managerBooking') },
+    { key: 'tour', label: 'Tour', children: tourChildren },
+    { key: 'finance', label: 'Tài chính', children: menuItems.filter(item => item?.key === '/admin/paymentReconciliation' || item?.key === '/admin/managerInvoice') },
+    { key: 'access', label: 'Hệ thống', children: menuItems.filter(item => item && accounts.has(String(item.key))) },
+  ].filter(group => group.children.length).map(group => ({ ...group, type: 'group' as const }));
 
   // Dropdown account
+  const activeTourBreadcrumb = tourBreadcrumb && new RegExp(`^/admin/tours/${tourBreadcrumb.id}(?:/|$)`).test(location.pathname)
+    ? tourBreadcrumb : undefined;
+  useEffect(() => {
+    function focusSearch(event: KeyboardEvent) {
+      if (event.key !== '/' || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+      if (event.target instanceof Element && event.target.closest('input,textarea,select,[contenteditable], [role="dialog"]')) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      const input = document.querySelector<HTMLInputElement>('.admin-content input[aria-label^="Tìm"], .admin-content .admin-lookup input');
+      if (input) { event.preventDefault(); input.focus(); }
+    }
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
+  const currentMenu = location.pathname.startsWith('/admin/tours') ? '/admin/managerTour/list'
+    : ['/admin/role', '/admin/managerRole'].includes(location.pathname) ? '/admin/authorization' : location.pathname;
   const itemsDropdown: MenuProps['items'] = [
     {
       key: 'home',
@@ -198,109 +257,72 @@ const AdminSidebar: React.FC = () => {
     },
     {
       key: 'logout',
-      label: (
-        <Button
-          type="text"
-          style={{ cursor: 'pointer', right: 15 }}
-          onClick={async () => {
-            const result = await dispatch(logoutUser());
-            navigate('/login');
-            // The local session is always cleared; warn only when the server did not revoke the tokens.
-            if (logoutUser.rejected.match(result)) message.warning(result.payload ?? 'Đã xóa phiên trên thiết bị này; máy chủ chưa phản hồi.');
-            else message.success('Đăng xuất thành công');
-          }}
-        >
-          Đăng xuất
-        </Button>
-      ),
+      label: 'Đăng xuất',
+      onClick: async () => {
+        const result = await dispatch(logoutUser());
+        navigate('/login');
+        if (logoutUser.rejected.match(result)) message.warning(result.payload ?? 'Đã xóa phiên trên thiết bị này; máy chủ chưa phản hồi.');
+        else message.success('Đăng xuất thành công');
+      },
     },
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh', position: 'relative' }}>
+    <>
       <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false}
         newestOnTop={false} closeOnClick={false} rtl={false} pauseOnFocusLoss draggable
         pauseOnHover theme="light" transition={Bounce} />
-      {/* Sidebar */}
-      <Sider
-        theme="light"
-        collapsible
-        trigger={null}
-        collapsed={collapsed}
-        width={250}
-        collapsedWidth={76}
-        onMouseEnter={handleSidebarEnter}
-        onMouseLeave={handleSidebarLeave}
-        style={{ borderRight: '1px solid #e5ece9' }}
-      >
-        <div
-          style={{
-            height: 56,
-            margin: 16,
-            textAlign: 'center',
-            fontWeight: 'bold',
-            color: '#21776d',
-          }}
-        >
-          <Link to="/" aria-label="Trang chủ SGU Tour" title="Hệ thống quản trị SGU Tour" style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={collapsed ? brandIcon : brand} alt="SGU Tour" style={{ display: 'block', width: collapsed ? 40 : 190, maxWidth: '100%', height: 'auto', maxHeight: 56 }} />
+    <div className={`admin-shell${collapsed ? '' : ' admin-shell-expanded'}${pinned ? ' admin-shell-pinned' : ''}`}>
+      <aside className="admin-rail" onMouseEnter={() => scheduleHover(true)} onMouseLeave={() => scheduleHover(false)}
+        aria-label="Menu quản trị">
+        <div className="admin-sidebar">
+          <Link to="/admin" className="admin-sidebar-brand" aria-label="Trang quản trị SGU Tour">
+            <img className="admin-brand-symbol" src={brandIcon} alt="" />
+            <span className="admin-brand-label"><strong>SGU Tour</strong><small>Điều hành tour</small></span>
           </Link>
+          <Menu theme="dark" selectedKeys={[currentMenu]} mode="inline" inlineCollapsed={collapsed}
+            openKeys={collapsed ? flyouts : openGroups} onOpenChange={collapsed ? setFlyouts : setOpenGroups} onClick={() => { setManual(false); setHovered(false); }} items={groups} />
+          {!collapsed && <div className="admin-sidebar-footer"><Link to="/">Về trang khách hàng</Link></div>}
         </div>
-        <Menu
-          selectedKeys={[activeMenu]}
-          mode="inline"
-          items={menuItems}
-          onClick={(e) => setActiveMenu(e.key)}
-          style={{ borderInlineEnd: 'none' }}
-        />
-      </Sider>
-
-      {/* Main Layout */}
-      <Layout>
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            padding: '0 24px',
-            alignItems: 'center',
-            height: 64,
-            background: '#fff',
-            borderBottom: '1px solid #e5ece9',
-          }}
-        >
-          <Dropdown menu={{ items: itemsDropdown }} trigger={['click']}>
-            <Space style={{ cursor: 'pointer' }}>
-              <span>Xin chào {user?.username || 'Admin'}</span>
-              <Avatar style={{ backgroundColor: '#21776d' }}>{(user?.username || 'A')[0]?.toUpperCase()}</Avatar>
-            </Space>
-          </Dropdown>
-        </div>
-
-        {/* Nội dung */}
-        <Content
-          style={{
-            padding: '1rem',
-            overflow: 'hidden',
-            height: 'calc(100vh - 64px)',
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              overflowY: 'auto',
-              paddingRight: 0,
-              position: 'relative',
-            }}
-            className="custom-scrollbar"
-          >
-
-            <Outlet />
+      </aside>
+      {manual && !pinned && <button tabIndex={-1} aria-label="Đóng menu" className="admin-sidebar-dismiss"
+        onClick={() => { cancelHoverTimer(); setManual(false); setHovered(false); setFlyouts([]); }} />}
+      <div className="admin-main">
+        <header className="admin-header">
+          <div className="admin-header-leading">
+          <Button type="text" className="admin-header-toggle" aria-label={collapsed ? 'Mở menu quản trị' : 'Đóng menu quản trị'}
+            aria-expanded={!collapsed} disabled={pinned} title={pinned ? 'Thu gọn menu' : 'Mở rộng menu'}
+            icon={pinned ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={() => { cancelHoverTimer(); setFlyouts([]); setManual(collapsed); setHovered(false); }} />
+          {wide && <Button type="text" size="small" aria-pressed={pinned} onClick={() => {
+            localStorage.setItem('sgu-admin-pinned', pinned ? '0' : '1');
+            setPinPreference(!pinned); setManual(false); setHovered(false);
+          }}>{pinned ? 'Bỏ ghim' : 'Ghim menu'}</Button>}
+          <nav aria-label="Vị trí hiện tại" className="admin-breadcrumb">
+            {activeTourBreadcrumb ? <>
+              <Link to="/admin/tours">Tour</Link><span aria-hidden="true">›</span>
+              <Link to={`/admin/tours/${activeTourBreadcrumb.id}`}>{activeTourBreadcrumb.name}</Link><span aria-hidden="true">›</span>
+              <strong aria-current="page">{activeTourBreadcrumb.tab}</strong>
+            </> : <>
+              <Link to="/admin">Quản trị</Link><span aria-hidden="true">/</span>
+              <strong aria-current="page">{pageTitles[location.pathname] || 'SGU Tour'}</strong>
+            </>}
+          </nav>
           </div>
-        </Content>
-      </Layout>
-    </Layout>
+          <div className="admin-top-actions">
+          <Suspense fallback={null}><AdminQuickSearch /><AdminNotifications onCount={updateInboxLabel} /></Suspense>
+          <Dropdown menu={{ items: itemsDropdown }} trigger={['click']}>
+            <Button type="text" className="admin-header-account">
+              <Avatar size={32} style={{ backgroundColor: '#21776d' }}>{(user?.username || 'A')[0]?.toUpperCase()}</Avatar>
+              <span className="hidden sm:inline">{user?.username || 'Admin'}</span>
+            </Button>
+          </Dropdown>
+          </div>
+        </header>
+        <main className="admin-content"><Outlet context={setTourBreadcrumb} /></main>
+      </div>
+    </div>
+    </>
   );
 };
 

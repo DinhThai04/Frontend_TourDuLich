@@ -1,5 +1,6 @@
+import { AdminTable as Table } from '@/components/Admin/Shared/AdminTable';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, Checkbox, DatePicker, Form, Input, InputNumber, message, Modal, Select, Space, Table, Tag } from 'antd';
+import { Alert, Button, Card, Checkbox, DatePicker, Form, Input, InputNumber, message, Modal, Select, Space, Tag } from 'antd';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { useHasPermission } from '@/config/useHasPermission';
@@ -118,7 +119,7 @@ export default function ScheduleChangesPanel({ tourId, focusRequestId, onChanged
   return <Card className="mt-4" title="Dời lịch và xử lý sự cố" extra={<Space><Button onClick={() => void refresh()}>Tải lại</Button>{create && !focusRequestId && <Button danger onClick={() => { form.resetFields(); setPreview(null); setKey(createClientKey()); setOpen(true); }}>Khai báo sự cố bắt buộc</Button>}</Space>}>
     <Alert type="info" showIcon message="Giữ nguyên lịch sử chuyến cũ. Chỉ chuyển booking đã đồng ý; không lấy im lặng làm đồng ý. Lịch thay thế được giữ riêng đến khi giải quyết hết khách ở chuyến cũ." />
     {capped && <Alert className="mt-3" type="warning" showIcon message="Danh sách dời lịch đã đạt giới hạn 500 bản ghi. Dữ liệu có thể chưa đầy đủ, hãy thu hẹp theo tour hoặc kiểm tra trực tiếp trước khi kết luận." />}
-    {!focusRequestId && <Table<ShopProposal> rowKey="id" size="small" dataSource={proposals} pagination={{ pageSize: 3 }} columns={[
+    {!focusRequestId && <Table<ShopProposal> pageScope="incident" className="mt-4" rowKey="id" size="small" dataSource={proposals} pagination={{ pageSize: 3 }} columns={[
       { title: 'Sự cố', render: (_, r) => `#${r.id} — lịch ${r.source_departure_id} → ${r.target_departure_id}` },
       { title: 'Hạn phản hồi', render: (_, r) => dayjs(r.response_deadline).format('HH:mm DD/MM/YYYY') },
       { title: 'Trạng thái', render: (_, r) => {
@@ -127,7 +128,7 @@ export default function ScheduleChangesPanel({ tourId, focusRequestId, onChanged
       } },
       { title: 'Hoàn tất xử lý', render: (_, r) => create && r.status === 'OPEN' && <Button loading={busy} onClick={() => Modal.confirm({ title: 'Đóng chuyến cũ và mở bán lịch thay thế?', content: 'Chỉ thực hiện khi toàn bộ booking chuyến cũ đã được xử lý. Hệ thống sẽ kiểm tra lại trước khi mở.', onOk: async () => { setBusy(true); try { await bookingChanges.activate(r.id); await refresh(); onChanged(); } catch (e) { message.error(changeError(e)); throw e; } finally { setBusy(false); } } })}>Kiểm tra và mở lịch mới</Button> },
     ]} expandable={{ expandedRowRender: r => <><p>{r.reason}</p><p>Bằng chứng: {r.evidence}</p></> }} />}
-    <Table<ChangeRequest> rowKey="id" size="small" dataSource={rows} pagination={focusRequestId ? false : { pageSize: 5 }}
+    <Table<ChangeRequest> pageScope="request" className="mt-4" rowKey="id" size="small" dataSource={rows} pagination={focusRequestId ? false : { pageSize: 5 }}
       locale={{ emptyText: focusRequestId ? 'Không tìm thấy yêu cầu trong tour này.' : undefined }} columns={[
       { title: 'Yêu cầu', render: (_, r) => `#${r.id} / Booking #${r.booking_id} / ${r.kind === 'SHOP' ? 'Shop đề xuất' : 'Khách yêu cầu'}` },
       { title: 'Liên hệ', render: (_, r) => <>{r.username}<br />{r.email}</> },

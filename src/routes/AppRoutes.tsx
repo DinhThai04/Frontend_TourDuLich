@@ -1,3 +1,5 @@
+import AuthorizationPage from '@/pages/Admin/AuthorizationPage';
+import LegacyItinerary from '@/pages/Admin/LegacyItinerary';
 import { lazy, Suspense } from 'react';
 import { Route, createBrowserRouter, RouterProvider, Routes } from 'react-router-dom';
 import MainLayout from '@layouts/MainLayout';
@@ -7,6 +9,7 @@ import NotFound from '@pages/NotFound';
 const ProfilePage = lazy(() => import('@/pages/Profile'));
 const LoginPage = lazy(() => import('@/pages/Auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/Auth/RegisterPage'));
+const AuthLayout = lazy(() => import('@/components/Auth/AuthLayout'));
 const Tours = lazy(() => import('@/pages/Tours/page'));
 import RouteGuard from './RouteGuard';
 import { ADMIN_ACCESS, OPERATIONS_ACCESS } from '@/config/access';
@@ -18,10 +21,10 @@ const OperationsPage = lazy(() => import('@/pages/Admin/OperationsPage'));
 const ManagerUser = lazy(() => import('../components/Admin/ManagerUser/ManagerUser'));
 const ManagerTour = lazy(() => import('../components/Admin/ManagerTour/ManagerTour'));
 const ManagerBooking = lazy(() => import('../components/Admin/ManagerBooking/ManagerBooking'));
-const ManagerPromotion = lazy(() => import('../components/Admin/ManagerPomt/ManagerPomt'));
 const ManagerSchedule = lazy(() => import('../components/Admin/ManagerTour/ManagerSchedule'));
 const ManagerDestination = lazy(() => import('../components/Admin/ManagerTour/ManagerLocation'));
 const TourDetail = lazy(() => import('@/layouts/TourDetail'));
+const AssignedDepartures = lazy(() => import('@/pages/Booking/AssignedDepartures'));
 const Booking = lazy(() => import('@/pages/Booking/BookingPage'));
 const Invoice = lazy(() => import('@/pages/Invoice/InvoicePage'));
 const ManagerInvoice = lazy(() => import('@/components/Admin/ManagerInvoice/ManagerInvoice'));
@@ -36,6 +39,10 @@ import ScrollToTop from './ScrollToTop';
 import { AiConversationProvider } from '@/components/AI/AiConversationProvider';
 const PoliciesPage = lazy(() => import('@/pages/Policies/PoliciesPage'));
 const LegalPage = lazy(() => import('@/pages/Legal/LegalPage'));
+
+const AdminTheme = lazy(() => import('@/pages/Admin/AdminTheme'));
+const TourWorkspace = lazy(() => import('@/pages/Admin/TourWorkspace'));
+const AdminResult = lazy(() => import('@/pages/Admin/AdminResult'));
 
 function RouteContent() {
   return (
@@ -54,6 +61,7 @@ function RouteContent() {
 
             <Route element={<RouteGuard isPrivate />}>
               <Route path="/booking" element={<Booking />} />
+              <Route path="/van-hanh-chuyen" element={<AssignedDepartures />} />
               <Route path="/invoice/booking/:id" element={<Invoice />} />
             </Route>
             <Route path="/payment/vnpay/callback" element={<VnPayCallback />} />
@@ -66,8 +74,10 @@ function RouteContent() {
           </Route>
 
           <Route element={<RouteGuard isPrivate={false} />}>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+            </Route>
           </Route>
 
           <Route
@@ -79,15 +89,27 @@ function RouteContent() {
                 />
               }
           >
-            <Route path="/admin" element={<LayoutAdmin />}>
+            <Route path="/admin" element={<AdminTheme><LayoutAdmin /></AdminTheme>}>
               <Route index element={<AdminLanding />} />
+              <Route path="tours" element={<PermissionGate permission={P.TOURS.GET_LIST}><ManagerTour /></PermissionGate>} />
+              <Route path="tours/:tourId" element={<PermissionGate permission={{ anyOf: [P.TOURS.GET_LIST.code, P.ITINERARIES.GET_BY_TOUR.code, P.TOUR_DEPARTURES.GET_LIST.code, P.REVIEWS.GET_LIST.code] }}><TourWorkspace /></PermissionGate>}>
+                <Route path="itinerary" element={<PermissionGate permission={P.ITINERARIES.GET_BY_TOUR}><ManagerSchedule /></PermissionGate>} />
+                <Route path="departures" element={<PermissionGate permission={P.TOUR_DEPARTURES.GET_LIST}><ManagerTourDeparture /></PermissionGate>} />
+                <Route path="images" element={null} />
+                <Route path="reviews" element={<PermissionGate permission={P.REVIEWS.GET_LIST}><ManagerReViewTour /></PermissionGate>} />
+              </Route>
+              <Route path="itinerary" element={<PermissionGate permission={P.ITINERARIES.GET_BY_TOUR}><LegacyItinerary /></PermissionGate>} />
+              <Route path="departures" element={<PermissionGate permission={P.TOUR_DEPARTURES.GET_LIST}><ManagerTourDeparture /></PermissionGate>} />
+              <Route path="authorization" element={<PermissionGate permission={{ anyOf: [P.ROLES.GET_LIST.code, P.PERMISSIONS.GET_LIST.code] }}><AuthorizationPage /></PermissionGate>} />
+              <Route path="inbox" element={<PermissionGate permission={OPERATIONS_ACCESS}><OperationsPage /></PermissionGate>} />
+              <Route path="audit" element={<PermissionGate permission={OPERATIONS_ACCESS}><OperationsPage /></PermissionGate>} />
+              <Route path="*" element={<AdminResult status={404} />} />
               <Route path="/admin/operations" element={<PermissionGate permission={OPERATIONS_ACCESS}><OperationsPage /></PermissionGate>} />
               <Route path="/admin/paymentReconciliation" element={<PermissionGate permission={P.PAYMENT_RECONCILIATION.GET_LIST}><PaymentReconciliation /></PermissionGate>} />
               <Route path="/admin/managerUser" element={<PermissionGate permission={P.USERS.GET_LIST}><ManagerUser /></PermissionGate>} />
               <Route path="/admin/managerTour/list" element={<PermissionGate permission={P.TOURS.GET_LIST}><ManagerTour /></PermissionGate>} />
               <Route path="/admin/managerBooking" element={<PermissionGate permission={P.BOOKINGS.GET_ALL}><ManagerBooking /></PermissionGate>} />
               {/* Khuyến mãi chưa có module riêng; tạm dùng quyền quản lý catalogue để không mở cho mọi tài khoản. */}
-              <Route path="/admin/managerPromotion" element={<PermissionGate permission={P.TOURS.GET_LIST}><ManagerPromotion /></PermissionGate>} />
               <Route path="/admin/managerTour/itinerary" element={<PermissionGate permission={P.ITINERARIES.GET_BY_TOUR}><ManagerSchedule /></PermissionGate>} />
               <Route path="/admin/managerTour/destination" element={<PermissionGate permission={P.LOCATIONS.GET_DESTINATIONS}><ManagerDestination /></PermissionGate>} />
               <Route path="/admin/managerTour/tourDeparture" element={<PermissionGate permission={P.TOUR_DEPARTURES.GET_LIST}><ManagerTourDeparture /></PermissionGate>} />
