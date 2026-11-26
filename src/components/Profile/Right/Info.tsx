@@ -8,14 +8,23 @@ import ModalChangePW from './ModalChangePW';
 import type { IUserUpdate } from '@/types/User';
 import { uploadProfile } from '@/store/slices/authSlice';
 
-const VN_PHONE_REGEX = /^(0|\+84)\d{9}$/;
+import VietnamAddressFields from '@/components/Share/VietnamAddressFields';
+import { formatVietnamAddress, parseVietnamAddress, validateVietnamAddress, type AddressDraft } from '@/utils/vietnamAddress';
+import { vietnamesePhone } from '@/utils/contactValidation';
+
+type ProfileForm = IUserUpdate & { email: string; addressDraft?: AddressDraft };
 
 const Info = () => {
   const [openModal, setOpenModal] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(false);
   const dispatch = useAppDispatch();
   const { user, loading } = useAppSelector((state: RootState) => state.auth);
-  const [form] = Form.useForm<IUserUpdate & { email: string }>();
+  const [form] = Form.useForm<ProfileForm>();
+  const phone = Form.useWatch('phone', form);
+  const addressDraft = Form.useWatch('addressDraft', form);
+  const currentAddress = user?.address ?? '';
+  const isDirty = (phone ?? '').trim() !== (user?.phone ?? '').trim()
+    || (editingAddress && formatVietnamAddress(addressDraft) !== currentAddress);
 
   useEffect(() => {
     if (user) {
@@ -23,36 +32,26 @@ const Info = () => {
         username: user.username,
         email: user.email,
         phone: user.phone,
-        address: user.address,
+        addressDraft: undefined,
         file: undefined,
       });
-      setIsDirty(false);
+      setEditingAddress(false);
     }
   }, [user, form]);
 
-  const handleValuesChange = () => {
-    if (!user) return;
-    const values = form.getFieldsValue();
-    const changed = (values.phone || '').trim() !== (user.phone || '').trim()
-      || (values.address || '').trim() !== (user.address || '').trim();
-    setIsDirty(changed);
-  };
-
-  const onFinish = async (values: IUserUpdate) => {
+  const onFinish = async (values: ProfileForm) => {
     if (loading || !isDirty || !user) return;
     const newPhone = (values.phone || '').trim();
-    const newAddress = (values.address || '').trim();
-    if (!newPhone || !newAddress) {
-      message.error('Vui lòng điền đầy đủ số điện thoại và địa chỉ.');
-      return;
-    }
+    const changedPhone = newPhone === (user.phone ?? '').trim() ? undefined : newPhone;
+    const newAddress = editingAddress ? formatVietnamAddress(values.addressDraft) : undefined;
+    if (editingAddress && !newAddress) return;
     try {
       const updatedUser = await dispatch(
-        uploadProfile({ data: { ...values, phone: newPhone, address: newAddress }, userId: user.id })
+        uploadProfile({ data: { phone: changedPhone, address: newAddress }, userId: user.id })
       ).unwrap();
       message.success('Cập nhật thông tin tài khoản thành công!');
       form.setFieldsValue(updatedUser);
-      setIsDirty(false);
+      setEditingAddress(false);
     } catch (error: unknown) {
       message.error(errorMessage(error, 'Cập nhật thất bại.'));
     }
@@ -69,7 +68,6 @@ const Info = () => {
         form={form}
         layout="vertical"
         onFinish={onFinish}
-        onValuesChange={handleValuesChange}
         className="w-full"
       >
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
@@ -102,24 +100,32 @@ const Info = () => {
             name="phone"
             validateTrigger="onBlur"
             rules={[
-              { required: true, message: 'Vui lòng nhập số điện thoại.' },
+              { required: !!user?.phone, message: 'Vui lòng nhập số điện thoại.' },
               {
-                pattern: VN_PHONE_REGEX,
-                message: 'Số điện thoại Việt Nam phải bắt đầu bằng 0 hoặc +84 và gồm 10 chữ số (VD: 0912345678).',
+                pattern: vietnamesePhone,
+                message: 'Số điện thoại bắt đầu bằng 0 và có 10–11 chữ số.',
               },
             ]}
           >
             <Input placeholder="VD: 0912345678" className="!h-[40px] !rounded-[10px]" />
           </Form.Item>
 
-          <Form.Item
-            label={<span className="text-sm font-medium text-[#1F2937]">Địa chỉ</span>}
-            name="address"
-            validateTrigger="onBlur"
-            rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập địa chỉ.' }]}
-          >
-            <Input placeholder="Nhập địa chỉ liên hệ" className="!h-[40px] !rounded-[10px]" />
-          </Form.Item>
+          <div>
+            <div className="mb-2 text-sm font-medium text-[#1F2937]">Địa chỉ</div>
+            {editingAddress ? <>
+              {currentAddress && !parseVietnamAddress(currentAddress).ward &&
+                <p className="mb-2 break-words text-xs text-[#6B7280]">Địa chỉ đang lưu · {currentAddress}</p>}
+              <Form.Item name="addressDraft" rules={[{ validator: validateVietnamAddress }]} validateTrigger="onSubmit">
+                <VietnamAddressFields />
+              </Form.Item>
+              <Button type="link" className="!px-0" onClick={() => setEditingAddress(false)}>Hủy sửa địa chỉ</Button>
+            </> : <button type="button" aria-label="Sửa địa chỉ" title={currentAddress || undefined} onClick={() => {
+              form.setFieldValue('addressDraft', parseVietnamAddress(currentAddress));
+              setEditingAddress(true);
+            }} className="block min-h-10 w-full truncate rounded-[10px] border border-[#d9d9d9] bg-white px-3 py-2 text-left hover:border-[#1F7A6E]">
+              {currentAddress || 'Thêm địa chỉ liên hệ'}
+            </button>}
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-[#E5E7EB] pt-5">

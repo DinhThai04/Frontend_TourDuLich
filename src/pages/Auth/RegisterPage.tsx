@@ -1,15 +1,17 @@
-import { contactEmail, personName, streetAddress, strongPassword, vietnamesePhone } from '@/utils/contactValidation';
+import VietnamAddressFields from '@/components/Share/VietnamAddressFields';
+import { formatVietnamAddress, validateVietnamAddress, type AddressDraft } from '@/utils/vietnamAddress';
+import { contactEmail, personName, strongPassword, vietnamesePhone } from '@/utils/contactValidation';
 import { useEffect, useRef, useState } from 'react';
 import { registerService } from '@/services/authServices';
 import { Alert, Button, Checkbox, Form, Input, message } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, MapPin, Phone, User } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react';
 import brand from '@/assets/branding/sgu-tour.svg';
 import PasswordStrengthIndicator from '@/components/Auth/PasswordStrengthIndicator';
 
 type ValuesRegister = {
   username: string;
-  address: string;
+  address: AddressDraft;
   email: string;
   phone: string;
   password: string;
@@ -29,7 +31,8 @@ export default function RegisterPage() {
   }, []);
 
   const onFinish = async (values: ValuesRegister) => {
-    if (loading) return;
+    const address = formatVietnamAddress(values.address);
+    if (loading || !address) return;
     setLoading(true);
     setSubmitError(null);
     try {
@@ -37,7 +40,7 @@ export default function RegisterPage() {
         username: values.username.trim(),
         email: values.email.trim(),
         phone: values.phone.trim(),
-        address: values.address.trim(),
+        address,
         password: values.password,
       });
       message.success('Đăng ký thành công! Vui lòng đăng nhập.');
@@ -169,20 +172,9 @@ export default function RegisterPage() {
                 />
               </Form.Item>
 
-              <Form.Item
-                name="address"
-                label="Địa chỉ"
-                rules={[
-                  { required: true, whitespace: true, message: 'Vui lòng nhập địa chỉ' },
-                  { max: 255, pattern: streetAddress, message: 'Địa chỉ chỉ gồm chữ, số và dấu phân cách thông dụng' },
-                ]}
-                className="!mb-3"
-              >
-                <Input
-                  autoComplete="street-address"
-                  prefix={<MapPin size={17} strokeWidth={1.85} className="auth-field-icon" aria-hidden="true" />}
-                  placeholder="Quận 5, TP. Hồ Chí Minh"
-                />
+              <Form.Item name="address" label="Địa chỉ" className="!mb-3"
+                required rules={[{ validator: validateVietnamAddress }]} validateTrigger="onSubmit">
+                <VietnamAddressFields />
               </Form.Item>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { contactEmail, personName, streetAddress, strongPassword, vietnamesePhone } from '@/utils/contactValidation';
 import type { UserFormValues } from '@/types/adminForms';
 import React, { useEffect, useState } from 'react';
 import { Modal, Form, Row, Col, Input, Select } from 'antd';
@@ -62,10 +63,10 @@ const UserFormModal: React.FC<Props> = ({
       return; // AntD already highlights the invalid fields.
     }
     const dataUser = {
-      username: values.username,
-      email: values.email,
-      phone: values.phone,
-      address: values.address,
+      username: values.username?.trim(),
+      email: values.email?.trim(),
+      phone: values.phone?.trim() || '',
+      address: values.address?.trim(),
       roleId: values.role,
       password: values.password,
     };
@@ -111,12 +112,13 @@ const UserFormModal: React.FC<Props> = ({
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item
               label="Họ và tên"
               name="username"
               rules={[
-                { required: true, message: 'Vui lòng nhập họ và tên' },
+                { required: true, whitespace: true, message: 'Vui lòng nhập họ và tên' },
+                { pattern: personName, transform: (value: string) => value?.trim(), message: 'Họ và tên chỉ gồm chữ và khoảng trắng' },
                 { min: 3, max: 50, message: 'Họ và tên phải từ 3 đến 50 ký tự' },
               ]}
             >
@@ -125,13 +127,13 @@ const UserFormModal: React.FC<Props> = ({
           </Col>
 
           {mode === 'add' && (
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 label="Email"
                 name="email"
                 rules={[
                   { required: true, message: 'Vui lòng nhập email' },
-                  { type: 'email', message: 'Email không hợp lệ' },
+                  { pattern: contactEmail, max: 255, transform: (value: string) => value?.trim(), message: 'Nhập email có tên miền hợp lệ' },
                 ]}
               >
                 <Input placeholder="Nhập email" />
@@ -140,13 +142,13 @@ const UserFormModal: React.FC<Props> = ({
           )}
 
           {mode === 'edit' && (
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 label="Email"
                 name="email"
                 rules={[
                   { required: true, message: 'Vui lòng nhập email' },
-                  { type: 'email', message: 'Email không hợp lệ' },
+                  { pattern: contactEmail, max: 255, transform: (value: string) => value?.trim(), message: 'Nhập email có tên miền hợp lệ' },
                 ]}
               >
                 <Input placeholder="Nhập email" disabled />
@@ -154,22 +156,23 @@ const UserFormModal: React.FC<Props> = ({
             </Col>
           )}
 
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item
               label="Số điện thoại"
               name="phone"
-              rules={[{ pattern: /^[0-9]{9,11}$/, message: 'Số điện thoại phải có từ 9 đến 11 chữ số' }]}
+              rules={[{ pattern: vietnamesePhone, message: 'Số điện thoại bắt đầu bằng 0 và có 10–11 chữ số' }]}
             >
               <Input placeholder="Nhập số điện thoại" />
             </Form.Item>
           </Col>
 
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item
               label="Địa chỉ"
               name="address"
               rules={[
-                { required: true, message: 'Vui lòng nhập địa chỉ' },
+                { required: true, whitespace: true, message: 'Vui lòng nhập địa chỉ' },
+                { pattern: streetAddress, transform: (value: string) => value?.trim(), message: 'Địa chỉ chứa ký tự không hợp lệ' },
                 { max: 255, message: 'Địa chỉ không được quá 255 ký tự' },
               ]}
             >
@@ -178,13 +181,13 @@ const UserFormModal: React.FC<Props> = ({
           </Col>
 
           {canChangeRole && (
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 label="Vai trò"
                 name="role"
-                rules={[{ required: true, message: 'Vui lòng chọn role' }]}
+                rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
               >
-                <Select placeholder="Chọn vai trò">
+                <Select placeholder="Chọn vai trò" showSearch optionFilterProp="children">
                   {roles.map((role) => (
                     <Option key={role.id} value={role.id}>
                       {role.name}
@@ -196,16 +199,20 @@ const UserFormModal: React.FC<Props> = ({
           )}
 
           {mode === 'add' && (
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 label="Mật khẩu"
                 name="password"
                 rules={[
                   { required: true, message: 'Vui lòng nhập mật khẩu' },
                   { min: 8, max: 72, message: 'Mật khẩu phải từ 8 đến 72 ký tự' },
+                  { pattern: strongPassword, message: 'Cần chữ hoa, chữ thường, số và ký tự đặc biệt' },
+                  { validator: async (_, value: string) => {
+                    if (value && new TextEncoder().encode(value).length > 72) throw new Error('Mật khẩu tối đa 72 byte UTF-8');
+                  } },
                 ]}
               >
-                <Input.Password placeholder="Nhập mật khẩu" />
+                <Input.Password placeholder="Nhập mật khẩu" autoComplete="new-password" />
               </Form.Item>
             </Col>
           )}
