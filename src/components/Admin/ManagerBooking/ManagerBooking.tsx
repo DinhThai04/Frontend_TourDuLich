@@ -1,4 +1,4 @@
-import { Deliveries } from '@/pages/Admin/OperationsInsightsPanel';
+import BookingEmailHistory from './BookingEmailHistory';
 import AdminLookup from '../Shared/AdminLookup';
 import { adminDayKey } from '../Shared/adminDate';
 import type { Dayjs } from 'dayjs';
@@ -62,7 +62,7 @@ const ManagerBooking: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const bookingId = params.get('bookingId');
   const departureFilter = Number(params.get('departureId')) || undefined;
-  const [detail, setDetail] = useState<BookingWithFullInfo | null>(null);
+  const [selectedBooking, setDetail] = useState<BookingWithFullInfo | null>(null);
   const [status, setStatus] = useState<string>();
   const [tourFilter, setTourFilter] = useState<number>();
   const [paymentFilter, setPaymentFilter] = useState<string>();
@@ -182,6 +182,16 @@ const ManagerBooking: React.FC = () => {
     { deps: [bookingId, departureFilter], onError: (msg) => message.error(msg) },
   );
   const rows = loading || loadError ? [] : data?.rows ?? [];
+  const detail = selectedBooking ?? (params.get('detail') === '1'
+    ? rows.find(row => String(row.id) === bookingId) : null);
+  function closeBooking() {
+    setDetail(null);
+    if (params.has('detail')) {
+      const updated = new URLSearchParams(params);
+      updated.delete('detail');
+      setParams(updated, { replace: true });
+    }
+  }
 
   const lifecycle = (row: BookingWithFullInfo) => row.reservationStatus === 'EXPIRED' ? 'EXPIRED' : row.status;
   const scopedRows = rows.filter(row => {
@@ -263,7 +273,7 @@ const ManagerBooking: React.FC = () => {
       />
 
       <Drawer width={640} className="admin-record-drawer" title={`Hồ sơ đặt chỗ #${detail?.id ?? ''}`}
-        open={!!detail} onClose={() => setDetail(null)} destroyOnHidden>
+        open={!!detail} onClose={closeBooking} destroyOnHidden>
         {detail && <div className="admin-dossier">
           <div className="admin-case-hero">
             <h2>{tourName(detail) || detail.tourDeparture?.tourCode || 'Chưa rõ tour'}</h2>
@@ -277,7 +287,6 @@ const ManagerBooking: React.FC = () => {
             {canSeeDeparture && detail.tourDepartureId && <Link to={`/admin/managerTour/tourDeparture?departureId=${detail.tourDepartureId}`}>Mở lịch khởi hành</Link>}
             {canSeeInvoice && detail.invoice && <Link to={`/admin/managerInvoice?bookingId=${detail.id}`}>Mở hóa đơn #{detail.invoice.id}</Link>}
             {canReconcile && <Link to={`/admin/paymentReconciliation?bookingId=${detail.id}`}>Tra giao dịch để đối soát</Link>}
-            <Link to={`/admin/audit?bookingId=${detail.id}&tab=mail`}>Kiểm tra email</Link>
           </nav>
           <Tabs items={[{ key: 'overview', label: 'Tổng quan', children: <section className="admin-dossier-pair">
             <Descriptions title="Thông tin đặt chỗ" size="small" column={1} items={[
@@ -307,7 +316,7 @@ const ManagerBooking: React.FC = () => {
                 { key: 'amount', label: 'Số tiền', children: <strong>{formatCurrencyVND(Number(detail.invoice.totalBookingTourExpense))}</strong> },
                 { key: 'paid', label: 'Ngày thanh toán', children: detail.invoice.dayOfPay ? formatDatetime(detail.invoice.dayOfPay) : '—' },
               ]} /> : <p>Chưa có hóa đơn trong dữ liệu được cấp.</p>}
-          </section> }, { key: 'email', label: 'Email', children: <Deliveries admin={canRetryEmail} initialBookingId={Number(detail.id)} /> }]} />
+          </section> }, { key: 'email', label: 'Email', children: <BookingEmailHistory key={detail.id} canRetry={canRetryEmail} bookingId={Number(detail.id)} /> }]} />
         </div>}
       </Drawer>
     </div>

@@ -1,6 +1,7 @@
 import AdminPageHeader from '../Shared/AdminPageHeader';
 import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import React, { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import { Button, Space, Tag, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from '@ant-design/icons';
@@ -16,6 +17,8 @@ import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 
 const ManagerRoleTour: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
+  const [params, setParams] = useSearchParams();
+  const focusedRole = params.get('roleId');
   const actionRef = useRef<ActionType>(null);
   const [loading, setLoading] = useState(false);
   const [openAddEdit, setOpenAddEdit] = useState(false);
@@ -167,7 +170,9 @@ const ManagerRoleTour: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
   return (
     <div className="admin-dashboard">
       {!embedded && <AdminPageHeader title="Vai trò" description="Quản lý nhóm quyền theo trách nhiệm của từng tài khoản." />}
+      {focusedRole && <Button onClick={() => setParams({ tab: 'roles' }, { replace: true })}>Xem tất cả vai trò</Button>}
       <ProTable<Role>
+        filterKey={focusedRole ?? ''}
         headerTitle="Danh mục vai trò"
         size="small"
         columns={columns}
@@ -199,7 +204,7 @@ const ManagerRoleTour: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
                 ? undefined
                 : String(rawStatus) === 'true';
 
-            let filtered = all;
+            let filtered = focusedRole ? all.filter(role => String(role.id) === focusedRole) : all;
 
             if (nameKeyword) {
               filtered = filtered.filter((role) => {

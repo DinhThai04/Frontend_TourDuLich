@@ -1,8 +1,9 @@
 'use client';
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Alert, message } from 'antd';
 
-import { getListUser } from '@/services/userServices';
+import { getListUser, getUserById } from '@/services/userServices';
 import { getRoles } from '@/services/rolesServices';
 import { isApiSuccess } from '@/utils/apiResult';
 import { isListCapped } from '@/utils';
@@ -16,6 +17,15 @@ import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 
 const ManagerUser: React.FC = () => {
+  const [params, setParams] = useSearchParams();
+  const accountId = params.get('userId') ?? '';
+  const canSeeDetail = useHasPermission(ALL_PERMISSIONS.USERS.GET_DETAIL);
+  const focusedUser = useApiQuery(async () => {
+    const response = await getUserById(accountId);
+    if (!isApiSuccess(response)) throw new Error(response.message || 'Không tìm thấy tài khoản');
+    return response.result;
+  }, { enabled: canSeeDetail && /^[1-9]\d{0,17}$/.test(accountId), deps: [accountId] });
+  const account = Number(focusedUser.data?.id) === Number(accountId) ? focusedUser.data : undefined;
   const [searchRole, setSearchRole] = useState<number | null>(null);
 
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -104,10 +114,18 @@ const ManagerUser: React.FC = () => {
         loading={loadingUsers}
       />
 
+      {focusedUser.error && <Alert type="error" showIcon message={focusedUser.error} />}
       <UserDetailModal
-        open={viewModalOpen}
-        user={viewUser}
-        onClose={() => setViewModalOpen(false)}
+        open={viewModalOpen || Boolean(account)}
+        user={viewModalOpen ? viewUser : account ?? null}
+        onClose={() => {
+          setViewModalOpen(false);
+          if (params.has('userId')) {
+            const next = new URLSearchParams(params);
+            next.delete('userId');
+            setParams(next, { replace: true });
+          }
+        }}
       />
 
       <UserFormModal

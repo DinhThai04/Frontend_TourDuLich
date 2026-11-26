@@ -54,6 +54,7 @@ function actionable(row: ReconciliationRow) {
 export default function PaymentReconciliation() {
   const [params, setParams] = useSearchParams();
   const focusedRef = params.get('txnRef') || undefined;
+  const openFocusedDetail = params.get('detail') === '1';
   const bookingParam = params.get('bookingId');
   const focusedBooking = bookingParam && /^[1-9][0-9]{0,9}$/.test(bookingParam) && Number(bookingParam) <= 2147483647
     ? Number(bookingParam) : undefined;
@@ -89,6 +90,10 @@ export default function PaymentReconciliation() {
       if (response.code !== 1000) throw new Error(response.message || 'Chưa tải được hồ sơ');
       if (request === loadId.current) {
         setRows(response.result.items);
+        if (openFocusedDetail && focusedRef) {
+          setSelected(response.result.items.find(row => row.txn_ref === focusedRef));
+          setTab('details');
+        }
         setTotal(response.result.total ?? (page - 1) * size + response.result.items.length + Number(response.result.hasNext));
       }
     } catch (error) {
@@ -100,7 +105,7 @@ export default function PaymentReconciliation() {
     } finally {
       if (request === loadId.current) setLoading(false);
     }
-  }, [page, size, view, focused, focusedRef, focusedBooking]);
+  }, [page, size, view, focused, focusedRef, focusedBooking, openFocusedDetail]);
 
   useEffect(() => {
     void load();

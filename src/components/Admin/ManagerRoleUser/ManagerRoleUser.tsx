@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { AdminStatus } from '../Shared/AdminStatus';
 import AdminPageHeader from '../Shared/AdminPageHeader';
 import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
@@ -38,6 +39,8 @@ interface Permission {
 
 // ==== Component ====
 const ManagerRoleUser: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
+  const [params, setParams] = useSearchParams();
+  const focusedPermission = params.get('permissionId');
   const [keyword, setKeyword] = useState('');
   const [module, setModule] = useState<string>();
   const [method, setMethod] = useState<string>();
@@ -225,6 +228,7 @@ const ManagerRoleUser: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
   return (
     <div className="admin-dashboard">
       {!embedded && <AdminPageHeader title="Quyền hạn" description="Tra mã quyền theo module và xem các vai trò đang sử dụng quyền đó." />}
+      {focusedPermission && <Button onClick={() => setParams({ tab: 'permissions' }, { replace: true })}>Xem tất cả quyền hạn</Button>}
       <ProTable<Permission>
         headerTitle="Danh mục quyền"
         columns={columns}
@@ -232,7 +236,7 @@ const ManagerRoleUser: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
         search={false}
         options={{ reload: reloadPermissions }}
         filterKey={JSON.stringify([keyword, method, module])}
-        dataSource={data.filter(item => (!method || item.method === method) && (!module || item.module === module)
+        dataSource={data.filter(item => (!focusedPermission || String(item.id) === focusedPermission) && (!method || item.method === method) && (!module || item.module === module)
           && [item.name, item.code].some(value => value.toLowerCase().includes(keyword.trim().toLowerCase())))}
         tableLayout="fixed"
         size="small"

@@ -114,8 +114,8 @@ export default function OperationsPage() {
   const departures = canSeeDepartures && view === 'dashboard';
 
   return <div className="admin-dashboard pb-8">
-    <AdminPageHeader title={view === 'dashboard' ? 'Tổng quan' : view === 'inbox' ? 'Hộp công việc' : 'Nhật ký hoạt động'}
-      description={view === 'dashboard' ? 'Theo dõi thu, hoàn tiền và lịch khởi hành.' : view === 'inbox' ? 'Theo dõi đối soát, yêu cầu dời lịch và đơn cần rà soát.' : 'Tra cứu thay đổi quản trị và email theo đơn.'} />
+    <AdminPageHeader title={view === 'dashboard' ? 'Tổng quan' : view === 'inbox' ? 'Hộp công việc' : 'Nhật ký quản trị'}
+      description={view === 'dashboard' ? 'Theo dõi thu, hoàn tiền và lịch khởi hành.' : view === 'inbox' ? 'Theo dõi đối soát, yêu cầu dời lịch và đơn cần rà soát.' : 'Truy vết thao tác thay đổi dữ liệu của quản trị viên và nhân viên.'} />
     {view === 'dashboard' ? <>
       {(canReconcile || (canSeeChanges && canSeeDepartures)) && <PriorityQueue payments={canReconcile} changes={canSeeChanges && canSeeDepartures} />}
       {canSeeBookings && canSeeInvoices && <Report />}
@@ -137,6 +137,6 @@ export default function OperationsPage() {
       {admin && <RecentAudit />}
       </div>}
     </> : view === 'inbox' ? <AdminInbox payment={canReconcile} changes={canSeeChanges && canSeeDepartures} integrity={canSeeBookings} />
-      : <Card><OperationsInsightsPanel bookings={canSeeBookings} admin={admin} /></Card>}
+      : <Card><OperationsInsightsPanel /></Card>}
   </div>;
 }

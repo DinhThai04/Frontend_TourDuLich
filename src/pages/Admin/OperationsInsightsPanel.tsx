@@ -1,4 +1,3 @@
-import RowActions from '@/components/Admin/Shared/RowActions';
 import AdminPagination from '@/components/Admin/Shared/AdminPagination';
 import { useAdminPagination } from '@/components/Admin/Shared/useAdminPagination';
 import { InfoCircleOutlined } from '@ant-design/icons';
@@ -7,18 +6,16 @@ import { AdminTable as Table } from '@/components/Admin/Shared/AdminTable';
 import { CalendarClock, Clock3, RotateCcw, Ticket, Wallet } from 'lucide-react';
 import ReportTrend from './ReportTrend';
 import { useState, type ReactNode } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, InputNumber, Modal, Select, Skeleton, Space, Tabs, Tag, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Select, Skeleton, Space, Tag, message } from 'antd';
 import dayjs from 'dayjs';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import axiosClient from '@/api/axios';
 import type { ApiResponse } from '@/types/comment';
 import { useApiQuery } from '@/hooks';
-import { formatCurrencyVND, formatDatetime } from '@/utils';
-import { errorMessage } from '@/utils/errors';
+import { formatCurrencyVND } from '@/utils';
 
 const endpoint = '/booking/operations';
-const bookingPath = (id: number) => `/admin/managerBooking?bookingId=${id}`;
-const date = (value?: string) => value ? formatDatetime(value) : '—';
+const bookingPath = (id: number) => `/admin/managerBooking?bookingId=${id}&detail=1`;
 
 async function read<T>(path: string, params?: object): Promise<T> {
   const response: ApiResponse<T> = await axiosClient.get(endpoint + path, { params });
@@ -168,151 +165,163 @@ export function Report({ priority }: { priority?: ReactNode }) {
   </div>;
 }
 
-type Delivery = { id: number; event_type: string; status: string; attempt_count: number; scheduled_at: string; sent_at?: string };
-const deliveryLabels: Record<string, string> = {
-  PENDING: 'Đang chờ', CLAIMED: 'Đang chuẩn bị gửi', DISPATCHING: 'Đang gửi', UNKNOWN: 'Chưa rõ kết quả', RETRY: 'Chờ gửi lại',
-  SENT: 'Đã gửi', FAILED: 'Gửi thất bại', CANCELLED: 'Đã hủy', SKIPPED: 'Đã bỏ qua',
-};
-const eventLabels: Record<string, string> = {
-  PAYMENT_SUCCEEDED: 'Xác nhận thanh toán', PAYMENT_REMINDER_1: 'Nhắc thanh toán lần 1',
-  PAYMENT_REMINDER_2: 'Nhắc thanh toán lần 2', BOOKING_EXPIRED: 'Giữ chỗ hết hạn',
-  BOOKING_CANCELLED: 'Hủy đơn', HOLD_CREATED: 'Xác nhận giữ chỗ', BOOKING_CHANGED: 'Cập nhật lịch',
-};
-
-export function Deliveries({ admin, initialBookingId }: { admin: boolean; initialBookingId?: number }) {
-  const [params] = useSearchParams();
-  const initialId = initialBookingId ?? (Number(params.get('bookingId')) || undefined);
-  const [id, setId] = useState<number | null>(initialId ?? null);
-  const [bookingId, setBookingId] = useState(initialId);
-  const [selected, setSelected] = useState<Delivery>();
-  const [saving, setSaving] = useState(false);
-  const { data, loading, error, refresh } = useApiQuery(
-    () => read<Delivery[]>(`/deliveries/${bookingId}`), { enabled: !!bookingId, deps: [bookingId] },
-  );
-
-  async function retry() {
-    if (!bookingId || !selected || saving) return;
-    setSaving(true);
-    try {
-      const response: ApiResponse<boolean> = await axiosClient.post(`${endpoint}/deliveries/${bookingId}/${selected.id}/retry`);
-      if (response.code !== 1000) throw new Error(response.message || 'Chưa thể đưa email lại vào hàng đợi');
-      setSelected(undefined);
-      message.success('Đã đưa email vào hàng đợi');
-      await refresh();
-    } catch (failure) {
-      message.error(errorMessage(failure));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return <Space direction="vertical" className="w-full">
-    <Space wrap>
-      <InputNumber aria-label="Mã đơn đặt tour" placeholder="Mã đơn" min={1} max={2147483647} precision={0} value={id} onChange={setId}
-        onPressEnter={() => { if (id && Number.isInteger(id)) setBookingId(id); }} />
-      <Button disabled={!id || !Number.isInteger(id)} loading={loading} onClick={() => {
-        if (!id) return;
-        if (id === bookingId) void refresh();
-        else setBookingId(id);
-      }}>Tra cứu email</Button>
-      {bookingId && <Link to={bookingPath(bookingId)}>Xem đơn #{bookingId}</Link>}
-    </Space>
-    {error && <Alert type="error" showIcon message={error} />}
-    {!bookingId && <div className="admin-empty-panel"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE}
-      description="Nhập mã đơn để xem lịch gửi, kết quả và số lần thử của từng email." /></div>}
-    {bookingId && !error && <Table size="small" rowKey="id" dataSource={loading ? undefined : data} loading={loading}
-      pagination={false} scroll={{ x: 620 }} columns={[
-        { title: 'Loại email', dataIndex: 'event_type', render: (value: string) => eventLabels[value] || value },
-        { title: 'Trạng thái', dataIndex: 'status', render: (value: string) => <Tag>{deliveryLabels[value] || value}</Tag> },
-        { title: 'Số lần thử', dataIndex: 'attempt_count' },
-        { title: 'Lịch gửi', dataIndex: 'scheduled_at', render: date },
-        { title: 'Đã gửi lúc', dataIndex: 'sent_at', render: date },
-        ...(admin ? [{ title: 'Thao tác', render: (_: unknown, row: Delivery) => row.status === 'FAILED' && !row.sent_at &&
-          <Button size="small" onClick={() => setSelected(row)}>Đưa vào hàng đợi</Button> }] : []),
-      ]} />}
-    <Modal title="Đưa email thất bại vào hàng đợi" open={!!selected} onOk={() => void retry()}
-      onCancel={() => { if (!saving) setSelected(undefined); }} confirmLoading={saving} okText="Xác nhận" cancelText="Đóng">
-      Hệ thống sẽ gửi lại theo lịch xử lý hàng đợi email.
-    </Modal>
-  </Space>;
-}
-
-type AuditRow = {
-  id: number;
-  entityType: string;
-  entityId: string;
-  actorId?: string;
-  action?: string;
-  detail?: unknown;
-  beforeValue?: string;
-  afterValue?: string;
-  occurredAt: string;
-};
-
 const auditLabels: Record<string, string> = {
   CAPACITY: 'Sức chứa / lịch', MEETING_POINT: 'Điểm tập trung', PRICE: 'Bảng giá',
   ROLE: 'Vai trò', MAIL_RETRY: 'Gửi lại email', BOOKING: 'Đặt chỗ', PAYMENT: 'Thanh toán',
   INVOICE: 'Hóa đơn', TOUR: 'Tour', USER: 'Tài khoản',
 };
 
-function auditDetail(value: unknown) {
-  return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+const auditActions: Record<string, string> = {
+  RECONCILIATION_RECORDED: 'Ghi nhận kết quả đối soát', REFUND_CONFIRMED: 'Ghi nhận khoản hoàn',
+  PRICE_UPDATED: 'Cập nhật giá', GUIDE_ASSIGNED: 'Phân công hướng dẫn viên',
+  GUIDE_UNASSIGNED: 'Gỡ phân công', DEPARTURE_COMPLETED: 'Chốt chuyến', DEPARTURE_CANCELLED: 'Hủy chuyến',
+  ACCOUNT_STATUS_CHANGED: 'Cập nhật trạng thái tài khoản', ROLE_PERMISSION_CHANGED: 'Đổi quyền',
+  REVIEW_MODERATED: 'Duyệt đánh giá', GUIDE_CONFLICT_OVERRIDDEN: 'Phân công trùng lịch',
+  DEPARTURE_FORCE_COMPLETED: 'Chốt chuyến ngoại lệ', TRIP_REPORT_REVIEWED: 'Xử lý báo cáo chuyến',
+  BOOKING_RESCHEDULED: 'Chuyển lịch đặt chỗ', BOOKING_REFUND_RECORDED: 'Ghi nhận khoản hoàn',
+  ACCOUNT_LOCK: 'Khóa tài khoản', ACCOUNT_UNLOCK: 'Mở khóa tài khoản', ACCOUNT_ARCHIVE: 'Lưu trữ tài khoản',
+  ACCOUNT_DELETE: 'Xóa tài khoản', PERMISSION_UPDATED: 'Cập nhật quyền',
+  TOUR_DELETED: 'Xóa tour', DEPARTURE_DELETED: 'Xóa lịch khởi hành',
+};
+type AdminAuditRow = {
+  id: number; actionCode: string; targetType: string; targetId: string; actorId?: string;
+  actorType?: string; actorName?: string; actorRole?: string; actionGroup?: string;
+  targetLabel?: string; summary?: string; reason?: string; createdAt: string;
+  beforeJson?: unknown; afterJson?: unknown; correlationId?: string;
+};
+const auditEndpoint = '/admin/audit-logs';
+const groups = [
+  ['FINANCE', 'Tài chính'], ['OPERATIONS', 'Vận hành'], ['ACCOUNT', 'Tài khoản'],
+  ['CONTENT', 'Nội dung'], ['SYSTEM_CONFIG', 'Cấu hình hệ thống'],
+].map(([value, label]) => ({ value, label }));
+
+async function readAudit<T>(path = '', params?: object): Promise<T> {
+  const response: ApiResponse<T> = await axiosClient.get(auditEndpoint + path, { params });
+  if (response.code !== 1000) throw new Error(response.message || 'Chưa tải được nhật ký');
+  return response.result;
 }
 
-const auditActions: Record<string, string> = {
-  'payment.settled.v1': 'Thanh toán thành công',
-  'payment.reconciled.v1': 'Ghi nhận đối soát',
-};
-const auditTime = (value?: string) => value ? date(value).replace(/^(\d\d:\d\d:\d\d) (.+)$/, '$2 · $1') : '—';
+function auditTime(row: AdminAuditRow) {
+  const value = row.createdAt;
+  const parts = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(value));
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? '';
+  return `${get('day')}/${get('month')}/${get('year')} · ${get('hour')}:${get('minute')}:${get('second')}`;
+}
+
+function auditAction(row: AdminAuditRow) {
+  const key = row.actionCode;
+  const color = /CANCEL|DELETE|ARCHIVE/.test(key) || key === 'ACCOUNT_LOCK' ? 'red'
+    : /RECONCILIATION|REFUND|PRICE|PERMISSION|OVERRIDE|FORCE/.test(key) ? 'orange'
+      : /ASSIGN|COMPLETED|MODERATED/.test(key) ? 'green' : 'blue';
+  return <Tag color={color}>{auditActions[key] || row.summary || 'Cập nhật dữ liệu'}</Tag>;
+}
+
+function snapshot(value: unknown): Record<string, unknown> {
+    if (typeof value === 'string') {
+      try { return snapshot(JSON.parse(value)); } catch { return { 'Giá trị': value }; }
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+    return {};
+}
+
+function auditTarget(row: AdminAuditRow) {
+  const type = row.targetType.toUpperCase();
+  const label = row.targetLabel || `${auditLabels[type] || 'Hồ sơ'} #${row.targetId}`;
+  if (!/^\d+$/.test(String(row.targetId)) || row.actionCode.endsWith('_DELETED') || row.actionCode === 'ACCOUNT_DELETE') return label;
+  const txnRef = snapshot(row.afterJson).txnRef;
+  const paymentFocus = typeof txnRef === 'string'
+    ? `txnRef=${encodeURIComponent(txnRef)}&detail=1` : `bookingId=${row.targetId}`;
+  const links: Record<string, string> = {
+    PAYMENT: `/admin/paymentReconciliation?${paymentFocus}`,
+    BOOKING: bookingPath(Number(row.targetId)),
+    DEPARTURE: `/admin/departures?departureId=${row.targetId}`,
+    TOUR: `/admin/tours/${row.targetId}`,
+    ACCOUNT: `/admin/managerUser?userId=${row.targetId}`,
+    ROLE: `/admin/authorization?tab=roles&roleId=${row.targetId}`,
+    PERMISSION: `/admin/authorization?tab=permissions&permissionId=${row.targetId}`,
+    PRICE: `/admin/managerTour/price?priceId=${row.targetId}`,
+  };
+  const url = links[type];
+  return url ? <Link to={url}>{label}</Link> : label;
+}
 
 function Audit() {
-  const [selected, setSelected] = useState<AuditRow>();
+  const [detailId, setDetailId] = useState<number>();
+  const [filters, setFilters] = useState<{ keyword?: string; actorId?: string; actionGroup?: string; fromDate?: string; toDate?: string }>({});
   const { page, size, mode, change, tableRef } = useAdminPagination();
-  const { data, loading, error, refresh } = useApiQuery(() => read<{ items: AuditRow[]; total: number }>('/audit', { page: page - 1, size }), { deps: [page, size] });
+  const { data, loading, error, refresh } = useApiQuery(() => readAudit<{ items: AdminAuditRow[]; total: number }>('', { ...filters, page: page - 1, size }), { deps: [page, size, filters] });
+  const detail = useApiQuery(() => readAudit<AdminAuditRow>(`/${detailId}`), { enabled: detailId != null, deps: [detailId] });
+  const [actorKeyword, setActorKeyword] = useState('');
+  const actorOptions = useApiQuery(async () => {
+    const actors = await readAudit<{ actorId: string; actorName: string; actorRole?: string }[]>('/actors', { keyword: actorKeyword });
+    return actors.map(actor => ({ value: actor.actorId, label: actor.actorName }));
+  }, { deps: [actorKeyword] });
+  const update = (patch: Partial<typeof filters>) => { setFilters(current => ({ ...current, ...patch })); change(1); };
+  const selected = detail.data?.id === detailId ? detail.data : undefined;
+  const before = snapshot(selected?.beforeJson);
+  const after = snapshot(selected?.afterJson);
+  const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter(key => JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+  const showValue = (value: unknown) => value == null ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value);
   return <div ref={tableRef} className="admin-inbox-body">
+    <Card size="small"><Space wrap>
+      <Input.Search aria-label="Tìm nhật ký quản trị" placeholder="Mã đơn, mã chuyến, nội dung..." maxLength={120} allowClear
+        onSearch={keyword => update({ keyword: keyword.trim() || undefined })}
+        onChange={event => { if (!event.target.value && filters.keyword) update({ keyword: undefined }); }} />
+      <Select aria-label="Nhóm hành động" placeholder="Nhóm hành động" style={{ minWidth: 150 }} allowClear options={groups}
+        value={filters.actionGroup} onChange={actionGroup => update({ actionGroup })} />
+      <Select aria-label="Người thực hiện" placeholder="Người thực hiện" style={{ minWidth: 175 }} allowClear showSearch filterOption={false} onSearch={setActorKeyword}
+        loading={actorOptions.loading} options={actorOptions.data ?? []} value={filters.actorId} onChange={actorId => update({ actorId })} />
+      <DatePicker.RangePicker aria-label="Khoảng ngày" format="DD/MM/YYYY" onChange={range =>
+        update({ fromDate: range?.[0]?.format('YYYY-MM-DD'), toDate: range?.[1]?.format('YYYY-MM-DD') })} />
+    </Space></Card>
     {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => void refresh()}>Thử lại</Button>} />}
-    <Table size="small" rowKey="id" loading={loading} dataSource={loading || error ? undefined : data?.items}
-      pagination={false} locale={{ emptyText: <Empty description="Chưa có thao tác trong nhật ký" /> }}
+    <Table<AdminAuditRow> size="small" rowKey="id" loading={loading} dataSource={loading || error ? undefined : data?.items}
+      pagination={false} locale={{ emptyText: <Empty description="Chưa có thao tác quản trị phù hợp" /> }}
       columns={[
-        { title: 'Thời gian', dataIndex: 'occurredAt', render: auditTime },
-        { title: 'Người thực hiện', render: (_, row) => row.actorId ? `Tài khoản #${row.actorId}` : 'Hệ thống' },
-        { title: 'Hành động', render: (_, row) => row.action ? <Tooltip title={row.action}>{auditActions[row.action] || 'Cập nhật'}</Tooltip> : 'Cập nhật' },
-        { title: 'Đối tượng', render: (_, row) => {
-          const kind = row.entityType.toUpperCase();
-          const text = `${auditLabels[kind] || row.entityType} #${row.entityId}`;
-          return kind === 'BOOKING' ? <Link to={bookingPath(Number(row.entityId))}>{text}</Link>
-            : kind === 'TOUR' ? <Link to={`/admin/tours/${row.entityId}`}>{text}</Link> : text;
-        } },
-        { title: 'Thao tác', render: (_, row) => <RowActions subject={`sự kiện #${row.id}`} onDetails={() => setSelected(row)} /> },
+        { title: 'Thời gian', render: (_, row) => auditTime(row) },
+        { title: 'Người thực hiện', render: (_, row) => <Space wrap>{row.actorName || 'Chưa xác định'}
+          {row.actorRole && <Tag>{row.actorRole}</Tag>}</Space> },
+        { title: 'Hành động', render: (_, row) => auditAction(row) },
+        { title: 'Đối tượng', render: (_, row) => auditTarget(row) },
+        { title: 'Nội dung / Lý do', render: (_, row) => <span className="block max-w-60 truncate" title={[row.summary, row.reason].filter(Boolean).join(' · ')}>
+          {[row.summary, row.reason].filter(Boolean).join(' · ') || '—'}</span> },
+        { title: 'Thao tác', render: (_, row) => <Button size="small" onClick={() => setDetailId(row.id)}>Chi tiết</Button> },
       ]} />
     {data && <AdminPagination mode={mode} page={page} size={size} total={data.total} onChange={change} />}
-    <Drawer title={`Chi tiết thao tác #${selected?.id ?? ''}`} open={!!selected} width={640} onClose={() => setSelected(undefined)}>
-      {selected && <div className="admin-inbox-body"><Descriptions column={1} bordered size="small" items={[
-        { label: 'Thời gian', children: auditTime(selected.occurredAt) },
-        { label: 'Mã hành động', children: selected.action || '—' },
-        { label: 'Trước', children: selected.beforeValue || '—' },
-        { label: 'Sau', children: selected.afterValue || '—' },
-      ]} />{selected.detail != null && <details><summary>Dữ liệu chi tiết</summary>
-        <pre className="whitespace-pre-wrap break-all">{auditDetail(selected.detail)}</pre></details>}</div>}
+    <Drawer title={`Chi tiết thao tác #${detailId ?? ''}`} open={detailId != null} width="min(660px, 100vw)" onClose={() => setDetailId(undefined)}>
+      {detail.loading && <Skeleton active />}
+      {detail.error && <Alert type="error" message={detail.error} />}
+      {selected && !detail.loading && <>
+        <Descriptions column={1} size="small" bordered items={[
+          { label: 'Người thực hiện', children: [selected.actorName || selected.actorId, selected.actorRole].filter(Boolean).join(' · ') },
+          { label: 'Thời gian', children: auditTime(selected) },
+          { label: 'Hành động', children: auditAction(selected) },
+          { label: 'Đối tượng', children: auditTarget(selected) },
+          { label: 'Lý do', children: selected.reason || '—' },
+          { label: 'Correlation ID', children: selected.correlationId || '—' },
+        ]} />
+        {fields.length > 0 && <Descriptions title="Trước → Sau" className="mt-5" size="small" column={1} bordered
+          items={fields.map(key => ({ key, label: ({ status: 'Trạng thái', reconciliationStatus: 'Hồ sơ đối soát', decision: 'Kết quả', amountVnd: 'Số tiền', txnRef: 'Mã giao dịch', reference: 'Tham chiếu', guideAccountId: 'Mã hướng dẫn viên', reportStatus: 'Trạng thái báo cáo', departureId: 'Mã chuyến', permissionIds: 'Mã quyền', roleIds: 'Mã vai trò', adultPrice: 'Giá người lớn', childPrice: 'Giá trẻ em', toddlerPrice: 'Giá trẻ nhỏ', infantPrice: 'Giá em bé', singleSupplementPrice: 'Phụ thu phòng đơn' } as Record<string,string>)[key] || key,
+            children: <div className="grid grid-cols-[1fr_auto_1fr] gap-2 break-words"><span>{showValue(before[key])}</span><span>→</span><span>{showValue(after[key])}</span></div> }))} />}
+      </>}
     </Drawer>
   </div>;
 }
 
 export function RecentAudit() {
-  const { data, loading, error } = useApiQuery(() => read<{ items: AuditRow[] }>('/audit', { page: 0, size: 8 }));
-  return <Card title="Hoạt động gần đây" extra={<Link to="/admin/audit?tab=audit">Xem tất cả</Link>}>
+  const { data, loading, error } = useApiQuery(() => readAudit<{ items: AdminAuditRow[] }>('', { page: 0, size: 8 }));
+  return <Card title="Thao tác quản trị gần đây" extra={<Link to="/admin/audit">Xem tất cả</Link>}>
     {loading ? <Skeleton active /> : error ? <Alert type="warning" message={error} />
-      : data?.items.length ? <ul className="admin-recent-audit">{data.items.slice(0, 8).map(row => <li key={row.id}>
-        <strong>{auditLabels[row.entityType] || row.entityType} #{row.entityId}</strong>
-        <span>{row.action || 'Cập nhật'} · {date(row.occurredAt)}</span>
-      </li>)}</ul> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có hoạt động" />}
+      : data?.items.length ? <ul className="admin-recent-audit">{data.items.map(row => <li key={row.id}>
+        <strong>{auditTarget(row)}</strong><span>{auditAction(row)}{auditTime(row)}</span>
+      </li>)}</ul> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có thao tác quản trị" />}
   </Card>;
 }
 
-export default function OperationsInsightsPanel({ bookings, admin }: { bookings: boolean; admin: boolean }) {
-  const [params] = useSearchParams();
-  return <Tabs defaultActiveKey={bookings && params.get('tab') === 'mail' ? 'mail' : admin ? 'audit' : 'mail'} className="admin-operations-tabs" items={[
-    ...(admin ? [{ key: 'audit', label: 'Nhật ký thao tác', children: <Audit /> }] : []),
-    ...(bookings ? [{ key: 'mail', label: 'Email theo đơn', children: <Deliveries admin={admin} /> }] : []),
-  ]} />;
+export default function OperationsInsightsPanel() {
+  return <Audit />;
 }

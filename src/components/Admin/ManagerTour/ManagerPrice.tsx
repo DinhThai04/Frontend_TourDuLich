@@ -3,6 +3,7 @@ import AdminPageHeader from '../Shared/AdminPageHeader';
 import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import type { PriceFormValues } from '@/types/adminForms';
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Modal, message, Alert } from 'antd';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -19,6 +20,8 @@ import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 
 const ManagerPrice: React.FC = () => {
+  const [params, setParams] = useSearchParams();
+  const focusedId = params.get('priceId');
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedTourPrice, setSelectedTourPrice] = useState<ITourPrice | null>(null);
@@ -133,10 +136,12 @@ const ManagerPrice: React.FC = () => {
       {loadError && (
         <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
       )}
+      {focusedId && <Alert showIcon className="mb-4" message={`Bảng giá #${focusedId}`}
+        action={<Button size="small" onClick={() => setParams({}, { replace: true })}>Xem tất cả</Button>} />}
       <ProTable<ITourPrice>
         columns={columns}
         rowKey="id"
-        dataSource={data}
+        dataSource={focusedId ? data.filter(item => String(item.id) === focusedId) : data}
         loading={loading}
         search={false}
         headerTitle="Danh sách combo giá"

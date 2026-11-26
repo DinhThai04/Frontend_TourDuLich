@@ -39,7 +39,7 @@ const pageTitles: Record<string, string> = {
   '/admin/tours': 'Tour',
   '/admin/departures': 'Lịch khởi hành',
   '/admin/inbox': 'Hộp công việc',
-  '/admin/audit': 'Nhật ký hoạt động',
+  '/admin/audit': 'Nhật ký quản trị',
   '/admin/managerUser': 'Người dùng',
   '/admin/managerBooking': 'Đặt chỗ',
   '/admin/managerInvoice': 'Hóa đơn',
@@ -194,7 +194,7 @@ const AdminSidebar: React.FC = () => {
 
   if (hasPermission(user, OPERATIONS_ACCESS)) {
     menuItems.push({ key: '/admin/inbox', icon: <InboxOutlined />, label: <Link to="/admin/inbox">Hộp công việc {inboxLabel && <small className="admin-inbox-count">{inboxLabel}</small>}</Link> });
-    menuItems.push({ key: '/admin/audit', icon: <FieldTimeOutlined />, label: <Link to="/admin/audit">Nhật ký hoạt động</Link> });
+    menuItems.push({ key: '/admin/audit', icon: <FieldTimeOutlined />, label: <Link to="/admin/audit">Nhật ký quản trị</Link> });
   }
   const accounts = new Set(['/admin/managerUser', '/admin/authorization', '/admin/audit']);
   const overview = new Set(['/admin/operations', '/admin/inbox']);
