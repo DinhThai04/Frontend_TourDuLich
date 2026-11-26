@@ -51,6 +51,9 @@ function RouteContent() {
         <AiConversationProvider>
         <Suspense fallback={<div role="status" style={{ padding: 32 }}>Đang tải trang…</div>}>
         <Routes>
+          <Route element={<RouteGuard isPrivate />}>
+            <Route path="/van-hanh-chuyen" element={<AssignedDepartures />} />
+          </Route>
           <Route element={<MainLayout />}>
             <Route index element={<Home />} />
             <Route path="about" element={<About />} />
@@ -61,7 +64,6 @@ function RouteContent() {
 
             <Route element={<RouteGuard isPrivate />}>
               <Route path="/booking" element={<Booking />} />
-              <Route path="/van-hanh-chuyen" element={<AssignedDepartures />} />
               <Route path="/invoice/booking/:id" element={<Invoice />} />
             </Route>
             <Route path="/payment/vnpay/callback" element={<VnPayCallback />} />

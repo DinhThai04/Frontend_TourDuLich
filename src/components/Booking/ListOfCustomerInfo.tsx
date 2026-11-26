@@ -271,8 +271,12 @@ export default function ListOfCustomerInfo({
                           <Form.Item
                             {...restField}
                             name={[name, 'guardianName']}
+                            preserve={false}
                             label="Người giám hộ đi kèm"
-                            rules={[{ required: true, message: 'Trẻ dưới 18 tuổi cần họ tên người giám hộ' }]}
+                            rules={[
+                              { required: true, message: 'Trẻ dưới 18 tuổi cần họ tên người giám hộ' },
+                              { pattern: personName, min: 2, max: 100, message: 'Nhập họ tên từ 2 đến 100 ký tự chữ' },
+                            ]}
                           >
                             <Input placeholder="Họ tên bố/mẹ hoặc người giám hộ" />
                           </Form.Item>
@@ -281,6 +285,7 @@ export default function ListOfCustomerInfo({
                           <Form.Item
                             {...restField}
                             name={[name, 'guardianPhone']}
+                            preserve={false}
                             label="SĐT người giám hộ"
                             rules={[
                               { required: true, message: 'Vui lòng nhập SĐT người giám hộ' },

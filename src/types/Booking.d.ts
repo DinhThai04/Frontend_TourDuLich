@@ -24,7 +24,7 @@ export type BookingRequest = {
   pickupConfirmationKey?: string;
 	userId: string; // account id as string (comes from session)
 	tourDepartureId: string; // id from url
-	listOfCustomers: { fullName: string; birthdate: string; address?: string; gender: string }[]; // customers from the booking form
+	listOfCustomers: { fullName: string; birthdate: string; address?: string; gender: string; guardianName?: string; guardianPhone?: string }[]; // customers from the booking form
 	clientKey?: string; // stable UUID for one checkout attempt; retries must reuse it
 	pricingDate?: string; // Vietnam calendar date used for the current preview
 	expectedAmount?: string;
@@ -57,6 +57,8 @@ export type BookingResponseWithoutListOfCustomers = {
 export type CustomerRequest = {
   fullName: string;
   birthDate: Dayjs;
+  guardianName?: string;
+  guardianPhone?: string;
   address?: string;
   gender: string;
 }
@@ -70,6 +72,8 @@ export interface PassengerFormValues {
   birthDate: Dayjs | null;
   gender?: string;
   address?: string;
+  guardianName?: string;
+  guardianPhone?: string;
 }
 export type PersonalFormValues = PassengerFormValues & { email: string; phone: string };
 export interface CustomersFormValues { customers?: PassengerFormValues[] }

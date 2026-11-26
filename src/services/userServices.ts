@@ -96,3 +96,7 @@ export const setAccountStatus = (id: number, status: Exclude<AccountStatus, 'ARC
 export const archiveAccount = (id: number, reason: string): Promise<ApiResponse<User>> =>
   axiosClient.post(`auth/users/${id}/archive`, { reason });
 export const accountEvents = (id: number): Promise<ApiResponse<AccountEvent[]>> => axiosClient.get(`auth/users/${id}/events`);
+
+export type GuideOption = { id: number; name: string; email: string };
+export const getTourGuideDirectory = (query: string, selectedId?: number | null, signal?: AbortSignal): Promise<ApiResponse<GuideOption[]>> =>
+  axiosClient.get('/auth/users/tour-guides', { params: { query, selectedId }, signal });

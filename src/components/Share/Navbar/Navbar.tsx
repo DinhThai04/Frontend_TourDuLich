@@ -6,7 +6,7 @@ import brand from '@/assets/branding/sgu-tour-header.svg';
 import Container from '@/components/Share/Container';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { logoutUser } from '@/store/slices/authSlice';
-import { ADMIN_ACCESS, hasPermission } from '@/config/access';
+import { ADMIN_ACCESS, hasPermission, TOUR_GUIDE_ACCESS } from '@/config/access';
 import { customerRoute } from '@/layouts/customerRoutes';
 
 export default function Navbar({ allowLeave = () => true }: { allowLeave?: () => boolean }) {
@@ -47,10 +47,12 @@ export default function Navbar({ allowLeave = () => true }: { allowLeave?: () =>
     { key: 'contact', label: <Link to="/about#lien-he">Liên hệ</Link> },
   ];
 
+  const isTourGuide = hasPermission(user, TOUR_GUIDE_ACCESS) && !hasPermission(user, ADMIN_ACCESS);
   const userItems = [
     { key: 'profile', label: <Link to="/profile">Hồ sơ</Link> },
     { key: 'bookings', label: <Link to="/profile#don-dat-tour">Đơn đặt chỗ</Link> },
     { key: 'support', label: <Link to="/profile#yeu-cau-ho-tro">Yêu cầu hỗ trợ</Link> },
+    ...(isTourGuide ? [{ key: 'assigned-departures', label: <Link to="/van-hanh-chuyen">Chuyến được phân công</Link> }] : []),
     ...(hasPermission(user, ADMIN_ACCESS) ? [{ key: 'admin', label: <Link to="/admin">Trang quản trị</Link> }] : []),
     { type: 'divider' as const },
     { key: 'logout', label: 'Đăng xuất', danger: true, onClick: handleLogout },
@@ -195,6 +197,11 @@ export default function Navbar({ allowLeave = () => true }: { allowLeave?: () =>
               <Link to="/profile#yeu-cau-ho-tro" className="px-3 py-2 rounded-lg text-[15px] text-[#1F2937] no-underline hover:bg-[#F8FAFA]">
                 Yêu cầu hỗ trợ
               </Link>
+              {isTourGuide && (
+                <Link to="/van-hanh-chuyen" className="px-3 py-2 rounded-lg text-[15px] text-[#1F2937] no-underline hover:bg-[#F8FAFA]">
+                  Chuyến được phân công
+                </Link>
+              )}
               {hasPermission(user, ADMIN_ACCESS) && (
                 <Link to="/admin" className="px-3 py-2 rounded-lg text-[15px] text-[#1F2937] no-underline hover:bg-[#F8FAFA]">
                   Trang quản trị

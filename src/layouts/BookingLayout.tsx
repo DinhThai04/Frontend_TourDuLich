@@ -257,7 +257,7 @@ function BookingForm() {
 
       const customers: CustomerRequest[] = passengers.map(c => {
         if (!c.birthDate?.isValid() || !c.gender || !c.fullName?.trim()) throw new Error('Vui lòng nhập đầy đủ thông tin hành khách.');
-        return { fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, address: c.address };
+        return { fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, address: c.address, guardianName: c.guardianName, guardianPhone: c.guardianPhone };
       });
 
       /** =====================================================
@@ -281,6 +281,8 @@ function BookingForm() {
           fullName: c.fullName,
           birthdate: c.birthDate.format('YYYY-MM-DD'),
           address: c.address,
+          guardianName: c.guardianName,
+          guardianPhone: c.guardianPhone,
           gender: c.gender === 'male' ? 'Male' : 'Female',
         })),
       };

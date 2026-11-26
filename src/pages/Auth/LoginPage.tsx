@@ -1,13 +1,13 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { loginUser, loginUserWithGG, refreshCurrentUser } from '@/store/slices/authSlice';
+import { loginUser, loginUserWithGG } from '@/store/slices/authSlice';
 import { Alert, Button, Divider, Form, Input, message } from 'antd';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import brand from '@/assets/branding/sgu-tour.svg';
 import type { CredentialResponse as GoogleCredentialResponse } from '@react-oauth/google';
 import type { RootState } from '@/store';
-import { ADMIN_ACCESS, hasPermission } from '@/config/access';
+import { signedInDestination } from '@/config/access';
 
 const GoogleSignIn = lazy(() => import('@/components/Auth/GoogleSignIn'));
 
@@ -39,8 +39,7 @@ export default function LoginPage() {
       const res = await dispatch(loginUser(values)).unwrap();
       if (res.code === 1000) {
         message.success('Đăng nhập thành công!', 3);
-        await dispatch(refreshCurrentUser()).unwrap().catch(() => undefined);
-        navigate(hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : (returnPath ?? '/'), { replace: true });
+        navigate(signedInDestination(res.result.user, returnPath ?? '/'), { replace: true });
       } else {
         message.error('Đăng nhập thất bại!', 3);
       }
@@ -60,8 +59,7 @@ export default function LoginPage() {
       const res = await dispatch(loginUserWithGG(googleToken)).unwrap();
       if (res.code === 1000) {
         message.success('Đăng nhập thành công!', 3);
-        await dispatch(refreshCurrentUser()).unwrap().catch(() => undefined);
-        navigate(hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : (returnPath ?? '/'), { replace: true });
+        navigate(signedInDestination(res.result.user, returnPath ?? '/'), { replace: true });
       } else {
         message.error('Đăng nhập thất bại!', 3);
       }
@@ -71,7 +69,7 @@ export default function LoginPage() {
   };
 
   if (isAuth) {
-    return <Navigate to={hasPermission(user, ADMIN_ACCESS) ? '/admin' : (returnPath ?? '/')} replace />;
+    return <Navigate to={signedInDestination(user, returnPath ?? '/')} replace />;
   }
 
   return (

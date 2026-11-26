@@ -1,7 +1,7 @@
 import AdminResult from '@/pages/Admin/AdminResult';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAppSelector } from '@/store/hooks';
-import { ADMIN_ACCESS, hasPermission, type RequiredPermission } from '@/config/access';
+import { signedInDestination, hasPermission, type RequiredPermission } from '@/config/access';
 type Props = { isPrivate?: boolean; redirectPath?: string; requiredPermission?: RequiredPermission };
 export default function RouteGuard({ isPrivate, redirectPath = '/', requiredPermission }: Props) {
   const { isAuth, user } = useAppSelector(state => state.auth);
@@ -9,7 +9,7 @@ export default function RouteGuard({ isPrivate, redirectPath = '/', requiredPerm
   // Login sends the visitor back here after authentication; the path is re-validated there.
   const attemptedPath = `${location.pathname}${location.search}${location.hash}`;
   if (isPrivate === true && !isAuth) return <Navigate to="/login" replace state={{ from: attemptedPath }} />;
-  if (isPrivate === false && isAuth) return <Navigate to={hasPermission(user, ADMIN_ACCESS) ? '/admin' : redirectPath} replace />;
+  if (isPrivate === false && isAuth) return <Navigate to={signedInDestination(user, redirectPath)} replace />;
   if (requiredPermission && !hasPermission(user, requiredPermission)) return location.pathname.startsWith('/admin') ? <AdminResult status={403} /> : <Navigate to={redirectPath} replace />;
   return <Outlet />;
 }

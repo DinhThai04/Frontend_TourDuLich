@@ -370,3 +370,8 @@ body:has(.admin-shell) :is(.admin-content,.ant-drawer-body,.ant-select-dropdown 
 .admin-top-actions .ant-badge { margin-block: 4px; }
 .admin-breadcrumb > a { max-width: min(40vw,380px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-form-actions { display: flex; justify-content: flex-end; }
+
+.guide-call-link { display: none; }
+@media (pointer: coarse) and (max-width: 991px) {
+  .guide-call-link { display: inline; color: #0f5132; font-weight: 600; }
+}
