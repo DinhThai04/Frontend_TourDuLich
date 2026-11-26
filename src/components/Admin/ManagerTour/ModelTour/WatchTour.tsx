@@ -140,7 +140,6 @@ const WatchTour: React.FC<WatchTourProps> = ({ data }) => {
               padding: '12px',
               background: '#f8f9fa',
               borderRadius: '8px',
-              borderLeft: '4px solid #1890ff'
             }}>
               {data?.tourProgram || 'N/A'}
             </div>

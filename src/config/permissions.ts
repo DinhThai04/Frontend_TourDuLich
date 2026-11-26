@@ -10,38 +10,6 @@ export const ALL_PERMISSIONS = {
     REVIEW: { code: 'CHANGES_REVIEW', method: 'POST', apiPath: '/api/v1/booking/changes/{id}/review', module: 'BOOKING_CHANGES' },
     REFUND: { code: 'REFUNDS_RECORD', method: 'POST', apiPath: '/api/v1/booking/changes/{id}/refund', module: 'BOOKING_CHANGES' },
   },
-  AUTH: {
-    LOGIN: {
-      code: 'AUTH_LOGIN',
-      method: 'POST',
-      apiPath: '/api/v1/auth/users/login',
-      module: 'AUTH',
-    },
-    INTROSPECT: {
-      code: 'AUTH_INTROSPECT',
-      method: 'POST',
-      apiPath: '/api/v1/auth/users/introspect',
-      module: 'AUTH',
-    },
-    REFRESH_TOKEN: {
-      code: 'AUTH_REFRESH_TOKEN',
-      method: 'POST',
-      apiPath: '/api/v1/auth/users/refresh',
-      module: 'AUTH',
-    },
-    LOGOUT: {
-      code: 'AUTH_LOGOUT',
-      method: 'POST',
-      apiPath: '/api/v1/auth/users/logout',
-      module: 'AUTH',
-    },
-    CHANGE_PASSWORD: {
-      code: 'AUTH_CHANGE_PASSWORD',
-      method: 'POST',
-      apiPath: '/api/v1/auth/users/Change-password',
-      module: 'AUTH',
-    },
-  },
   PRICE: {
     GET_LIST: {
       code: 'PRICE_GET_LIST',
@@ -201,26 +169,6 @@ export const ALL_PERMISSIONS = {
     },
   },
 
-  CUSTOMERS: {
-    GET_DETAIL: {
-      code: 'CUSTOMERS_GET_DETAIL',
-      method: 'GET',
-      apiPath: '/api/v1/booking/customer/{id}',
-      module: 'CUSTOMERS',
-    },
-    GET_ALL: {
-      code: 'CUSTOMERS_GET_ALL',
-      method: 'GET',
-      apiPath: '/api/v1/booking/customer/all',
-      module: 'CUSTOMERS',
-    },
-    CREATE: {
-      code: 'CUSTOMERS_CREATE',
-      method: 'POST',
-      apiPath: '/api/v1/booking/customer/create',
-      module: 'CUSTOMERS',
-    },
-  },
 
   TOURS: {
     GET_DETAIL: {
@@ -360,14 +308,6 @@ export const ALL_PERMISSIONS = {
     },
   },
 
-  VEHICLES: {
-    GET_LIST: {
-      code: 'VEHICLES_GET_LIST',
-      method: 'GET',
-      apiPath: '/api/v1/tour/vehicles/list',
-      module: 'VEHICLES',
-    },
-  },
   PAYMENT_RECONCILIATION: {
     GET_LIST: { code: 'RECONCILIATION_READ', method: 'GET', apiPath: '/api/v1/payment/reconciliation', module: 'PAYMENT_RECONCILIATION' },
     HISTORY: { code: 'RECONCILIATION_HISTORY', method: 'GET', apiPath: '/api/v1/payment/reconciliation/{txnRef}/history', module: 'PAYMENT_RECONCILIATION' },

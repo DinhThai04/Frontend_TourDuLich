@@ -80,7 +80,7 @@ const ManagerUser: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 16, minHeight: '80vh' }}>
+    <div>
       {isListCapped(data) && (
         <Alert
           type="warning"

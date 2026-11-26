@@ -1,26 +1,27 @@
+import AdminPageHeader from '../Shared/AdminPageHeader';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import type { TourFormValues } from '@/types/adminForms';
 import React, { useState } from 'react';
-import { ProTable, type ProColumns } from '@ant-design/pro-components';
-import { Button, Space, message, Modal, Alert, Input } from 'antd';
-import { EyeOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { type ProColumns } from '@ant-design/pro-components';
+import { Button, message, Modal, Alert, Input, Select } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import AddNewTour from './ModelTour/AddNewTour';
 import EditTour from './ModelTour/EditTour';
 import type { ITour, TourRequest } from '@/types/Tour';
-import { addTour, getAllTours, updateTour, retryTourImages } from '@/services/tourServices';
+import { addTour, deleteTour, getAllTours, updateTour, retryTourImages } from '@/services/tourServices';
 import { mediaError, submitTourMedia } from '@/utils/tourMedia';
 import TourMediaCleanup from './TourMediaCleanup';
-import { useNavigate } from 'react-router-dom';
-import WatchTour from './ModelTour/WatchTour';
+import { Link } from 'react-router-dom';
+import RowActions from '../Shared/RowActions';
 import { useHasPermission } from '@/config/useHasPermission';
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { isApiSuccess } from '@/utils/apiResult';
-import { isListCapped, TOUR_LIST_CAP } from '@/utils';
+import { formatCurrencyVND, isListCapped, TOUR_LIST_CAP } from '@/utils';
 import { useApiQuery } from '@/hooks';
 
 const ManagerTourList: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
-  const [openWatch, setOpenWatch] = useState(false);
   const [selectedTour, setSelectedTour] = useState<ITour | null>(null);
   const [pendingCreatedTour, setPendingCreatedTour] = useState<ITour | null>(null);
   const [openMedia, setOpenMedia] = useState(false);
@@ -30,12 +31,11 @@ const ManagerTourList: React.FC = () => {
     tourTitle: '',
     tourProgram: '',
   });
-  const navigate = useNavigate();
-  const canView = useHasPermission(ALL_PERMISSIONS.TOURS.GET_DETAIL);
+  const [origin, setOrigin] = useState<string>();
+  const [destination, setDestination] = useState<string>();
   const canCreate = useHasPermission(ALL_PERMISSIONS.TOURS.CREATE);
   const canUpdate = useHasPermission(ALL_PERMISSIONS.TOURS.UPDATE);
   const canDelete = useHasPermission(ALL_PERMISSIONS.TOURS.DELETE);
-  const canViewItinerary = useHasPermission(ALL_PERMISSIONS.ITINERARIES.GET_BY_TOUR);
   const canViewDepartures = useHasPermission(ALL_PERMISSIONS.TOUR_DEPARTURES.GET_BY_TOUR);
 
   const { data: dataTour = [], loading, error: loadError, refresh } = useApiQuery(async () => {
@@ -45,8 +45,9 @@ const ManagerTourList: React.FC = () => {
   });
 
   const visibleTours = dataTour.filter((tour) =>
-    (!filters.tourTitle || (tour.tourTitle ?? '').toLowerCase().includes(filters.tourTitle.toLowerCase())) &&
-    (!filters.tourProgram || (tour.tourProgram ?? '').toLowerCase().includes(filters.tourProgram.toLowerCase())),
+    (!origin || tour.departureCity?.city === origin) && (!destination || tour.destinationCity?.city === destination) &&
+    (!filters.tourTitle || `${tour.id} ${tour.tourTitle} ${tour.tourProgram}`.toLowerCase().includes(filters.tourTitle.toLowerCase())),
+
   );
 
   const handleAdd = async (values: TourFormValues) => {
@@ -131,127 +132,37 @@ const ManagerTourList: React.FC = () => {
   };
 
   const columns: ProColumns<ITour>[] = [
-    {
-      title: 'Tên tour',
-      dataIndex: 'tourTitle',
-      key: 'tourTitle',
-      width: 190,
-      copyable: true,
-      ellipsis: true,
-    },
-    {
-      title: 'Chương trình',
-      dataIndex: 'tourProgram',
-      key: 'tourProgram',
-      width: 200,
-      ellipsis: true,
-    },
-    {
-      title: 'Điểm đi → đến',
-      key: 'location',
-      width: 220,
-      renderText: (_, r) => `${r.departureCity.city} → ${r.destinationCity.city}`,
-    },
-    {
-      title: 'Lịch trình',
-      key: 'schedule',
-      width: 100,
-      align: 'center',
-      render: (_, r) =>
-        canViewItinerary ? (
-          <Button
-            type="link"
-            aria-label="Xem lịch trình"
-            icon={<EyeOutlined />}
-            onClick={() => {
-              navigate(`/admin/managerTour/itinerary?tourId=${r.id}`);
-            }}
-          />
-        ) : (
-          '—'
-        ),
-    },
-    {
-      title: 'Ngày khởi hành',
-      key: 'tourDeparture',
-      width: 100,
-      align: 'center',
-      render: (_, r) =>
-        canViewDepartures ? (
-          <Button
-            type="link"
-            aria-label="Xem ngày khởi hành"
-            icon={<EyeOutlined />}
-            onClick={() => {
-              navigate(`/admin/managerTour/tourDeparture?tourId=${r.id}`);
-            }}
-          />
-        ) : (
-          '—'
-        ),
-    },
-    // {
-    //   title: 'Hình ảnh',
-    //   dataIndex: 'imageUrls',
-    //   key: 'imageUrls',
-    //   width: 180,
-    //   render: (_, r) =>
-    //     r.imageIds?.length ? (
-    //       <Image.PreviewGroup>
-    //         <Space wrap>
-    //           {r.imageIds.slice(0, 3).map((url: string, i: number) => (
-    //             <Image
-    //               key={i}
-    //               src={url}
-    //               width={48}
-    //               height={48}
-    //               style={{ objectFit: 'cover', borderRadius: 8 }}
-    //             />
-    //           ))}
-    //           {r.imageIds.length > 3 ? <span>+{r.imageIds.length - 3}</span> : null}
-    //         </Space>
-    //       </Image.PreviewGroup>
-    //     ) : (
-    //       <span>—</span>
-    //     ),
-    // },
-    {
-      title: 'Hành động',
-      key: 'action',
-      valueType: 'option',
-      width: 150,
-      render: (_, r) => (
-        <Space>
-          {canView && (
-            <Button
-              type="link"
-              aria-label={`Xem chi tiết tour ${r.tourTitle}`}
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setSelectedTour(r);
-                setOpenWatch(true);
-              }}
-            />
-          )}
-
-          {canUpdate && (
-            <Button
-              type="link"
-              aria-label={`Sửa tour ${r.tourTitle}`}
-              icon={<EditOutlined />}
-              onClick={() => {
-                setSelectedTour(r);
-                setOpenEdit(true);
-              }}
-            />
-          )}
-        </Space>
-      ),
-    },
+    { title: 'Tour', render: (_, row) => <div className="admin-tour-cell">
+      {row.imageIds?.[0] && <img loading="lazy" src={row.imageIds[0]} alt="" width={56} height={40} />}
+      <div><Link to={`/admin/tours/${row.id}`}>{row.tourTitle}</Link><div className="text-xs text-slate-600">#{row.id} · {row.tourProgram}</div></div>
+    </div> },
+    { title: 'Hành trình', render: (_, row) => `${row.departureCity?.city || '—'} → ${row.destinationCity?.city || '—'}` },
+    { title: 'Thời lượng', responsive: ['lg'], render: (_, row) => `${row.duration} ngày ${Math.max(0, row.duration - 1)} đêm` },
+    { title: 'Giá từ', align: 'right', render: (_, row) => formatCurrencyVND(row.basePrice) },
+    { title: 'Lịch khởi hành', render: (_, row) => canViewDepartures && <Link to={`/admin/tours/${row.id}/departures`}>Xem lịch</Link> },
+    { title: 'Thao tác', width: 136, render: (_, row) => <RowActions subject={`tour #${row.id}`} href={`/admin/tours/${row.id}`}
+      items={[...(canUpdate ? [{ key: 'edit', label: 'Sửa', onClick: () => { setSelectedTour(row); setOpenEdit(true); } }] : []),
+        ...(canDelete ? [{ key: 'delete', label: 'Xóa', danger: true, onClick: () => Modal.confirm({
+          title: `Xóa tour #${row.id}?`,
+          content: 'Lịch trình của tour sẽ bị xóa. Tour đã có lịch khởi hành cần xử lý các lịch trước.',
+          okText: 'Xóa tour', cancelText: 'Hủy', okButtonProps: { danger: true },
+          onOk: async () => {
+            try {
+              const result = await deleteTour(row.id);
+              if (!isApiSuccess(result)) throw new Error(result.message || 'Chưa xóa được tour');
+              message.success('Đã xóa tour');
+              await refresh();
+            } catch (error) {
+              message.error(mediaError(error));
+              throw error;
+            }
+          },
+        }) }] : [])]} /> },
   ];
 
   return (
-    <>
+    <div className="admin-dashboard">
+      <AdminPageHeader title="Tour" description="Quản lý danh mục và mở hồ sơ từng tour." />
       {loadError && (
         <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
       )}
@@ -263,23 +174,7 @@ const ManagerTourList: React.FC = () => {
           message={`Danh sách chỉ hiển thị ${TOUR_LIST_CAP} tour gần nhất; tour cũ hơn cần được quản lý qua tìm kiếm của khách hàng hoặc API phân trang.`}
         />
       )}
-      <Space wrap style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Tìm theo tên tour"
-          value={filters.tourTitle}
-          onChange={(e) => setFilters((current) => ({ ...current, tourTitle: e.target.value }))}
-          allowClear
-          style={{ width: 240 }}
-        />
-        <Input
-          placeholder="Tìm theo chương trình"
-          value={filters.tourProgram}
-          onChange={(e) => setFilters((current) => ({ ...current, tourProgram: e.target.value }))}
-          allowClear
-          style={{ width: 240 }}
-        />
-      </Space>
-      <ProTable
+      <ProTable filterKey={JSON.stringify([filters, origin, destination])}
         headerTitle="Danh sách Tour"
         rowKey="id"
         columns={columns}
@@ -288,7 +183,13 @@ const ManagerTourList: React.FC = () => {
         search={false}
         pagination={{ pageSize: 10, showSizeChanger: true }}
         toolBarRender={() => [
-          ...((canUpdate || canDelete) ? [<Button key="media" onClick={() => setOpenMedia(true)}>Ảnh đã gỡ</Button>] : []),
+          <Input key="keyword" allowClear aria-label="Tìm tour" placeholder="Tên, mã tour hoặc chương trình" value={filters.tourTitle}
+            onChange={event => setFilters(current => ({ ...current, tourTitle: event.target.value }))} />,
+          <Select key="origin" allowClear placeholder="Điểm đi" value={origin} onChange={setOrigin}
+            options={[...new Set(dataTour.map(tour => tour.departureCity?.city).filter(Boolean))].map(value => ({ value, label: value }))} />,
+          <Select key="destination" allowClear placeholder="Điểm đến" value={destination} onChange={setDestination}
+            options={[...new Set(dataTour.map(tour => tour.destinationCity?.city).filter(Boolean))].map(value => ({ value, label: value }))} />,
+          ...((canUpdate || canDelete) ? [<Button key="media" onClick={() => setOpenMedia(true)}>Tệp ảnh đã gỡ khỏi tour</Button>] : []),
           ...(canCreate ? [
                 <Button
                   key="add"
@@ -336,21 +237,7 @@ const ManagerTourList: React.FC = () => {
       >
         <EditTour data={selectedTour} isEdit={true} onSubmit={handleEdit} onSavingChange={setSavingEdit} />
       </Modal>
-      <Modal
-        title={`Thông tin Tour: ${selectedTour?.tourTitle || ''}`}
-        open={openWatch}
-        onCancel={() => {
-          setOpenWatch(false);
-          setSelectedTour(null);
-        }}
-        footer={null}
-        destroyOnHidden
-        centered
-        width={900}
-      >
-        <WatchTour data={selectedTour} />
-      </Modal>
-    </>
+    </div>
   );
 };
 

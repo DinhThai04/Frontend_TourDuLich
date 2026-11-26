@@ -1,5 +1,6 @@
+import { AdminTable as Table } from '@/components/Admin/Shared/AdminTable';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Image, Modal, Space, Table, Tag, message } from 'antd';
+import { Alert, Button, Image, Modal, Space, Tag, message } from 'antd';
 import { deleteDetachedImage, getDetachedImages, type DetachedImage } from '@/services/tourMediaServices';
 import { mediaError, pageWithinRange } from '@/utils/tourMedia';
 

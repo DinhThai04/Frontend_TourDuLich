@@ -21,7 +21,7 @@ const uiUrl = dataUrl(`import React from ${JSON.stringify(reactUrl)};
   export const message={success(){}};`);
 const icons = ['MenuFoldOutlined','MenuUnfoldOutlined','UserOutlined','GlobalOutlined','ScheduleOutlined',
   'StarOutlined','UnorderedListOutlined','CalendarOutlined','EnvironmentOutlined','UsergroupAddOutlined',
-  'SafetyOutlined','GiftOutlined','FieldTimeOutlined','MoneyCollectOutlined','DashboardOutlined'];
+  'SafetyOutlined','FileTextOutlined','SwapOutlined','TagsOutlined','InboxOutlined','CompassOutlined','FieldTimeOutlined','DashboardOutlined'];
 const iconsUrl = dataUrl(icons.map(name => `export const ${name}=()=>null;`).join('\n'));
 const routerUrl = dataUrl(`import React from ${JSON.stringify(reactUrl)};
   export const Link=({to,children})=>React.createElement('a',{href:to},children);

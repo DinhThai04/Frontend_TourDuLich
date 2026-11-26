@@ -1,9 +1,12 @@
+import RowActions from '../Shared/RowActions';
+import AdminPageHeader from '../Shared/AdminPageHeader';
+import { AdminStatus } from '../Shared/AdminStatus';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import type { LocationFormValues } from '@/types/adminForms';
 import React, { useState } from 'react';
-import { Button, Input, Space, message, Modal, Image, Tag, Alert } from 'antd'; // Thêm Image, Tag
-import { ProTable } from '@ant-design/pro-components';
+import { Button, Input, message, Modal, Image, Alert } from 'antd'; // Thêm Image, Tag
 import type { ProColumns } from '@ant-design/pro-components';
-import { EditOutlined, PlusOutlined, FileImageOutlined } from '@ant-design/icons';
+import { PlusOutlined, FileImageOutlined } from '@ant-design/icons';
 import EditLocation from './ModelLocation/Editlocation';
 import AddLocation from './ModelLocation/AddLocation';
 import type { AddLocationRequest, ILocation } from '@/types/Tour';
@@ -91,7 +94,7 @@ const ManagerLocation: React.FC = () => {
       title: 'Loại',
       dataIndex: 'type',
       render: (_, record) => (
-        <Tag color={record.type === 'DESTINATION' ? 'blue' : 'green'}>{record.type === 'DESTINATION' ? 'Điểm đến' : 'Điểm khởi hành'}</Tag>
+        <AdminStatus tone={record.type === 'DESTINATION' ? 'info' : 'neutral'}>{record.type === 'DESTINATION' ? 'Điểm đến' : 'Điểm khởi hành'}</AdminStatus>
       ),
     },
     // --- CỘT ẢNH MỚI ---
@@ -104,7 +107,7 @@ const ManagerLocation: React.FC = () => {
         record.img ? (
           <Image
             width={80}
-            height={50}
+            height={42}
             src={record.img}
             style={{ objectFit: 'cover', borderRadius: 4 }}
             placeholder={<Image preview={false} src={record.img} width={80} />}
@@ -113,7 +116,7 @@ const ManagerLocation: React.FC = () => {
           <div
             style={{
               width: 80,
-              height: 50,
+              height: 42,
               background: '#f0f0f0',
               display: 'flex',
               alignItems: 'center',
@@ -132,47 +135,31 @@ const ManagerLocation: React.FC = () => {
       key: 'actions',
       width: 150,
       hideInTable: !canUpdate,
-      render: (_, record) => (
-        <Space>
-          {canUpdate && (
-            <Button
-              type="text"
-              aria-label="Sửa địa điểm"
-              icon={<EditOutlined style={{ color: '#1890ff', fontSize: 18 }} />}
-              onClick={() => {
-                setEditingDest(record);
-                setOpenEdit(true);
-              }}
-            />
-          )}
-        </Space>
-      ),
+      render: (_, record) => canUpdate && <RowActions subject={`điểm đến #${record.id}`} items={[
+        { key: 'edit', label: 'Sửa', onClick: () => { setEditingDest(record); setOpenEdit(true); } },
+      ]} />,
     },
   ];
 
   return (
-    <div>
+    <div className="admin-dashboard">
+      <AdminPageHeader title="Điểm đến" description="Quản lý điểm đi và điểm đến trong danh mục tour." />
       {loadError && (
         <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
       )}
-      {/* Search */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        <Input
-          placeholder="Tìm theo thành phố"
-          value={searchCity}
-          onChange={(e) => setSearchCity(e.target.value)}
-          style={{ width: 240 }}
-        />
-      </div>
-
       {/* Table */}
-      <ProTable<ILocation>
+      <ProTable<ILocation> filterKey={JSON.stringify([searchCity])}
+
         columns={columns}
         rowKey="id"
         dataSource={filteredData}
         loading={loading}
         search={false}
         headerTitle="Danh sách điểm đến"
+        className="admin-location-table"
+        size="small"
+        toolbar={{ filter: <Input aria-label="Tìm theo thành phố" placeholder="Tìm theo thành phố" allowClear
+          value={searchCity} onChange={event => setSearchCity(event.target.value)} style={{ width: 280 }} /> }}
         toolBarRender={() => canCreate ? [
           <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => setOpenAdd(true)}>
             Thêm mới

@@ -1,8 +1,10 @@
+import RowActions from '../Shared/RowActions';
+import AdminPageHeader from '../Shared/AdminPageHeader';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import type { PriceFormValues } from '@/types/adminForms';
 import React, { useState } from 'react';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Modal, Space, message, Alert } from 'antd';
-import { ProTable } from '@ant-design/pro-components';
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Modal, message, Alert } from 'antd';
 import type { ProColumns } from '@ant-design/pro-components';
 import type { AddTourPriceRequest, ITourPrice } from '@/types/Tour';
 import { addPrice, getAllPrice, updateTourPrice } from '@/services/tourServices';
@@ -94,11 +96,11 @@ const ManagerPrice: React.FC = () => {
 
   const columns: ProColumns<ITourPrice>[] = [
     {
-      title: 'STT',
+      title: 'Mã combo',
       key: 'index',
-      width: 60,
+      width: 96,
       align: 'center',
-      render: (_, __, index) => index + 1,
+      render: (_, row) => `#${row.id}`,
     },
     { title: 'Người lớn', dataIndex: 'adultPrice', render: (val) => formatCurrencyVND(Number(val)) },
     { title: 'Trẻ em', dataIndex: 'childPrice', render: (val) => formatCurrencyVND(Number(val)) },
@@ -114,20 +116,9 @@ const ManagerPrice: React.FC = () => {
       key: 'actions',
       width: 150,
       search: false,
-      render: (_, record) =>
-        canUpdate ? (
-          <Space>
-            <Button
-              type="text"
-              aria-label={`Sửa bảng giá ${record.id}`}
-              icon={<EditOutlined style={{ color: '#1890ff', fontSize: 18 }} />}
-              onClick={() => {
-                setSelectedTourPrice(record);
-                setOpenEdit(true);
-              }}
-            />
-          </Space>
-        ) : null,
+      render: (_, record) => canUpdate && <RowActions subject={`bảng giá #${record.id}`} items={[
+        { key: 'edit', label: 'Sửa', onClick: () => { setSelectedTourPrice(record); setOpenEdit(true); } },
+      ]} />,
     },
   ];
 
@@ -137,7 +128,8 @@ const ManagerPrice: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="admin-dashboard">
+      <AdminPageHeader title="Bảng giá" description="Quản lý giá theo nhóm hành khách." />
       {loadError && (
         <Alert type="error" showIcon style={{ marginBottom: 16 }} message={loadError} />
       )}
