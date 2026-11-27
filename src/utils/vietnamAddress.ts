@@ -13,7 +13,7 @@ export function formatVietnamAddress(value?: AddressDraft): string | undefined {
   const province = provinces.find(item => item.value === value?.province);
   const ward = province?.wards.find(item => item.value === value?.ward);
   const street = value?.street?.trim();
-  if (!province || !ward || !street || !streetAddress.test(street)) return;
+  if (!province || !ward || !street || !streetAddress.test(street) || !/[\p{L}\p{N}]/u.test(street)) return;
   const address = [street, ward.label, province.label].join(', ');
   if (address.length <= 255) return address;
 }

@@ -1,10 +1,11 @@
+import { lazy } from 'react';
 import { Tabs } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import { useHasPermission } from '@/config/useHasPermission';
 import { ALL_PERMISSIONS as P } from '@/config/permissions';
 import AdminPageHeader from '@/components/Admin/Shared/AdminPageHeader';
-import ManagerRole from '@/components/Admin/ManagerTour/ManagerRole';
-import ManagerRoleUser from '@/components/Admin/ManagerRoleUser/ManagerRoleUser';
+const ManagerRole = lazy(() => import('@/components/Admin/ManagerTour/ManagerRole'));
+const ManagerRoleUser = lazy(() => import('@/components/Admin/ManagerRoleUser/ManagerRoleUser'));
 
 export default function AuthorizationPage() {
   const roles = useHasPermission(P.ROLES.GET_LIST);

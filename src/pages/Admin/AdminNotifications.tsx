@@ -8,7 +8,7 @@ import { useApiQuery } from '@/hooks';
 import { reconciliationServices } from '@/services/reconciliationServices';
 import { bookingChanges } from '@/services/bookingChangeServices';
 import axios from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 
 export default function AdminNotifications({ onCount }: { onCount: (count: number, partial: boolean) => void }) {
   const payment = useHasPermission(P.PAYMENT_RECONCILIATION.GET_LIST);

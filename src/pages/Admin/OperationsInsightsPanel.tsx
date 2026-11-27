@@ -10,7 +10,7 @@ import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Se
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import axiosClient from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 import { useApiQuery } from '@/hooks';
 import { formatCurrencyVND } from '@/utils';
 
@@ -174,6 +174,8 @@ const auditLabels: Record<string, string> = {
 const auditActions: Record<string, string> = {
   RECONCILIATION_RECORDED: 'Ghi nhận kết quả đối soát', REFUND_CONFIRMED: 'Ghi nhận khoản hoàn',
   PRICE_UPDATED: 'Cập nhật giá', GUIDE_ASSIGNED: 'Phân công hướng dẫn viên',
+  DEPARTURE_CONFIRMED: 'Xác nhận xuất phát', DEPARTURE_INCIDENT_DECLARED: 'Khai báo sự cố chuyến',
+  PICKUP_ASSIGNED_BY_ADMIN: 'Chọn điểm đón thay khách',
   GUIDE_UNASSIGNED: 'Gỡ phân công', DEPARTURE_COMPLETED: 'Chốt chuyến', DEPARTURE_CANCELLED: 'Hủy chuyến',
   ACCOUNT_STATUS_CHANGED: 'Cập nhật trạng thái tài khoản', ROLE_PERMISSION_CHANGED: 'Đổi quyền',
   REVIEW_MODERATED: 'Duyệt đánh giá', GUIDE_CONFLICT_OVERRIDDEN: 'Phân công trùng lịch',

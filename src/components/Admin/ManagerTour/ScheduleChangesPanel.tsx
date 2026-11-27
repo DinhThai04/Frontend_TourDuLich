@@ -33,9 +33,10 @@ const PROPOSAL_STATUS: Record<string, { color: string; label: string }> = {
 };
 const proposalStatus = (status?: string | null) =>
   (status && PROPOSAL_STATUS[status]) || { color: 'default', label: status || 'Không xác định' };
-export default function ScheduleChangesPanel({ tourId, focusRequestId, onChanged }: {
+export default function ScheduleChangesPanel({ tourId, focusRequestId, incidentDepartureId, onChanged }: {
   tourId: number;
   focusRequestId?: number;
+  incidentDepartureId?: number;
   onChanged: () => void;
 }) {
   const read = useHasPermission(ALL_PERMISSIONS.BOOKING_CHANGES.READ);
@@ -86,6 +87,13 @@ export default function ScheduleChangesPanel({ tourId, focusRequestId, onChanged
     void refresh();
     return () => { requestId.current += 1; };
   }, [refresh]);
+  useEffect(() => {
+    if (!create || !incidentDepartureId || !departures.some(row =>
+      Number(row.id) === incidentDepartureId && row.operationalStatus === 'OPEN')) return;
+    form.setFieldValue('sourceId', incidentDepartureId);
+    setKey(createClientKey());
+    setOpen(true);
+  }, [create, departures, form, incidentDepartureId]);
   async function prepare() {
     let values: ShopForm;
     try { values = await form.validateFields(); } catch { return; }
@@ -149,7 +157,7 @@ export default function ScheduleChangesPanel({ tourId, focusRequestId, onChanged
     <Modal centered
         title="Sự cố khiến chuyến cũ không thể khởi hành" open={open} onCancel={() => setOpen(false)} footer={null} maskClosable={!busy} closable={!busy} width={760}>
       <Form form={form} layout="vertical" onValuesChange={() => setPreview(null)}>
-        <Form.Item name="sourceId" label="Lịch cũ" rules={[{ required: true }]}><Select options={departures.map(d => ({ value: Number(d.id), label: `${d.tourCode} — ${dayjs(d.departureDate).format('HH:mm DD/MM/YYYY')}` }))} /></Form.Item>
+        <Form.Item name="sourceId" label="Lịch cũ" rules={[{ required: true }]}><Select options={departures.filter(d => d.operationalStatus === 'OPEN').map(d => ({ value: Number(d.id), label: `${d.tourCode} — ${dayjs(d.departureDate).format('HH:mm DD/MM/YYYY')}` }))} /></Form.Item>
         <Form.Item name="reasonCode" label="Nguyên nhân bắt buộc" rules={[{ required: true }]}><Select options={[{ value: 'NATURAL_DISASTER', label: 'Thiên tai' }, { value: 'OFFICIAL_SAFETY_RESTRICTION', label: 'Hạn chế an toàn từ cơ quan có thẩm quyền' }, { value: 'UNAVOIDABLE_TRANSPORT_DISRUPTION', label: 'Gián đoạn vận chuyển bất khả kháng' }]} /></Form.Item>
         <Form.Item name="reason" label="Mô tả sự cố và tác động tới chuyến cũ" rules={[{ required: true, min: 20 }]}><Input.TextArea maxLength={1000} /></Form.Item>
         <Form.Item name="evidence" label="Bằng chứng / số văn bản / nguồn thông báo đã kiểm chứng" rules={[{ required: true, min: 10 }]}><Input.TextArea maxLength={1000} /></Form.Item>

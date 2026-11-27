@@ -1,11 +1,12 @@
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { Alert, Button, Card, Form, Input, Modal, Spin, TimePicker } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Spin, TimePicker, message } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import DepartureContext from './DepartureContext';
 import type { ITourDeparture } from '@/types/Tour';
 import { useApiQuery } from '@/hooks';
 import { getMeetingPointOptions, saveMeetingPointOptions, type MeetingPoint } from '@/services/tourServices';
+import { announceBookingPickup } from '@/services/bookingServices';
 import { errorMessage } from '@/utils/errors';
 
 export default function EditMeetingPoint({ departure, onClose }: { departure: ITourDeparture; onClose: () => void }) {
@@ -26,6 +27,19 @@ export default function EditMeetingPoint({ departure, onClose }: { departure: IT
     try {
       const result = await saveMeetingPointOptions(departureId, points ?? []);
       if (result.code !== 1000) throw new Error(result.message || 'Chưa lưu được các điểm tập trung');
+      if (result.result.length) {
+        try {
+          const announcement = await announceBookingPickup(departureId);
+          if (announcement.code !== 1000) throw new Error(announcement.message || 'Chưa lập được email thông báo');
+          const { queued, alreadyQueued, withoutEmail } = announcement.result;
+          message.success(queued ? `Đã đưa ${queued} email thông báo vào hàng đợi.`
+            : alreadyQueued ? 'Đã có thông báo cho cấu hình điểm đón hiện tại.' : 'Đã lưu điểm đón.');
+          if (withoutEmail) message.warning(`${withoutEmail} đơn chưa có email liên hệ hợp lệ.`);
+        } catch (failure) {
+          setSaveError(`Đã lưu điểm đón. Email chưa lập xong. ${errorMessage(failure)} Bấm lại để thử tiếp.`);
+          return;
+        }
+      } else message.success('Đã lưu điểm đón.');
       onClose();
     } catch (failure) {
       setSaveError(errorMessage(failure));
@@ -33,10 +47,13 @@ export default function EditMeetingPoint({ departure, onClose }: { departure: IT
   }
 
   return <Modal open centered width={920} title="Điểm tập trung" onCancel={() => { if (!saving) onClose(); }}
-    onOk={() => form.submit()} confirmLoading={saving} okText="Lưu" cancelText="Đóng"
+    onOk={() => form.submit()} confirmLoading={saving} okText="Lưu và thông báo" cancelText="Đóng"
     okButtonProps={{ disabled: data === undefined || !!error }} closable={!saving} maskClosable={!saving}>
     <div className="admin-detail-grid">
       <section className="min-w-0">
+        <p className="mb-3 text-sm text-slate-600">
+          Khách chọn một điểm cho cả đoàn trong vé điện tử. Nếu đổi hoặc xóa điểm đã chọn, đơn sẽ hiện ở Hộp công việc để xác nhận lại.
+        </p>
         {loading && <Spin />}
         {(error || saveError) && <Alert className="!mb-3" type="error" showIcon message={error || saveError} />}
         {data !== undefined && !error && <Form form={form} layout="vertical" onFinish={save} initialValues={{ points: data }}>

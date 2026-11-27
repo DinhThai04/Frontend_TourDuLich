@@ -1,3 +1,4 @@
+import { formatVietnamAddress } from '@/utils/vietnamAddress';
 import type { FormInstance } from 'antd';
 import type { CustomersFormValues, PassengerFormValues, PassengerType, PersonalFormValues } from '@/types/Booking';
 import type { ITourPrice } from '@/types/Tour';
@@ -67,7 +68,7 @@ function BookingForm() {
   });
   const [initialCustomers] = useState<PassengerFormValues[]>(() => PARTY_TYPES.flatMap(type =>
     Array.from({ length: draftParty.counts[type] - (type === 'ADULT' && draftParty.includeBooker ? 1 : 0) }, (_, index) => ({
-      id: PARTY_TYPES.indexOf(type) * 40 + index + 1, type, fullName: '', birthDate: null, address: '',
+      id: PARTY_TYPES.indexOf(type) * 40 + index + 1, type, fullName: '', birthDate: null,
     })),
   ));
   const [departureError, setDepartureError] = useState<string | null>(null);
@@ -249,15 +250,19 @@ function BookingForm() {
       const p = personalForm?.getFieldsValue();
       const extras = customerForm.getFieldsValue().customers || [];
       const passengers = passengersForBooking<PassengerFormValues>(includeBooker,
-        { type: 'ADULT', fullName: p?.fullName ?? '', gender: p?.gender, birthDate: p?.birthDate ?? null, address: p?.address }, extras);
+        { type: 'ADULT', fullName: p?.fullName ?? '', gender: p?.gender, birthDate: p?.birthDate ?? null, addressDraft: p?.addressDraft }, extras);
       if (!passengers.length) throw new Error('Cần ít nhất một hành khách tham gia tour.');
       if (passengers.length > 40) throw new Error('Mỗi đơn chỉ nhận tối đa 40 hành khách.');
       if (availableSeats != null && passengers.length > availableSeats)
         throw new Error(`Chuyến đi chỉ còn ${availableSeats} chỗ nhưng đoàn có ${passengers.length} hành khách.`);
 
       const customers: CustomerRequest[] = passengers.map(c => {
-        if (!c.birthDate?.isValid() || !c.gender || !c.fullName?.trim()) throw new Error('Vui lòng nhập đầy đủ thông tin hành khách.');
-        return { fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, address: c.address, guardianName: c.guardianName, guardianPhone: c.guardianPhone };
+        const address = formatVietnamAddress(c.addressDraft);
+        if (!c.birthDate?.isValid() || !c.gender || !c.fullName?.trim() || !address) {
+          throw new Error('Vui lòng nhập đầy đủ thông tin hành khách.');
+        }
+        return { fullName: c.fullName.trim(), birthDate: c.birthDate, gender: c.gender, address,
+          guardianName: c.guardianName?.trim(), guardianPhone: c.guardianPhone?.trim() };
       });
 
       /** =====================================================

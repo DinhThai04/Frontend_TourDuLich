@@ -272,7 +272,7 @@ const ManagerBooking: React.FC = () => {
         pagination={adminPagination('đơn')}
       />
 
-      <Drawer width={640} className="admin-record-drawer" title={`Hồ sơ đặt chỗ #${detail?.id ?? ''}`}
+      <Drawer width="min(820px, 100vw)" className="admin-record-drawer" title={`Hồ sơ đặt chỗ #${detail?.id ?? ''}`}
         open={!!detail} onClose={closeBooking} destroyOnHidden>
         {detail && <div className="admin-dossier">
           <div className="admin-case-hero">

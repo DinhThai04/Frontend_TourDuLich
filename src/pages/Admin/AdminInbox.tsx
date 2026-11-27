@@ -3,7 +3,7 @@ import { Alert, Button, Card, DatePicker, Empty, Select, Space, Tabs, Tooltip, m
 import { ReloadOutlined } from '@ant-design/icons';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 import AdminLookup from '@/components/Admin/Shared/AdminLookup';
 import AdminPagination from '@/components/Admin/Shared/AdminPagination';
 import { useAdminPagination } from '@/components/Admin/Shared/useAdminPagination';
@@ -12,15 +12,24 @@ import { AdminStatus } from '@/components/Admin/Shared/AdminStatus';
 import { formatAdminDatetime } from '@/components/Admin/Shared/adminDate';
 import { useApiQuery } from '@/hooks';
 import { reconciliationServices } from '@/services/reconciliationServices';
+import { departureManifest, type DepartureAlert } from '@/services/departureManifest';
 import { bookingChanges } from '@/services/bookingChangeServices';
 import { formatCurrencyVND } from '@/utils';
 import { errorMessage } from '@/utils/errors';
 
-type Kind = 'PAYMENT' | 'CHANGE' | 'INTEGRITY';
-type Work = { id: string; kind: Kind; bookingId: number; subject: string; detail: string; createdAt?: string; href: string };
+type Kind = 'PAYMENT' | 'CHANGE' | 'INTEGRITY' | 'DEPARTURE';
+type Work = { id: string; kind: Kind; bookingId?: number; subject: string; detail: string; createdAt?: string; href: string };
 type Queue = { items: Work[]; total: number; hasNext: boolean };
 type Review = { checkedAt: string; items: { booking_id: number; issue: string }[] };
-const names: Record<Kind, string> = { PAYMENT: 'Đối soát', CHANGE: 'Yêu cầu dời lịch', INTEGRITY: 'Đơn cần rà soát' };
+const names: Record<Kind, string> = { PAYMENT: 'Đối soát', CHANGE: 'Yêu cầu dời lịch', INTEGRITY: 'Đơn cần rà soát', DEPARTURE: 'Vận hành chuyến' };
+const departureIssues: Record<DepartureAlert['issue'], string> = {
+  OVERDUE_UNCONFIRMED: 'Quá giờ, chưa xác nhận khởi hành',
+  MISSING_GUIDE: 'Chưa phân công hướng dẫn viên',
+  MISSING_VEHICLE: 'Chưa gán xe có sức chứa',
+  OVER_CAPACITY: 'Số khách vượt sức chứa xe',
+  MISSING_PICKUP: 'Đơn đã thanh toán chưa chọn điểm đón',
+  NEEDS_RECONFIRMATION: 'Điểm đón đã thay đổi, cần xác nhận lại',
+};
 const integrityPath = '/booking/operations/integrity';
 const issueLabels: Record<string, string> = {
   MISSING_PAID_INVOICE: 'Đã ghi nhận thanh toán nhưng thiếu hóa đơn',
@@ -28,11 +37,11 @@ const issueLabels: Record<string, string> = {
   OVERDUE_HOLD: 'Giữ chỗ đã quá hạn',
 };
 
-export default function AdminInbox({ payment, changes, integrity }: { payment: boolean; changes: boolean; integrity: boolean }) {
+export default function AdminInbox({ payment, changes, integrity, operations }: { payment: boolean; changes: boolean; integrity: boolean; operations: boolean }) {
   const { page, size, mode, change, tableRef } = useAdminPagination();
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab') === 'integrity' ? 'INTEGRITY' : params.get('category');
-  const kinds: Kind[] = [...(payment ? ['PAYMENT' as const] : []), ...(changes ? ['CHANGE' as const] : []), ...(integrity ? ['INTEGRITY' as const] : [])];
+  const kinds: Kind[] = [...(payment ? ['PAYMENT' as const] : []), ...(changes ? ['CHANGE' as const] : []), ...(operations ? ['DEPARTURE' as const] : []), ...(integrity ? ['INTEGRITY' as const] : [])];
   const kind = kinds.find(item => item === requested) ?? 'ALL';
   const [handler, setHandler] = useState('ALL');
   const [day, setDay] = useState<string>();
@@ -60,6 +69,19 @@ export default function AdminInbox({ payment, changes, integrity }: { payment: b
           id: `change-${row.id}`, kind: 'CHANGE', bookingId: row.booking_id, subject: `Yêu cầu #${row.id}`,
           detail: row.tour_title, createdAt: row.created_at,
           href: `/admin/managerTour/tourDeparture?tourId=${row.tour_id}&requestId=${row.id}`,
+        })) };
+      },
+      DEPARTURE: async index => {
+        if (!active) return { items: [], total: 0, hasNext: false };
+        const response = await departureManifest.alerts(index, size, bookingId, day);
+        if (response.code !== 1000) throw new Error(response.message);
+        const result = response.result;
+        return { total: result.total, hasNext: result.hasNext, items: result.items.map(row => ({
+          id: `departure-${row.departureId}-${row.issue}-${row.bookingId ?? 0}`,
+          kind: 'DEPARTURE', bookingId: row.bookingId ?? undefined, subject: row.code || `Lịch #${row.departureId}`,
+          detail: `${departureIssues[row.issue]}${row.issue === 'OVER_CAPACITY' ? ` (${row.passengers}/${row.vehicleCapacity} chỗ)` : ''} · ${row.title}`,
+          createdAt: row.departure,
+          href: `/admin/tours/${row.tourId}/departures?departureId=${row.departureId}&operation=1${row.bookingId ? `&pickupBookingId=${row.bookingId}` : ''}`,
         })) };
       },
       INTEGRITY: async () => ({ items: [], total: 0, hasNext: false }),
@@ -105,7 +127,7 @@ export default function AdminInbox({ payment, changes, integrity }: { payment: b
       limit -= first.total;
     }
     return { rows: (await Promise.all(slices)).flat(), current, total, queues, checkedAt: review?.checkedAt };
-  }, { deps: [kind, day, bookingId, handler, page, size, scanResult, payment, changes, integrity] });
+  }, { deps: [kind, day, bookingId, handler, page, size, scanResult, payment, changes, integrity, operations] });
 
   async function scan() {
     setScanning(true);
@@ -149,8 +171,8 @@ export default function AdminInbox({ payment, changes, integrity }: { payment: b
     {error && <Alert showIcon type="error" message={error} />}
     <AdminTable<Work> rowKey="id" pagination={false} loading={loading} dataSource={data?.rows}
       locale={{ emptyText: <Empty description="Không có việc cần xử lý trong bộ lọc này" /> }} columns={[
-        { title: 'Loại', render: (_, row) => <AdminStatus tone={row.kind === 'INTEGRITY' ? 'attention' : 'info'}>{names[row.kind]}</AdminStatus> },
-        { title: 'Đối tượng', render: (_, row) => <><strong>Đơn #{row.bookingId}</strong><div className="text-xs">{row.subject}</div></> },
+        { title: 'Loại', render: (_, row) => <AdminStatus tone={row.kind === 'INTEGRITY' || row.kind === 'DEPARTURE' ? 'attention' : 'info'}>{names[row.kind]}</AdminStatus> },
+        { title: 'Đối tượng', render: (_, row) => row.bookingId ? <><strong>Đơn #{row.bookingId}</strong><div className="text-xs">{row.subject}</div></> : <strong>{row.subject}</strong> },
         { title: 'Nội dung', dataIndex: 'detail' },
         { title: 'Tạo lúc', render: (_, row) => row.createdAt ? formatAdminDatetime(row.createdAt) : '—' },
         { title: 'Thao tác', render: (_, row) => <Link to={row.href}>Xử lý</Link> },

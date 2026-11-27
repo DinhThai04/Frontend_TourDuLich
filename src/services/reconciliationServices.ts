@@ -1,5 +1,5 @@
 import axiosClient from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 
 export type ReconciliationAction = 'UNPAID_CONFIRMED' | 'PAYMENT_FOUND' | 'REFUND_RECORDED';
 export type ReconciliationRow = {

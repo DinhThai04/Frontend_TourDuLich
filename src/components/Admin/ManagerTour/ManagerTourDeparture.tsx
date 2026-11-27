@@ -11,7 +11,7 @@ import { MoreOutlined, PlusOutlined, CalendarOutlined, TeamOutlined, Environment
 import { Button, Modal, message, Alert, DatePicker, Dropdown, Progress, Select, Space } from 'antd';
 import { type ProColumns } from '@ant-design/pro-components';
 import type { ITourDeparture } from '@/types/Tour';
-import { addTourDeparture, getAllTourDeparture, getDepartureHistoryByTourId, updateTourDeparture, getDepartureCapacity, getAllTours, getTourDepartureById } from '@/services/tourServices';
+import { addTourDeparture, getAllTourDeparture, getDepartureHistoryByTourId, updateTourDeparture, getDepartureCapacity, getAllTours, getTourDepartureById, openTourDeparture } from '@/services/tourServices';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useHasPermission } from '@/config/useHasPermission';
 import { ALL_PERMISSIONS } from '@/config/permissions';
@@ -35,6 +35,9 @@ export default function ManagerTourDeparture() {
   const search = new URLSearchParams(location.search);
   const tourId = Number(routeTourId ?? search.get('tourId')) || null;
   const focusDepartureId = Number(search.get('departureId')) || null;
+  const openOperation = search.get('operation') === '1';
+  const pickupBookingId = Number(search.get('pickupBookingId')) || undefined;
+  const incidentDepartureId = Number(search.get('incidentDepartureId')) || undefined;
   const focusRequestId = Number(search.get('requestId')) || undefined;
   const tourDeparturesPath = routeTourId ? `/admin/tours/${tourId}/departures` : tourId ? `/admin/managerTour/tourDeparture?tourId=${tourId}` : '/admin/departures';
   const [openAdd, setOpenAdd] = useState(false);
@@ -79,7 +82,7 @@ export default function ManagerTourDeparture() {
     try {
       const result = await addTourDeparture({ ...values, tourId: selectedTourId });
       if (result.code !== 1000) throw new Error('Chưa tạo được lịch');
-      setOpenAdd(false); message.success('Đã tạo lịch và tổng sức chứa'); await refresh(); return true;
+      setOpenAdd(false); message.success('Đã tạo lịch nháp. Thêm điểm tập trung để mở bán.'); await refresh(); return true;
     } catch (error) { message.error(errorText(error)); return false; }
   }
   async function loadCapacity(id: number) {
@@ -99,17 +102,19 @@ export default function ManagerTourDeparture() {
       setSelected(null); message.success('Đã cập nhật sức chứa/lịch'); await refresh(); return true;
     } catch (error) { message.error(errorText(error), 7); return false; }
   }
+  const openedManifest = manifestDeparture ?? (openOperation && canOperate ? data.find(row => Number(row.id) === focusDepartureId) : undefined);
   const departureStatus = (row: ITourDeparture) => {
+    if (row.operationalStatus === 'DRAFT') return 'Nháp';
     if (row.operationalStatus === 'CANCELLED') return 'Đã hủy';
     if (row.operationalStatus === 'SUSPENDED' || row.operationalStatus === 'REPLACEMENT_ONLY') return 'Tạm ẩn';
     const end = parseDate(row.returnDate), start = parseDate(row.departureDate);
-    if (end && +end < Date.now()) return 'Qua giờ về';
-    if (start && +start < Date.now()) return 'Đã khởi hành';
+    if (end && +end < Date.now()) return 'Qua giờ dự kiến về';
+    if (start && +start <= Date.now()) return 'Đến giờ dự kiến đi';
     if (isDepartureSalesClosed(row)) return 'Đã đóng đặt';
     if (row.availableSeats <= 0) return 'Đã đầy';
     return row.capacity && row.availableSeats / row.capacity <= 0.2 ? 'Gần đầy' : 'Mở bán';
   };
-  const statuses = ['Mở bán', 'Gần đầy', 'Đã đầy', 'Đã đóng đặt', 'Đã khởi hành', 'Qua giờ về', 'Tạm ẩn', 'Đã hủy'];
+  const statuses = ['Nháp', 'Mở bán', 'Gần đầy', 'Đã đầy', 'Đã đóng đặt', 'Đến giờ dự kiến đi', 'Qua giờ dự kiến về', 'Tạm ẩn', 'Đã hủy'];
   const visible = data.filter(row => {
     const date = adminDayKey(row.departureDate);
     return (!tourFilter || Number(row.tourId) === tourFilter) && (!status || departureStatus(row) === status) &&
@@ -127,9 +132,25 @@ export default function ManagerTourDeparture() {
     { title: 'Giá người lớn', align: 'right', responsive: ['lg'], render: (_, row) => row.tourPrice?.adultPrice == null ? '—' : formatCurrencyVND(row.tourPrice.adultPrice) },
     { title: 'Trạng thái', render: (_, row) => {
       const label = departureStatus(row);
-      return <AdminStatus tone={label === 'Mở bán' ? 'success' : label === 'Gần đầy' ? 'attention' : label === 'Đã hủy' ? 'danger' : label === 'Đã khởi hành' ? 'info' : 'neutral'}>{label}</AdminStatus>;
+      return <AdminStatus tone={label === 'Mở bán' ? 'success' : label === 'Gần đầy' ? 'attention' : label === 'Đã hủy' ? 'danger' : label === 'Đến giờ dự kiến đi' ? 'info' : 'neutral'}>{label}</AdminStatus>;
     } },
     { title: 'Thao tác', hideInTable: !canUpdate, render: (_, row) => canUpdate && <Space size={4}>
+      {row.operationalStatus === 'DRAFT' && <Button type="primary" size="small" onClick={() => Modal.confirm({
+        title: 'Mở bán lịch khởi hành?',
+        content: 'Lịch cần có ít nhất một điểm tập trung với địa chỉ và giờ có mặt.',
+        okText: 'Mở bán',
+        onOk: async () => {
+          try {
+            const response = await openTourDeparture(Number(row.id));
+            if (response.code !== 1000) throw new Error(response.message);
+            message.success('Đã mở bán lịch khởi hành');
+            await refresh();
+          } catch (error) {
+            message.error(errorText(error));
+            throw error;
+          }
+        },
+      })}>Mở bán</Button>}
       {canOperate && <Button type="link" size="small" onClick={() => setManifestDeparture(row)}>Vận hành</Button>}
       <Dropdown placement="bottomRight" rootClassName="admin-row-menu" getPopupContainer={trigger => trigger.ownerDocument.body} menu={{ items: [
       ...(canSeeBookings ? [{ key: 'bookings', icon: <TeamOutlined />, label: 'Xem đặt chỗ của lịch này', onClick: () => navigate(`/admin/managerBooking?departureId=${row.id}`) }] : []),
@@ -140,7 +161,15 @@ export default function ManagerTourDeparture() {
   return <>
     {!routeTourId && <AdminPageHeader title={focusDepartureId ? `Lịch khởi hành #${focusDepartureId}` : 'Lịch khởi hành'} description="Theo dõi lịch, sức chứa và điểm tập trung." />}
     {loadError && <Alert type="error" showIcon className="mb-4" message={loadError} />}
-    {manifestDeparture && <DepartureManifest key={manifestDeparture.id} departure={manifestDeparture} onClose={() => setManifestDeparture(undefined)} />}
+    {openedManifest && <DepartureManifest key={openedManifest.id} departure={openedManifest} initialPickupBookingId={pickupBookingId}
+      onClose={() => {
+        setManifestDeparture(undefined);
+        if (openOperation) {
+          search.delete('operation');
+          search.delete('pickupBookingId');
+          navigate({ pathname: location.pathname, search: search.toString() }, { replace: true });
+        }
+      }} />}
     {meetingDeparture && <EditMeetingPoint key={meetingDeparture.id} departure={meetingDeparture} onClose={() => setMeetingDeparture(undefined)} />}
     {(focusDepartureId || focusRequestId) && <Alert showIcon className="!mb-4"
       message={focusRequestId ? `Đang xem yêu cầu dời lịch #${focusRequestId}` : `Đang xem lịch khởi hành #${focusDepartureId}`}
@@ -186,7 +215,7 @@ export default function ManagerTourDeparture() {
           <DepartureContext key={departure.id} tourId={departure.tourId} departure={departure} />)}
       </div>}
     </Modal>
-    {tourId && !focusDepartureId && <div className={focusRequestId ? undefined : "mt-5"}><ScheduleChangesPanel tourId={tourId} focusRequestId={focusRequestId}
+    {tourId && !focusDepartureId && <div className={focusRequestId ? undefined : "mt-5"}><ScheduleChangesPanel tourId={tourId} focusRequestId={focusRequestId} incidentDepartureId={incidentDepartureId}
       onChanged={() => { if (!focusRequestId) void refresh(); }} /></div>}
   </>;
 }

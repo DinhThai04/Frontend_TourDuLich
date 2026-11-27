@@ -11,7 +11,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { Alert, Tag, Drawer, Descriptions, Button, DatePicker, Empty, Input, Select, Skeleton, Space, Typography } from 'antd';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 
 import bookingServices from '@/services/bookingServices';
 import invoiceServices from '@/services/invoiceServices';

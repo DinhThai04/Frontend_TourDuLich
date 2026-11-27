@@ -1,5 +1,5 @@
 import axiosClient from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 import type { IPaginationResponse } from '@/types/Pagination';
 import { createReadCache } from '@/utils/readCache';
 import type {
@@ -250,6 +250,12 @@ export const updateTourDeparture = (
 ): Promise<ApiResponse<ITourDeparture>> => {
   return axiosClient.put(`tour/tour-departures/${data.id}`, data);
 };
+
+export const assignDepartureVehicle = (id: number, vehicleId: string | null): Promise<ApiResponse<ITourDeparture>> =>
+  axiosClient.put(`/tour/tour-departures/${id}/vehicle`, { vehicleId });
+
+export const openTourDeparture = (id: number): Promise<ApiResponse<ITourDeparture>> =>
+  axiosClient.post(`/tour/tour-departures/${id}/open`);
 
 export const getDepartureCapacity = (id: number): Promise<{ code: number; result: import('@/utils/departureCapacity').DepartureCapacity }> => {
   return axiosClient.get(`tour/tour-departures/${id}/capacity`);

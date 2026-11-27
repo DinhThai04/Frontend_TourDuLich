@@ -98,6 +98,7 @@ export const uploadProfile = createAsyncThunk(
       const response = await updateProfile(arg.data, arg.userId);
 
       if (response.code === 1000) {
+        sessionService.updateCurrentUser(arg.userId, { phone: response.result.phone, address: response.result.address });
         // Re-read the server profile so menus/guards see the latest role and permissions.
         await thunkAPI.dispatch(refreshCurrentUser());
         return response.result;

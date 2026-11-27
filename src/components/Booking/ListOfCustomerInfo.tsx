@@ -1,9 +1,11 @@
-import { contactEmail, personName, streetAddress, vietnamesePhone } from '@/utils/contactValidation';
+import { contactEmail, personName, vietnamesePhone } from '@/utils/contactValidation';
 import type { FormInstance } from 'antd';
 import type { CustomersFormValues, PassengerFormValues } from '@/types/Booking';
 import { useContext, useRef, useEffect } from 'react';
 import { Form, Input, DatePicker, Select, Row, Col, Button, Divider, Typography } from 'antd';
 import { ageOnVietnamDate, passengerLabel, passengerTypeFor } from '@/utils/booking';
+import VietnamAddressFields from '@/components/Share/VietnamAddressFields';
+import { validateVietnamAddress } from '@/utils/vietnamAddress';
 import { BookingDraftContext } from '@/layouts/BookingDraftContext';
 
 const { Title } = Typography;
@@ -11,15 +13,12 @@ const { Option } = Select;
 
 export default function ListOfCustomerInfo({
   onFormReady,
-  // personalFormGetter,
   onCustomersChange,
   maxPassengers,
   pricingDate,
   initialCustomers,
 }: {
   onFormReady?: (form: FormInstance<CustomersFormValues>) => void;
-  /** optional getter function provided by parent to read personal info form values */
-  personalFormGetter?: (form: FormInstance<CustomersFormValues>) => unknown;
   /** notify parent when customers change */
   onCustomersChange?: (customers: PassengerFormValues[]) => void;
   /** Số hành khách bổ sung tối đa theo số chỗ còn lại của chuyến đi. */
@@ -48,7 +47,6 @@ export default function ListOfCustomerInfo({
       fullName: '',
       gender: undefined,
       birthDate: null,
-      address: '',
     };
     const next = [...customers, newItem];
     form.setFieldsValue({ customers: next });
@@ -228,18 +226,15 @@ export default function ListOfCustomerInfo({
                       </Form.Item>
                     </Col>
 
-                    <Col xs={24} sm={12} md={6}>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'address']}
-                        label="Địa chỉ"
-                        rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }, { pattern: streetAddress, max: 255, message: 'Địa chỉ chứa ký tự không hợp lệ' }]}
-                      >
-                        <Input placeholder="Nhập địa chỉ" />
+                    <Col xs={24}>
+                      <Form.Item {...restField} name={[name, 'addressDraft']} label="Địa chỉ" required
+                        rules={[{ validator: validateVietnamAddress }]}>
+                        <VietnamAddressFields />
                       </Form.Item>
                     </Col>
 
-                    {passengerTypeFor(customersWatch?.[name]?.birthDate, pricingDate, customersWatch?.[name]?.type) === 'ADULT' ? (
+                    {(ageOnVietnamDate(customersWatch?.[name]?.birthDate, pricingDate)
+                      ?? (customersWatch?.[name]?.type === 'ADULT' ? 18 : 0)) >= 18 ? (
                       <>
                         <Col xs={24} sm={12} md={12}>
                           <Form.Item

@@ -1,15 +1,18 @@
 import { PhoneOutlined, EnvironmentOutlined } from '@ant-design/icons';
-import { getTourById } from '@/services/tourServices';
+import { assignDepartureVehicle, getAllVehicles, getTourById } from '@/services/tourServices';
+import AdminPickupAssignment from './AdminPickupAssignment';
 import { TripProgress, TripReportPanel } from './TripWorkflow';
 import { getTourGuideDirectory, type GuideOption } from '@/services/userServices';
-import { Alert, Button, Checkbox, Drawer, Empty, Input, Popconfirm, Select, Space, Spin, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Checkbox, DatePicker, Drawer, Modal, Empty, Input, Popconfirm, Select, Space, Spin, Tabs, Tag, Typography } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
+import type { Dayjs } from 'dayjs';
 import { Link } from 'react-router-dom';
 import { AdminStatus } from '@/components/Admin/Shared/AdminStatus';
 import { AdminTable } from '@/components/Admin/Shared/AdminTable';
 import { formatAdminDatetime } from '@/components/Admin/Shared/adminDate';
 import { departureManifest, hasBoarded, tripPhaseLabel, type Attendance, type Manifest, type ManifestPassenger, type TripReport } from '@/services/departureManifest';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
+import { useApiQuery } from '@/hooks';
 import type { ITourDeparture } from '@/types/Tour';
 import { errorMessage } from '@/utils/errors';
 import { useHasPermission } from '@/config/useHasPermission';
@@ -23,7 +26,9 @@ const attendanceLabel: Record<Attendance, string> = {
   UNVERIFIED_RETURN: 'Chưa xác minh trở về',
 };
 
-export default function DepartureManifest({ departure, onClose, inline = false, tourTitle }: { departure: ITourDeparture; onClose: () => void; inline?: boolean; tourTitle?: string }) {
+export default function DepartureManifest({ departure, onClose, inline = false, tourTitle, initialPickupBookingId }: {
+  departure: ITourDeparture; onClose: () => void; inline?: boolean; tourTitle?: string; initialPickupBookingId?: number;
+}) {
   const [loadedTitle, setLoadedTitle] = useState<string>();
   useEffect(() => {
     if (tourTitle || !departure.tourId) return;
@@ -37,7 +42,33 @@ export default function DepartureManifest({ departure, onClose, inline = false, 
   const [manifest, setManifest] = useState<Manifest>();
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [actualTime, setActualTime] = useState<Dayjs | null>(null);
+  const [confirmReason, setConfirmReason] = useState('');
+  const confirmLate = Date.now() >= new Date(`${departure.departureDate.slice(0, 19)}+07:00`).getTime() + 15 * 60_000
+    || Date.now() >= new Date(`${departure.returnDate.slice(0, 19)}+07:00`).getTime();
   const isAdmin = useHasPermission({ code: 'SGU_SUPER_ADMIN' });
+  const [pickupBookingId, setPickupBookingId] = useState(isAdmin ? initialPickupBookingId : undefined);
+  const [assignedVehicle, setAssignedVehicle] = useState(departure.operatingVehicleId ?? null);
+  const [vehicle, setVehicle] = useState(departure.operatingVehicleId ?? null);
+  const { data: vehicleOptions = [], loading: vehicleLoading, error: vehicleError } = useApiQuery(async () => {
+    const response = await getAllVehicles();
+    if (response.code !== 1000) throw new Error(response.message);
+    return response.result.filter(option => (option.capacity ?? 0) > 0);
+  }, { enabled: isAdmin });
+  async function saveVehicle() {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await assignDepartureVehicle(id, vehicle);
+      if (response.code !== 1000) throw new Error(response.message);
+      setAssignedVehicle(response.result.operatingVehicleId ?? null);
+    } catch (failure) {
+      setError(errorMessage(failure, 'Chưa lưu được phân công xe.'));
+    } finally {
+      setBusy(false);
+    }
+  }
   const [guide, setGuide] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -202,6 +233,11 @@ export default function DepartureManifest({ departure, onClose, inline = false, 
     const guardianPhone = guardianParts?.length === 2 ? guardianParts[1] : undefined;
     return <div className="space-y-1.5 text-xs text-[#526670]">
       {passenger.meetingPointName && <div><EnvironmentOutlined /> {passenger.meetingPointName}{passenger.pickupTime && ` · ${passenger.pickupTime.slice(0, 5)}`}</div>}
+      {passenger.pickupStatus === 'NEEDS_RECONFIRMATION' && <Tag color="orange">Điểm đón cần xác nhận lại</Tag>}
+      {passenger.pickupStatus === 'MISSING' && <Tag color="orange">Chưa chọn điểm đón</Tag>}
+      {isAdmin && !manifest?.actualDepartureAt && phase !== 'INCIDENT' && phase !== 'CANCELLED'
+        && phase !== 'COMPLETED' && <Button type="link" size="small" className="!px-0"
+          onClick={() => setPickupBookingId(passenger.bookingId)}>Xử lý điểm đón</Button>}
       {phone && phoneLine('Người đặt', phone)}
       {guardianPhone ? phoneLine(`Giám hộ · ${guardianParts?.[0]}`, guardianPhone) : passenger.guardianNote && <div>Giám hộ · {passenger.guardianNote}</div>}
       {passenger.note && <div className="whitespace-pre-wrap">{passenger.note}</div>}
@@ -213,7 +249,7 @@ export default function DepartureManifest({ departure, onClose, inline = false, 
       <div>
         <Space wrap>
           <Typography.Title level={4} className="!mb-0 !text-[#14532d]">{tourTitle || loadedTitle || departure.tourCode || `Lịch #${id}`}</Typography.Title>
-          {phase && <AdminStatus tone={phase === 'COMPLETED' ? 'success' : phase === 'AWAITING_CLOSEOUT' ? 'attention' : 'neutral'}>{tripPhaseLabel[phase]}</AdminStatus>}
+          {phase && <AdminStatus tone={phase === 'COMPLETED' ? 'success' : (phase === 'AWAITING_CLOSEOUT' || phase === 'OVERDUE_UNCONFIRMED' || phase === 'INCIDENT') ? 'attention' : 'neutral'}>{tripPhaseLabel[phase]}</AdminStatus>}
         </Space>
         <div className="mt-2">{(tourTitle || loadedTitle) && departure.tourCode && <Tag>{departure.tourCode}</Tag>}<Typography.Text type="secondary">
           {formatAdminDatetime(departure.departureDate)} → {formatAdminDatetime(departure.returnDate)}
@@ -221,7 +257,64 @@ export default function DepartureManifest({ departure, onClose, inline = false, 
       </div>
       {error && <Alert showIcon type="error" message={error} />}
       {!manifest && busy && <Spin />}
+      {manifest?.actualDepartureAt && <Typography.Text type="secondary">
+        Xuất phát thực tế {formatAdminDatetime(manifest.actualDepartureAt)}
+      </Typography.Text>}
+      {phase === 'OVERDUE_UNCONFIRMED' && <Alert showIcon type="warning"
+        message="Chưa xác nhận xe đã xuất phát"
+        action={<Space wrap>
+          <Button type="primary" onClick={() => setConfirmOpen(true)}>Xác nhận xuất phát</Button>
+          {isAdmin && <Link to={`/admin/tours/${departure.tourId}/departures?incidentDepartureId=${id}`}>Chuyển xử lý sự cố</Link>}
+        </Space>} />}
+      {phase === 'INCIDENT' && isAdmin && <Link to={`/admin/tours/${departure.tourId}/departures?incidentDepartureId=${id}`}>
+        Mở hồ sơ xử lý sự cố
+      </Link>}
+      <Modal title="Xác nhận xuất phát" open={confirmOpen} okText="Xác nhận" cancelText="Hủy"
+        confirmLoading={busy} onCancel={() => setConfirmOpen(false)}
+        okButtonProps={{ disabled: (confirmLate || actualTime !== null) && (!actualTime || !confirmReason.trim()) }}
+        onOk={async () => {
+          await save(async () => {
+            const response = await departureManifest.confirm(id, actualTime?.format('YYYY-MM-DDTHH:mm:ss'), confirmReason.trim() || undefined);
+            if (response.code === 1000) {
+              setConfirmOpen(false);
+              setActualTime(null);
+              setConfirmReason('');
+            }
+            return response;
+          });
+        }}>
+        <Space direction="vertical" className="w-full">
+          <Typography.Text>Xác nhận khi xe đã thực sự xuất phát. {confirmLate && 'Nhập giờ thực tế và lý do cập nhật muộn.'}</Typography.Text>
+          <DatePicker aria-label="Giờ xuất phát thực tế (giờ Việt Nam)" placeholder="Giờ thực tế (giờ Việt Nam)"
+            showTime format="DD/MM/YYYY HH:mm" value={actualTime} onChange={setActualTime} />
+          {(confirmLate || actualTime) && <Input.TextArea aria-label="Lý do xác nhận muộn" placeholder="Lý do xác nhận muộn"
+            maxLength={500} value={confirmReason} onChange={event => setConfirmReason(event.target.value)} />}
+          {error && <Alert showIcon type="error" message={error} />}
+        </Space>
+      </Modal>
+      {isAdmin && pickupBookingId != null && <AdminPickupAssignment key={pickupBookingId} bookingId={pickupBookingId}
+        onClose={() => setPickupBookingId(undefined)} onSaved={() => void load()} />}
       {manifest && <>
+        {isAdmin && <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-4">
+          <Typography.Text strong>Xe phục vụ chuyến</Typography.Text>
+          <div className="mt-2">
+            <Space wrap>
+              <Select aria-label="Xe phục vụ chuyến" allowClear value={vehicle ?? undefined}
+                onChange={value => setVehicle(value ?? null)} loading={vehicleLoading} placeholder="Chọn xe"
+                style={{ width: 'min(270px, 65vw)' }} options={vehicleOptions.map(option => ({
+                  value: option.id, label: `${option.name} · ${option.capacity} chỗ`,
+                }))} />
+              <Button loading={busy} disabled={vehicle === assignedVehicle || phase === 'INCIDENT' || phase === 'COMPLETED'
+                || phase === 'CANCELLED'} onClick={() => void saveVehicle()}>Lưu xe</Button>
+            </Space>
+          </div>
+          {vehicleError && <Alert className="mt-2" type="warning" showIcon message={vehicleError} />}
+          {(() => {
+            const capacity = vehicleOptions.find(option => option.id === assignedVehicle)?.capacity;
+            return capacity && manifest.passengers.length > capacity && <Alert className="mt-2" showIcon type="warning"
+              message={`${manifest.passengers.length} khách đã thanh toán / ${capacity} chỗ trên xe`} />;
+          })()}
+        </div>}
         {isAdmin && <Space direction="vertical" className="w-full rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-4">
           <Typography.Text strong>Hướng dẫn viên phụ trách</Typography.Text>
           <Space wrap>

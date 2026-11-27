@@ -1,3 +1,4 @@
+import AdminResult from '@/pages/Admin/AdminResult';
 import AuthorizationPage from '@/pages/Admin/AuthorizationPage';
 import LegacyItinerary from '@/pages/Admin/LegacyItinerary';
 import { lazy, Suspense } from 'react';
@@ -42,7 +43,6 @@ const LegalPage = lazy(() => import('@/pages/Legal/LegalPage'));
 
 const AdminTheme = lazy(() => import('@/pages/Admin/AdminTheme'));
 const TourWorkspace = lazy(() => import('@/pages/Admin/TourWorkspace'));
-const AdminResult = lazy(() => import('@/pages/Admin/AdminResult'));
 
 function RouteContent() {
   return (

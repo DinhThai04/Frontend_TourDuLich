@@ -1,5 +1,5 @@
 import axiosClient from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 import type { IUserCreate, IUserUpdate, User, AccountStatus, AccountEvent } from '@/types/User';
 import { sessionService } from './sessionServices';
 import { listPageParams, type ListQuery } from '@/utils';

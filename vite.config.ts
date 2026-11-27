@@ -7,6 +7,10 @@ export default defineConfig({
 	plugins: [react(), tsconfigPaths(), tailwindcss()],
 	server: {
 		proxy: {
+			'/socket.io': {
+				target: 'ws://localhost:8099',
+				ws: true,
+			},
 			'/api': {
 				target: 'http://localhost:8888',
 				changeOrigin: true,

@@ -62,7 +62,7 @@ Truy cập **http://localhost:5173**.
 | `VITE_API_URL` | `/api/v1` | Đường dẫn gốc của API; dev server proxy `/api` tới gateway 8888 |
 | `VITE_PAGE_SIZE` | `10` | Kích thước trang mặc định khi tìm và liệt kê tour |
 | `VITE_GOOGLE_CLIENT_ID` | Không đặt | Client ID để hiển thị và sử dụng Google Sign-In; phải khớp cấu hình auth_service |
-| `VITE_SOCKET_URL` | Dev: `http://localhost:8099`; bản build: cùng origin website | Địa chỉ kết nối Socket.IO; chỉ ghi đè khi dùng địa chỉ triển khai khác |
+| `VITE_SOCKET_URL` | Cùng origin website, qua Vite proxy trong dev | Địa chỉ kết nối Socket.IO; chỉ ghi đè khi dùng địa chỉ triển khai khác |
 | `VITE_VNPAY_ALLOWED_HOSTS` | `sandbox.vnpayment.vn,pay.vnpayment.vn` | Danh sách host VNPay mà frontend cho phép chuyển hướng thanh toán |
 
 Vite đọc các biến `VITE_*` khi khởi động dev server hoặc build và đưa chúng vào mã phía trình duyệt. Sau khi đổi `.env`, khởi động lại dev server hoặc build lại ứng dụng. Chỉ đặt cấu hình công khai ở frontend; JWT signing key, Groq, Cloudinary và SMTP secret thuộc backend.
@@ -84,6 +84,15 @@ npm audit
 Các bài test này kiểm tra logic phía client; xác minh hành trình đặt tour và thanh toán cần thực hiện thêm với backend và môi trường sandbox.
 
 Trước khi commit, kiểm tra cả diff, file mới và nội dung đã stage. Các biến `VITE_*` xuất hiện trong mã build công khai; không sử dụng chúng để lưu API secret. Khi có Gitleaks, chạy `gitleaks git --pre-commit --staged --redact=100 .` để kiểm tra index và `gitleaks git --log-opts="--all" --redact=100 .` để kiểm tra lịch sử. Index rỗng không phải bằng chứng toàn bộ repository sạch.
+
+### Smoke test quản trị
+
+Chạy trên stack kiểm thử có dữ liệu mẫu. Đặt `SGU_BROWSER_BASE_URL`, `SGU_BROWSER_ADMIN_EMAIL`
+và `SGU_BROWSER_ADMIN_PASSWORD` cho tài khoản quản trị kiểm thử.
+
+- `node scripts/admin-api-smoke.cjs` kiểm tra API. Script tạo và dọn dữ liệu mẫu, đồng thời chỉnh rồi khôi phục một bảng giá.
+- `node scripts/browser-admin-regression.cjs` kiểm tra các thao tác trên trình duyệt. Cài Playwright bằng
+  `npm install --no-save --package-lock=false playwright` rồi chạy `npx playwright install chromium` trước khi chạy script.
 
 ## Build
 

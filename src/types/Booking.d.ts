@@ -1,3 +1,4 @@
+import type { AddressDraft } from '@/utils/vietnamAddress';
 import type { Dayjs } from 'dayjs';
 
 export type CustomerResponse = {
@@ -71,7 +72,7 @@ export interface PassengerFormValues {
   fullName: string;
   birthDate: Dayjs | null;
   gender?: string;
-  address?: string;
+  addressDraft?: AddressDraft;
   guardianName?: string;
   guardianPhone?: string;
 }
