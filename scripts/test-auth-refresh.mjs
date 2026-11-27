@@ -11,7 +11,7 @@ async function compiled(path) {
   }).outputText;
 }
 const storage = new Map();
-globalThis.sessionStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
+globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
 const redirects = [];
 globalThis.window = { location: { pathname: '', search: '', assign: path => redirects.push(path) } };
 const sessionUrl = dataUrl(await compiled('../src/services/sessionServices.ts'));

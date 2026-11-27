@@ -1,3 +1,4 @@
+import type { AddressDraft } from '@/utils/vietnamAddress';
 import type { Dayjs } from 'dayjs';
 
 export type CustomerResponse = {
@@ -21,9 +22,10 @@ export type InvoiceCustomerResponse = {
 };
 
 export type BookingRequest = {
+  pickupConfirmationKey?: string;
 	userId: string; // account id as string (comes from session)
 	tourDepartureId: string; // id from url
-	listOfCustomers: { fullName: string; birthdate: string; address?: string; gender: string }[]; // customers from the booking form
+	listOfCustomers: { fullName: string; birthdate: string; address?: string; gender: string; guardianName?: string; guardianPhone?: string }[]; // customers from the booking form
 	clientKey?: string; // stable UUID for one checkout attempt; retries must reuse it
 	pricingDate?: string; // Vietnam calendar date used for the current preview
 	expectedAmount?: string;
@@ -37,6 +39,8 @@ export type BookingResponse = {
 	message?: string;
 	id: string;
 	accountId?: string;
+	tripCompleted?: boolean;
+	pickup?: { address: string; landmark?: string; arrivalTime?: string; directionsUrl?: string } | null;
 	tourDepartureId?: string;
 	createdAt?: string;
 	status?: string;
@@ -54,6 +58,8 @@ export type BookingResponseWithoutListOfCustomers = {
 export type CustomerRequest = {
   fullName: string;
   birthDate: Dayjs;
+  guardianName?: string;
+  guardianPhone?: string;
   address?: string;
   gender: string;
 }
@@ -66,7 +72,9 @@ export interface PassengerFormValues {
   fullName: string;
   birthDate: Dayjs | null;
   gender?: string;
-  address?: string;
+  addressDraft?: AddressDraft;
+  guardianName?: string;
+  guardianPhone?: string;
 }
 export type PersonalFormValues = PassengerFormValues & { email: string; phone: string };
 export interface CustomersFormValues { customers?: PassengerFormValues[] }

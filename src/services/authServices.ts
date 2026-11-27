@@ -8,7 +8,8 @@ import type {
   TourReviewsResponse,
 } from '@/types/Auth';
 import axios from 'axios';
-import type { ApiResponse, CreateCommentRequest, ReviewResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
+import type { CreateCommentRequest, ReviewResponse } from '@/types/comment';
 import { listPageParams, type ListQuery } from '@/utils';
 
 export const loginService = async (data: LoginRequest): Promise<LoginResponse> => {

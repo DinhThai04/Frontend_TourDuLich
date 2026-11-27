@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 
 /** Rows from a settled request; a failed or non-1000 source contributes nothing. */
 export function settledRows<T>(result: PromiseSettledResult<ApiResponse<T[]>>): T[] {

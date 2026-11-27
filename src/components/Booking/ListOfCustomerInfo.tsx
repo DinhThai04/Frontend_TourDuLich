@@ -1,8 +1,11 @@
+import { contactEmail, personName, vietnamesePhone } from '@/utils/contactValidation';
 import type { FormInstance } from 'antd';
 import type { CustomersFormValues, PassengerFormValues } from '@/types/Booking';
 import { useContext, useRef, useEffect } from 'react';
 import { Form, Input, DatePicker, Select, Row, Col, Button, Divider, Typography } from 'antd';
 import { ageOnVietnamDate, passengerLabel, passengerTypeFor } from '@/utils/booking';
+import VietnamAddressFields from '@/components/Share/VietnamAddressFields';
+import { validateVietnamAddress } from '@/utils/vietnamAddress';
 import { BookingDraftContext } from '@/layouts/BookingDraftContext';
 
 const { Title } = Typography;
@@ -10,15 +13,12 @@ const { Option } = Select;
 
 export default function ListOfCustomerInfo({
   onFormReady,
-  // personalFormGetter,
   onCustomersChange,
   maxPassengers,
   pricingDate,
   initialCustomers,
 }: {
   onFormReady?: (form: FormInstance<CustomersFormValues>) => void;
-  /** optional getter function provided by parent to read personal info form values */
-  personalFormGetter?: (form: FormInstance<CustomersFormValues>) => unknown;
   /** notify parent when customers change */
   onCustomersChange?: (customers: PassengerFormValues[]) => void;
   /** Số hành khách bổ sung tối đa theo số chỗ còn lại của chuyến đi. */
@@ -47,7 +47,6 @@ export default function ListOfCustomerInfo({
       fullName: '',
       gender: undefined,
       birthDate: null,
-      address: '',
     };
     const next = [...customers, newItem];
     form.setFieldsValue({ customers: next });
@@ -179,7 +178,7 @@ export default function ListOfCustomerInfo({
                         {...restField}
                         name={[name, 'fullName']}
                         label="Họ tên"
-                        rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+                        rules={[{ required: true, message: 'Vui lòng nhập họ tên' }, { pattern: personName, min: 2, max: 100, message: 'Nhập họ tên từ 2 đến 100 ký tự chữ' }]}
                       >
                         <Input placeholder="Nhập họ tên" />
                       </Form.Item>
@@ -227,11 +226,72 @@ export default function ListOfCustomerInfo({
                       </Form.Item>
                     </Col>
 
-                    <Col xs={24} sm={12} lg={6}>
-                      <Form.Item {...restField} name={[name, 'address']} label="Địa chỉ">
-                        <Input placeholder="Nhập địa chỉ" />
+                    <Col xs={24}>
+                      <Form.Item {...restField} name={[name, 'addressDraft']} label="Địa chỉ" required
+                        rules={[{ validator: validateVietnamAddress }]}>
+                        <VietnamAddressFields />
                       </Form.Item>
                     </Col>
+
+                    {(ageOnVietnamDate(customersWatch?.[name]?.birthDate, pricingDate)
+                      ?? (customersWatch?.[name]?.type === 'ADULT' ? 18 : 0)) >= 18 ? (
+                      <>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'phone']}
+                            label="Số điện thoại"
+                            rules={[
+                              { required: true, message: 'Vui lòng nhập số điện thoại' },
+                              { pattern: vietnamesePhone, message: 'SĐT bắt đầu bằng 0 và gồm 10–11 chữ số' },
+                            ]}
+                          >
+                            <Input placeholder="Nhập số điện thoại liên hệ" />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'email']}
+                            label="Email (nếu có)"
+                            rules={[{ type: 'email', pattern: contactEmail, max: 254, message: 'Email không hợp lệ' }]}
+                          >
+                            <Input placeholder="Nhập email (không bắt buộc)" />
+                          </Form.Item>
+                        </Col>
+                      </>
+                    ) : (
+                      <>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'guardianName']}
+                            preserve={false}
+                            label="Người giám hộ đi kèm"
+                            rules={[
+                              { required: true, message: 'Trẻ dưới 18 tuổi cần họ tên người giám hộ' },
+                              { pattern: personName, min: 2, max: 100, message: 'Nhập họ tên từ 2 đến 100 ký tự chữ' },
+                            ]}
+                          >
+                            <Input placeholder="Họ tên bố/mẹ hoặc người giám hộ" />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'guardianPhone']}
+                            preserve={false}
+                            label="SĐT người giám hộ"
+                            rules={[
+                              { required: true, message: 'Vui lòng nhập SĐT người giám hộ' },
+                              { pattern: vietnamesePhone, message: 'SĐT giám hộ bắt đầu bằng 0 và gồm 10–11 chữ số' },
+                            ]}
+                          >
+                            <Input placeholder="Nhập số điện thoại người giám hộ" />
+                          </Form.Item>
+                        </Col>
+                      </>
+                    )}
 
                     {/* Hidden type field so type persists */}
                     <Form.Item {...restField} name={[name, 'type']} hidden>

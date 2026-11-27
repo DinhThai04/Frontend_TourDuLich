@@ -1,16 +1,26 @@
+import { useSearchParams } from 'react-router-dom';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
+import { AdminStatus } from '../Shared/AdminStatus';
+import { adminPagination } from '../Shared/adminPagination';
+import AdminPageHeader from '../Shared/AdminPageHeader';
 import UserAccountActions from './UserAccountActions';
 import { accountStatusLabels } from '@/utils/accounts';
 import React, { useMemo, useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { Space, Tag, Button, Input, Avatar } from 'antd';
-import { EyeOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Space, Tag, Button, Input, Avatar, Select, Empty } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import type { User } from '@/types/User';
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 
 interface Props {
   data: User[];
+  roles?: { id: number; name: string }[];
+  statusFilter?: string;
+  onStatusFilterChange?: (val: string) => void;
+  roleFilter?: number | null;
+  onRoleFilterChange?: (val: number | null) => void;
+  onResetFilters?: () => void;
   onView: (user: User) => void;
   onEdit: (user: User) => void;
   onAdd: () => void;
@@ -18,9 +28,24 @@ interface Props {
   loading?: boolean;
 }
 
-const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, loading }) => {
+const UserTable: React.FC<Props> = ({
+  data,
+  roles = [],
+  statusFilter = '',
+  onStatusFilterChange,
+  roleFilter = null,
+  onRoleFilterChange,
+  onResetFilters,
+  onView,
+  onEdit,
+  onAdd,
+  fetchData,
+  loading,
+}) => {
   const actionRef = useRef<ActionType>(null);
-  const [searchKeyword, setSearchKeyword] = useState('');
+  const [params, setParams] = useSearchParams();
+  const [searchKeyword, setSearchKeyword] = useState<string>();
+  const keywordText = searchKeyword ?? params.get('q') ?? '';
 
   const canViewDetail = useHasPermission(ALL_PERMISSIONS.USERS.GET_DETAIL);
   const canCreateUser = useHasPermission(ALL_PERMISSIONS.USERS.REGISTER);
@@ -34,58 +59,61 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
 
   const columns: ProColumns<User>[] = [
     {
-      title: 'Ảnh đại diện',
-      dataIndex: 'avatar',
-      search: false,
-      width: 80,
-      render: (_, record) => <Avatar>{(record.username || 'A')[0]}</Avatar>,
+      title: 'Tài khoản',
+      dataIndex: 'username',
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <Avatar className="admin-user-avatar shrink-0" src={record.avatar}>{(record.username || 'A')[0]?.toUpperCase()}</Avatar>
+          <div className="min-w-0">
+            <strong>{record.username || '—'}</strong>
+            <div className="text-xs text-slate-600">{record.email}</div>
+            {record.phone && <div className="text-xs text-slate-600 md:hidden">{record.phone}</div>}
+          </div>
+        </div>
+      ),
     },
-    { title: 'Họ và tên', dataIndex: 'username', width: 150 },
-    { title: 'Trạng thái', dataIndex: 'status', valueType: 'select', valueEnum: { ACTIVE: 'Hoạt động', LOCKED: 'Đã khóa', ARCHIVED: 'Đã lưu trữ' }, render: (_, record) => <Tag color={record.status==='LOCKED'?'orange':record.status==='ARCHIVED'?'default':'green'}>{accountStatusLabels[record.status ?? 'ACTIVE']}</Tag> },
-    { title: 'Email', dataIndex: 'email', width: 250 },
-    { title: 'Số điện thoại', dataIndex: 'phone', search: false },
-    { title: 'Địa chỉ', dataIndex: 'address', ellipsis: true, search: false },
+    {
+      title: 'Số điện thoại',
+      hideInTable: !data.some(user => !!user.phone?.trim()),
+      dataIndex: 'phone',
+      width: '15%',
+      responsive: ['md'],
+      render: (_, record) => record.phone || '—',
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      width: 110,
+      valueType: 'select',
+      valueEnum: { ACTIVE: 'Hoạt động', LOCKED: 'Đã khóa', ARCHIVED: 'Đã lưu trữ' },
+      render: (_, record) => <AdminStatus tone={record.status === 'LOCKED' ? 'warning' : record.status === 'ARCHIVED' ? 'neutral' : 'success'}>{accountStatusLabels[record.status ?? 'ACTIVE']}</AdminStatus>,
+    },
     {
       title: 'Vai trò',
       dataIndex: ['role', 'name'],
+      width: 120,
+      responsive: ['md'],
       search: false,
-      render: (_, record) => <Tag color="blue">{record.role?.name || '—'}</Tag>,
+      render: (_, record) => <Tag className="admin-role-tag">{record.role?.name?.replace(/^khách hàng$/i, 'Khách hàng') || '—'}</Tag>,
     },
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 150,
+      width: 104,
+      align: 'right',
       valueType: 'option',
-      hideInTable: !hasAnyAction, // không có quyền nào thì ẩn luôn cột
-      render: (_, record) => (
-        <Space>
-          {canViewDetail && (
-            <Button
-              type="text"
-              aria-label={`Xem chi tiết ${record.username || record.email}`}
-              icon={<EyeOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
-              onClick={() => onView(record)}
-            />
-          )}
-
-          {canUpdateUser && record.status !== 'ARCHIVED' && (
-            <Button
-              type="text"
-              aria-label={`Sửa ${record.username || record.email}`}
-              icon={<EditOutlined style={{ color: '#52c41a', fontSize: 18 }} />}
-              onClick={() => onEdit(record)}
-            />
-          )}
-
-          <UserAccountActions user={record} onChanged={fetchData} />
-        </Space>
-      ),
+      hideInTable: !hasAnyAction,
+      render: (_, record) => <Space size={4}>
+        {canViewDetail && <Button size="small" type="link" aria-label={`Xem chi tiết ${record.username || record.email}`} onClick={() => onView(record)}>Xem</Button>}
+        <UserAccountActions user={record} onChanged={fetchData}
+          onEdit={canUpdateUser && record.status !== 'ARCHIVED' ? () => onEdit(record) : undefined} />
+      </Space>,
     },
   ];
 
   const filteredData = useMemo(() => {
-    if (!searchKeyword) return data;
-    const keyword = searchKeyword.toLowerCase();
+    if (!keywordText) return data;
+    const keyword = keywordText.toLowerCase();
     return data.filter((user) => {
       return (
         user.username?.toLowerCase().includes(keyword) ||
@@ -95,34 +123,79 @@ const UserTable: React.FC<Props> = ({ data, onView, onEdit, onAdd, fetchData, lo
         user.role?.name?.toLowerCase().includes(keyword)
       );
     });
-  }, [data, searchKeyword]);
+  }, [data, keywordText]);
 
   return (
-    <ProTable<User>
-      headerTitle="Quản lý người dùng"
+    <div className="admin-dashboard">
+    <AdminPageHeader title="Quản lý người dùng" description="Quản lý thông tin, vai trò và trạng thái tài khoản."
+      actions={canCreateUser && <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>Thêm người dùng</Button>} />
+    <ProTable<User> filterKey={JSON.stringify([searchKeyword, params.get("q")])}
+
+      className="admin-data-table"
+      headerTitle="Danh sách tài khoản"
+      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={keywordText || statusFilter || roleFilter ? 'Không có tài khoản khớp bộ lọc' : 'Chưa có tài khoản'} /> }}
+      options={{ reload: fetchData, density: true, setting: true }}
       columns={columns}
       rowKey="id"
       actionRef={actionRef}
       dataSource={filteredData}
       search={false}
-      pagination={{ pageSize: 5 }}
+      size="small"
+      tableLayout="fixed"
+      pagination={adminPagination('tài khoản')}
       loading={loading}
       toolBarRender={() => [
         <Input.Search
           key="search"
-          placeholder="Tìm kiếm người dùng..."
+          placeholder="Tìm theo tên, email, SĐT..."
           allowClear
-          style={{ width: 260, marginRight: 8 }}
-          value={searchKeyword}
-          onChange={(e) => setSearchKeyword(e.target.value)}
+          style={{ width: 230, maxWidth: '100%' }}
+          value={keywordText}
+          onChange={(e) => { setSearchKeyword(e.target.value); if (params.has('q')) setParams({}, { replace: true }); }}
         />,
-        canCreateUser && (
-          <Button type="primary" key="add" icon={<PlusOutlined />} onClick={onAdd}>
-            Thêm người dùng
+        onStatusFilterChange && (
+          <Select
+            key="status"
+            aria-label="Lọc trạng thái tài khoản"
+            value={statusFilter || undefined}
+            allowClear
+            placeholder="Trạng thái"
+            onChange={(value) => onStatusFilterChange(value ?? '')}
+            options={[
+              { value: 'ACTIVE', label: 'Hoạt động' },
+              { value: 'LOCKED', label: 'Đã khóa' },
+              { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+            ]}
+            style={{ width: 145 }}
+          />
+        ),
+        onRoleFilterChange && roles.length > 0 && (
+          <Select
+            key="role"
+            aria-label="Lọc theo vai trò"
+            value={roleFilter ?? undefined}
+            allowClear
+            placeholder="Vai trò"
+            onChange={(value) => onRoleFilterChange(value ?? null)}
+            options={roles.map((r) => ({ value: r.id, label: r.name }))}
+            style={{ width: 145 }}
+          />
+        ),
+        (keywordText || statusFilter || roleFilter) && (
+          <Button
+            key="reset"
+            onClick={() => {
+              setSearchKeyword(undefined);
+              setParams({});
+              onResetFilters?.();
+            }}
+          >
+            Đặt lại
           </Button>
         ),
       ]}
     />
+    </div>
   );
 };
 

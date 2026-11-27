@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 
 /**
  * Backend luôn trả `code = 1000` khi thành công (không dùng 200/201 trong body),

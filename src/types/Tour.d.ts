@@ -1,4 +1,4 @@
-import type { ApiResponse } from './comment';
+import type { ApiResponse } from './api';
 
 export interface ICity {
   id: number;
@@ -33,6 +33,7 @@ export interface UpdateTourPriceRequest {
 }
 
 export interface IVehicle {
+  capacity?: number | null;
   id: string;
   name: string;
 }
@@ -146,7 +147,9 @@ export interface ITourResponse {
 }
 
 export interface ITourDeparture {
-  operationalStatus?: 'OPEN' | 'SUSPENDED' | 'REPLACEMENT_ONLY' | 'CANCELLED';
+  bookingCloseAt?: string;
+  operatingVehicleId?: string | null;
+  operationalStatus?: 'DRAFT' | 'OPEN' | 'SUSPENDED' | 'REPLACEMENT_ONLY' | 'CANCELLED';
   capacity?: number | null;
   version?: number;
   id: number;

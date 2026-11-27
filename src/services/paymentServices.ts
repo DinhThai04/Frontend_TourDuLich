@@ -1,5 +1,5 @@
 import axiosClient from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 import type { PaymentQuote } from '@/types/Invoice';
 
 const paymentServices = {

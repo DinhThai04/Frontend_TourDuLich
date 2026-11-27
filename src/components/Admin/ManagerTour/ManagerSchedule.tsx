@@ -1,10 +1,11 @@
+import AdminPageHeader from '../Shared/AdminPageHeader';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import type { ItineraryFormValues } from '@/types/adminForms';
 import React, { useState } from 'react';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 
-import { Button, Modal, Space, message, Tooltip, Input, Alert, Select } from 'antd';
+import { Button, Modal, Space, message, Tooltip, Input, Alert, Select, Empty } from 'antd';
 
-import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import type { IItinerary, AddItineraryRequest } from '@/types/Tour';
 import {
@@ -14,7 +15,7 @@ import {
   getItineraryByTourId,
   updateItinerary,
 } from '@/services/tourServices';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import AddItinerary from './ModelSchedule/AddSchedule';
 import EditItinerary from './ModelSchedule/EditSchedule';
 import { isApiSuccess } from '@/utils/apiResult';
@@ -28,10 +29,11 @@ const ManagerItinerary: React.FC = () => {
   const canCreate = useHasPermission(P.ITINERARIES.CREATE);
   const canUpdate = useHasPermission(P.ITINERARIES.UPDATE);
   const canDelete = useHasPermission(P.ITINERARIES.DELETE);
+  const { tourId: routeTourId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
-  const tourIdParam = params.get('tourId');
+  const tourIdParam = routeTourId ?? params.get('tourId');
   const tourId = tourIdParam ? Number(tourIdParam) : null;
   const [searchTitle, setSearchTitle] = useState('');
 
@@ -195,7 +197,8 @@ const ManagerItinerary: React.FC = () => {
   };
 
   return (
-    <div>
+    <div className="admin-dashboard">
+      {!routeTourId && <AdminPageHeader title="Lịch trình" description="Chọn tour để quản lý lịch trình theo ngày." />}
       <Space style={{ marginBottom: 16 }}>
         <Input
           placeholder="Tìm theo tiêu đề lịch trình"
@@ -220,7 +223,7 @@ const ManagerItinerary: React.FC = () => {
               optionFilterProp="label"
               placeholder="Chọn tour"
               options={tours.map((tour) => ({ value: tour.id, label: tour.tourTitle }))}
-              onChange={(id) => navigate(`/admin/managerTour/itinerary?tourId=${id}`)}
+              onChange={(id) => navigate(`/admin/tours/${id}/itinerary`)}
             />
           }
         />
@@ -241,6 +244,7 @@ const ManagerItinerary: React.FC = () => {
         loading={loading}
         search={false}
         headerTitle="Danh sách lịch trình tour"
+        locale={{ emptyText: <Empty description={tourId ? 'Tour chưa có lịch trình' : 'Chọn tour để xem lịch trình'} /> }}
         toolBarRender={() => [renderAddButton()]}
         pagination={{ pageSize: 5 }}
       />

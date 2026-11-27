@@ -1,48 +1,28 @@
-import React from 'react';
-import { Modal, Button, Descriptions } from 'antd';
-import type { User } from '@/types/User.d';
+import { Avatar, Drawer, Descriptions, Tag } from 'antd';
+import type { User } from '@/types/User';
+import { accountStatusLabels } from '@/utils/accounts';
 
-interface Props {
+export default function UserDetailModal({ open, user, onClose }: {
   open: boolean;
   user: User | null;
   onClose: () => void;
+}) {
+  return <Drawer className="admin-record-drawer" open={open} title="Hồ sơ tài khoản" onClose={onClose} width={560} destroyOnHidden>
+    {user && <div className="admin-dossier">
+      <header className="admin-identity">
+        <Avatar size={56} src={user.avatar}>{user.username?.slice(0, 1).toUpperCase()}</Avatar>
+        <div><strong>{user.username}</strong><div>{user.email}</div></div>
+        <Tag color={user.status === 'LOCKED' ? 'orange' : user.status === 'ARCHIVED' ? 'default' : 'green'}>
+          {accountStatusLabels[user.status ?? 'ACTIVE']}
+        </Tag>
+      </header>
+      <Descriptions title="Thông tin tài khoản" column={1} items={[
+        { key: 'id', label: 'Mã tài khoản', children: `#${user.id}` },
+        { key: 'email', label: 'Email', children: user.email || '—' },
+        { key: 'phone', label: 'Số điện thoại', children: user.phone || '—' },
+        { key: 'address', label: 'Địa chỉ', children: user.address || '—' },
+        { key: 'role', label: 'Vai trò', children: user.role?.name || '—' },
+      ]} />
+    </div>}
+  </Drawer>;
 }
-
-const UserDetailModal: React.FC<Props> = ({ open, user, onClose }) => {
-  return (
-    <Modal
-      centered
-        open={open}
-      title="Chi tiết người dùng"
-      onCancel={onClose}
-      footer={[
-        <Button key="close" onClick={onClose}>
-          Đóng
-        </Button>,
-      ]}
-    >
-      {user && (
-        <div style={{ textAlign: 'center' }}>
-          {user.avatar && (
-            <img
-              src={user.avatar}
-              alt="avatar"
-              loading="lazy"
-              decoding="async"
-              style={{ width: 100, height: 100, marginBottom: 16 }}
-            />
-          )}
-          <Descriptions bordered column={1}>
-            <Descriptions.Item label="Họ và tên">{user.username}</Descriptions.Item>
-            <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
-            <Descriptions.Item label="Số điện thoại">{user.phone || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Địa chỉ">{user.address || '—'}</Descriptions.Item>
-            <Descriptions.Item label="Vai trò">{user.role?.name || '—'}</Descriptions.Item>
-          </Descriptions>
-        </div>
-      )}
-    </Modal>
-  );
-};
-
-export default UserDetailModal;

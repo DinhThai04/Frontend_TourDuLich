@@ -1,13 +1,13 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { loginUser, loginUserWithGG, refreshCurrentUser } from '@/store/slices/authSlice';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Card, Typography, message, Divider, Space, Alert } from 'antd';
+import { loginUser, loginUserWithGG } from '@/store/slices/authSlice';
+import { Alert, Button, Divider, Form, Input, message } from 'antd';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import brand from '@/assets/branding/sgu-tour.svg';
 import type { CredentialResponse as GoogleCredentialResponse } from '@react-oauth/google';
 import type { RootState } from '@/store';
-import { ADMIN_ACCESS, hasPermission } from '@/config/access';
+import { signedInDestination } from '@/config/access';
 
 const GoogleSignIn = lazy(() => import('@/components/Auth/GoogleSignIn'));
 
@@ -24,22 +24,25 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const { loading, error, isAuth, user } = useAppSelector((state: RootState) => state.auth);
   const returnPath = safeReturnPath(location.state)
-    // An expired session leaves through a hard redirect, which cannot carry router state.
     ?? safeReturnPath({ from: new URLSearchParams(location.search).get('return') });
 
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true });
+  }, []);
+
   const onFinish = async (values: { email: string; password: string }) => {
-    // Enter in a field and the button both submit; a second login attempt is never wanted.
     if (loading) return;
     try {
       const res = await dispatch(loginUser(values)).unwrap();
       if (res.code === 1000) {
         message.success('Đăng nhập thành công!', 3);
-        // Revalidate role/permissions before the guards evaluate the destination.
-        await dispatch(refreshCurrentUser()).unwrap().catch(() => undefined);
-        navigate(returnPath ?? (hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : '/'));
-      } else message.error('Đăng nhập thất bại!', 3);
+        navigate(signedInDestination(res.result.user, returnPath ?? '/'), { replace: true });
+      } else {
+        message.error('Đăng nhập thất bại!', 3);
+      }
     } catch {
       // Lỗi đăng nhập đã được lưu trong state `error` của authSlice và hiển thị bên dưới.
     }
@@ -56,8 +59,7 @@ export default function LoginPage() {
       const res = await dispatch(loginUserWithGG(googleToken)).unwrap();
       if (res.code === 1000) {
         message.success('Đăng nhập thành công!', 3);
-        await dispatch(refreshCurrentUser()).unwrap().catch(() => undefined);
-        navigate(returnPath ?? (hasPermission(res.result.user, ADMIN_ACCESS) ? '/admin' : '/'));
+        navigate(signedInDestination(res.result.user, returnPath ?? '/'), { replace: true });
       } else {
         message.error('Đăng nhập thất bại!', 3);
       }
@@ -67,83 +69,131 @@ export default function LoginPage() {
   };
 
   if (isAuth) {
-    return <Navigate to={returnPath ?? (hasPermission(user, ADMIN_ACCESS) ? '/admin' : '/')} replace />;
+    return <Navigate to={signedInDestination(user, returnPath ?? '/')} replace />;
   }
 
   return (
-    <>
-      <div className="flex justify-center items-center flex-col min-h-[100vh] bg-[#f5f5f5]">
-        <Card className="w-[450px] shadow-2xl" style={{ maxWidth: 'calc(100vw - 32px)' }}>
-          <Link to="/" aria-label="Trang chủ SGU Tour" style={{ display: 'block', maxWidth: 280, margin: '0 auto 20px' }}>
-            <img src={brand} alt="SGU Tour — Hành trình bắt đầu từ đây" style={{ display: 'block', width: '100%', height: 'auto' }} />
-          </Link>
-          <Typography.Title level={3} className="text-center !text-[#21776D]">
-            Đăng nhập
-          </Typography.Title>
-
-          {error && <Alert message={error} type="error" showIcon className="!mb-[16px]" />}
-
-          <Form
-            name="login_form"
-            initialValues={{ remember: true }}
-            onFinish={onFinish}
-            layout="vertical"
-          >
-            <Form.Item
-              name="email"
-              label="Email"
-              rules={[{ required: true, message: 'Nhập email!' }]}
-            >
-              <Input prefix={<UserOutlined />} placeholder="Nhập email" />
-            </Form.Item>
-
-            <Form.Item
-              name="password"
-              label="Mật khẩu"
-              rules={[{ required: true, message: 'Nhập mật khẩu!' }]}
-            >
-              <Input.Password prefix={<LockOutlined />} placeholder="Nhập mật khẩu" />
-            </Form.Item>
-
-            <Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                className="w-full !mb-[8px] !bg-[#21776D]"
-                loading={loading}
-              >
-                Đăng nhập
-              </Button>
-
-              {import.meta.env.VITE_GOOGLE_CLIENT_ID && <Divider plain>hoặc</Divider>}
-
-              <Space direction="vertical" className="w-full">
-                {import.meta.env.VITE_GOOGLE_CLIENT_ID && <Suspense fallback={null}>
-                  <GoogleSignIn onSuccess={handleGGLogin} />
-                </Suspense>}
-              </Space>
-
-              <Typography.Paragraph className="text-center !mb-0">
-                Chưa có tài khoản?{' '}
-                <Button
-                  type="link"
-                  onClick={() => navigate('/register')}
-                  className="!p-0 !text-[#21776D]"
-                >
-                  Đăng kí ngay
-                </Button>
-              </Typography.Paragraph>
-              <Button
-                type="link"
-                onClick={() => navigate('/')}
-                className="w-full text-center !my-0 !mx-auto !text-[#21776D]"
-              >
-                Về trang chủ
-              </Button>
-            </Form.Item>
-          </Form>
-        </Card>
+    <section aria-labelledby="login-heading">
+      {/* Brand Logo */}
+      <div className="auth-stagger-1 auth-brand-wrap mb-5">
+        <Link to="/" aria-label="Trang chủ SGU Tour" className="auth-brand-logo inline-block w-[160px]">
+          <img src={brand} alt="SGU Tour" className="block w-full h-auto" />
+        </Link>
       </div>
-    </>
+
+      {/* Heading */}
+      <header className="auth-stagger-2 auth-heading-wrap mb-5">
+        <h1
+          id="login-heading"
+          ref={headingRef}
+          tabIndex={-1}
+          className="auth-heading-title m-0 mb-1.5 text-[28px] sm:text-[31px] leading-[1.2] font-bold text-[#182C2A] tracking-[-0.02em] outline-none"
+        >
+          Chào mừng trở lại!
+        </h1>
+        <p className="auth-heading-desc m-0 text-[14.5px] leading-[1.55] text-[#5C6E76]">
+          Đăng nhập để tiếp tục hành trình cùng SGU Tour.
+        </p>
+      </header>
+
+      {/* Form-level Error */}
+      {error && (
+        <div className="mb-4" role="alert" aria-live="assertive">
+          <Alert
+            message={error}
+            type="error"
+            showIcon
+            className="!rounded-[10px] !py-2 text-[13.5px]"
+          />
+        </div>
+      )}
+
+      {/* Login Form */}
+      <div className="auth-stagger-3">
+        <Form
+          name="login_form"
+          onFinish={onFinish}
+          layout="vertical"
+          validateTrigger="onBlur"
+        >
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: 'Vui lòng nhập địa chỉ email' },
+              { type: 'email', max: 254, message: 'Nhập email hợp lệ, tối đa 254 ký tự' },
+            ]}
+            className="!mb-3.5"
+          >
+            <Input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              prefix={<Mail size={17} strokeWidth={1.85} className="auth-field-icon" aria-hidden="true" />}
+              placeholder="ten@email.com"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            label="Mật khẩu"
+            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+            className="!mb-5"
+          >
+            <Input.Password
+              autoComplete="current-password"
+              prefix={<Lock size={17} strokeWidth={1.85} className="auth-field-icon" aria-hidden="true" />}
+              placeholder="Nhập mật khẩu của bạn"
+              iconRender={(visible) => (
+                <span
+                  aria-label={visible ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
+                  className="inline-flex items-center text-[#5C6E76] hover:text-[#20786D] transition-colors"
+                >
+                  {visible ? <EyeOff size={17} strokeWidth={1.85} /> : <Eye size={17} strokeWidth={1.85} />}
+                </span>
+              )}
+            />
+          </Form.Item>
+
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            loading={loading}
+            disabled={loading}
+            className="auth-primary-btn"
+          >
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </Button>
+        </Form>
+      </div>
+
+      {/* Google OAuth + Unified Navigation */}
+      <div className="auth-stagger-4">
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <>
+            <Divider plain className="!my-4 !text-[13px] !text-[#5C6E76]">
+              hoặc tiếp tục với
+            </Divider>
+            <Suspense fallback={<div className="h-[44px] flex items-center justify-center text-[13px] text-[#5C6E76]">Đang tải Google...</div>}>
+              <GoogleSignIn onSuccess={handleGGLogin} />
+            </Suspense>
+          </>
+        )}
+
+        <footer className="auth-footer-nav mt-5 pt-4 border-t border-[#D7E2DF] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[14px]">
+          <p className="m-0 text-[#5C6E76]">
+            Bạn chưa có tài khoản?{' '}
+            <Link to="/register" className="auth-link-primary">
+              Đăng ký ngay
+            </Link>
+          </p>
+          <Link to="/" className="auth-link-back">
+            <ArrowLeft size={15} strokeWidth={2} aria-hidden="true" />
+            <span>Về trang chủ</span>
+          </Link>
+        </footer>
+      </div>
+    </section>
   );
 }

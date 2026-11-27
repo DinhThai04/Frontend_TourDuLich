@@ -1,5 +1,4 @@
 import AdditionalInfo from '@/components/TourDetail/AdditionalInfo';
-import ImportantInfo from '@/components/TourDetail/ImportantInfo';
 import Schedule from '@/components/TourDetail/Schedule';
 import TourDetailCard from '@/components/TourDetail/TourDetailCard';
 import TourImages from '@/components/TourDetail/TourImage';
@@ -114,7 +113,7 @@ export default function TourDetail() {
           </Title>
 
           <Row gutter={24}>
-            <Col xs={24} lg={17}>
+            <Col xs={24} lg={15}>
               {dataDetailtour && <TourImages imageIds={dataDetailtour.imageIds} />}
               <div id="lich-khoi-hanh" ref={scheduleRef} style={{ scrollMarginTop: 96 }}>
                 <Schedule
@@ -129,14 +128,13 @@ export default function TourDetail() {
               </div>
               <AdditionalInfo tour={dataDetailtour} />
               <DeferredSection id="lich-trinh" height={240} label="lịch trình"><Itinerary tourId={dataDetailtour.id} /></DeferredSection>
-              <ImportantInfo />
             </Col>
 
-            <Col xs={24} lg={7}>
+            <Col xs={24} lg={9}>
               <div
                 style={{
                   position: 'sticky',
-                  top: 24,
+                  top: 88,
                   alignSelf: 'flex-start',
                 }}
               >
@@ -152,7 +150,9 @@ export default function TourDetail() {
               </div>
             </Col>
           </Row>
-          <DeferredSection height={400} label="đánh giá tour"><Comment /></DeferredSection>
+          <div className="mt-8">
+            <DeferredSection height={400} label="đánh giá tour"><Comment /></DeferredSection>
+          </div>
           <Title
             id="tour-tuong-tu"
             className="scroll-mt-24"

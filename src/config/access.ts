@@ -41,3 +41,11 @@ export function hasPermission(user: User | null | undefined, required: RequiredP
   );
   return wanted.some(code => owned.has(code));
 }
+
+export const TOUR_GUIDE_ACCESS = { code: 'TOUR_GUIDE_OPERATE' };
+
+export function signedInDestination(user: User | null | undefined, fallback = '/') {
+  if (hasPermission(user, ADMIN_ACCESS)) return '/admin';
+  if (hasPermission(user, TOUR_GUIDE_ACCESS)) return '/van-hanh-chuyen';
+  return fallback;
+}

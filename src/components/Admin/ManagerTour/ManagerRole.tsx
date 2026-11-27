@@ -1,6 +1,7 @@
-'use client';
+import AdminPageHeader from '../Shared/AdminPageHeader';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
 import React, { useRef, useState } from 'react';
-import { ProTable } from '@ant-design/pro-components';
+import { useSearchParams } from 'react-router-dom';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import { Button, Space, Tag, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from '@ant-design/icons';
@@ -15,7 +16,9 @@ import { toast } from 'react-toastify';
 import { ALL_PERMISSIONS } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 
-const ManagerRoleTour: React.FC = () => {
+const ManagerRoleTour: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
+  const [params, setParams] = useSearchParams();
+  const focusedRole = params.get('roleId');
   const actionRef = useRef<ActionType>(null);
   const [loading, setLoading] = useState(false);
   const [openAddEdit, setOpenAddEdit] = useState(false);
@@ -114,7 +117,7 @@ const ManagerRoleTour: React.FC = () => {
       width: 150,
       search: false,
       render: (_, record) => (
-        <Space>
+        <Space size={4} wrap>
           {canView && (
             <Button
               type="text"
@@ -165,9 +168,13 @@ const ManagerRoleTour: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="admin-dashboard">
+      {!embedded && <AdminPageHeader title="Vai trò" description="Quản lý nhóm quyền theo trách nhiệm của từng tài khoản." />}
+      {focusedRole && <Button onClick={() => setParams({ tab: 'roles' }, { replace: true })}>Xem tất cả vai trò</Button>}
       <ProTable<Role>
-        headerTitle="Quản Lý Vai Trò"
+        filterKey={focusedRole ?? ''}
+        headerTitle="Danh mục vai trò"
+        size="small"
         columns={columns}
         rowKey="id"
         actionRef={actionRef}
@@ -188,8 +195,8 @@ const ManagerRoleTour: React.FC = () => {
 
             const all: Role[] = res.result || [];
 
-            const nameKeyword = (params.name || '').toLowerCase().trim();
-            const descKeyword = (params.description || '').toLowerCase().trim();
+            const nameKeyword = String(params.name ?? '').toLowerCase().trim();
+            const descKeyword = String(params.description ?? '').toLowerCase().trim();
             // ProTable select filters arrive as the string keys "true"/"false", not booleans.
             const rawStatus = params.active;
             const statusFilter =
@@ -197,7 +204,7 @@ const ManagerRoleTour: React.FC = () => {
                 ? undefined
                 : String(rawStatus) === 'true';
 
-            let filtered = all;
+            let filtered = focusedRole ? all.filter(role => String(role.id) === focusedRole) : all;
 
             if (nameKeyword) {
               filtered = filtered.filter((role) => {

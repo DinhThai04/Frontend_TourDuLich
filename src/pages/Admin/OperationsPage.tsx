@@ -1,36 +1,45 @@
-import OperationsInsightsPanel from './OperationsInsightsPanel';
-import { useState, type ReactNode } from 'react';
-import { Alert, Button, Card, DatePicker, Empty, InputNumber, Select, Skeleton, Space, Tag, Typography } from 'antd';
-import { Link } from 'react-router-dom';
+import AdminInbox from './AdminInbox';
+import { CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { formatAdminDatetime as formatDatetime } from '@/components/Admin/Shared/adminDate';
+import { ArrowRight, CreditCard, CalendarClock } from 'lucide-react';
+import AdminPageHeader from '@/components/Admin/Shared/AdminPageHeader';
+import OperationsInsightsPanel, { RecentAudit, Report } from './OperationsInsightsPanel';
+import type { ReactNode } from 'react';
+import { Alert, Button, Card, Empty, Progress, Skeleton, Space, Tag, Tooltip } from 'antd';
+import { Link, useLocation } from 'react-router-dom';
 import { ALL_PERMISSIONS as P } from '@/config/permissions';
 import { useHasPermission } from '@/config/useHasPermission';
 import { useApiQuery } from '@/hooks';
 import { bookingChanges } from '@/services/bookingChangeServices';
 import { reconciliationServices } from '@/services/reconciliationServices';
 import { getUpcomingDepartures } from '@/services/tourServices';
-import { formatCurrencyVND, formatDatetime } from '@/utils';
+import { formatCurrencyVND, formatDate } from '@/utils';
 
 type OperationsPageData<T> = { items: T[]; hasNext: boolean };
 
-function WorkSection<T>({ title, emptyText, fetchPage, renderRow }: {
+function WorkSection<T>({ title, emptyText, fetchPage, renderRow, allHref }: {
   title: string;
+  allHref?: string;
   emptyText: string;
-  fetchPage: (page: number) => Promise<OperationsPageData<T>>;
-  renderRow: (row: T) => { id: string | number; link: string; label: ReactNode; detail: ReactNode; status: ReactNode };
+  fetchPage: () => Promise<OperationsPageData<T>>;
+  renderRow: (row: T) => { id: string | number; link: string; label: ReactNode; detail: ReactNode; status: ReactNode; departureDate?: string };
 }) {
-  const [page, setPage] = useState(0);
-  const { data, loading, error, refresh } = useApiQuery(() => fetchPage(page), { deps: [page] });
+  const { data, loading, error, refresh } = useApiQuery(fetchPage);
 
-  return <Card title={title} className="min-w-0" extra={<Button size="small" onClick={() => void refresh()} loading={loading}>
-    Cập nhật
-  </Button>}>
+  return <Card title={title} className="min-w-0" extra={<Space>
+    {allHref && <Link to={allHref}>Xem tất cả</Link>}
+    <Tooltip title="Làm mới"><Button size="small" aria-label="Làm mới" icon={<ReloadOutlined />} loading={loading} onClick={() => void refresh()} /></Tooltip>
+  </Space>}>
     {loading ? <Skeleton active title={false} paragraph={{ rows: 3 }} /> : error
       ? <Alert type="warning" showIcon message="Chưa tải được danh sách" description={error} />
-      : data?.items.length ? <ul className="divide-y divide-slate-100">
+      : data?.items.length ? <ul className="m-0 list-none divide-y divide-slate-100 p-0">
         {data.items.map(row => {
           const item = renderRow(row);
           return <li key={item.id} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0">
-            <div className="min-w-0">
+            {item.departureDate && <time className="admin-date-block" dateTime={item.departureDate}>
+              <b>{formatDate(item.departureDate).split('/')[0]}</b><span>Thg {formatDate(item.departureDate).split('/')[1]}</span>
+            </time>}
+            <div className="min-w-0 flex-1">
               <Link to={item.link} className="break-words font-semibold">{item.label}</Link>
               <div className="mt-1 text-sm text-slate-600">{item.detail}</div>
             </div>
@@ -38,98 +47,96 @@ function WorkSection<T>({ title, emptyText, fetchPage, renderRow }: {
           </li>;
         })}
       </ul> : data && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyText} />}
-    {(page > 0 || data?.hasNext) && <div className="mt-3 flex items-center gap-2">
-      <Button size="small" disabled={page === 0 || loading} onClick={() => setPage(page - 1)}>Trang trước</Button>
-      <span>Trang {page + 1}</span>
-      <Button size="small" disabled={!data?.hasNext || loading} onClick={() => setPage(page + 1)}>Trang sau</Button>
-    </div>}
+  </Card>;
+}
+
+function PriorityQueue({ payments, changes }: { payments: boolean; changes: boolean }) {
+  const { data, loading, error } = useApiQuery(async () => {
+    const [paymentPage, changePage] = await Promise.allSettled([
+      payments ? reconciliationServices.list(0, 'ACTIONABLE', { size: 3 }) : undefined,
+      changes ? bookingChanges.pending(0, { customerAction: false }) : undefined,
+    ]);
+    const items = [
+      ...(paymentPage.status === 'fulfilled' && paymentPage.value?.code === 1000
+        ? paymentPage.value.result.items.map(row => ({
+          key: row.txn_ref, icon: CreditCard, label: `Đối soát đơn #${row.booking_id}`, context: formatCurrencyVND(Number(row.amount_vnd)),
+          path: `/admin/paymentReconciliation?txnRef=${encodeURIComponent(row.txn_ref)}`,
+        })) : []),
+      ...(changePage.status === 'fulfilled' && changePage.value
+        ? changePage.value.items.slice(0, 3).map(row => ({
+          key: String(row.id), icon: CalendarClock, label: `Dời lịch đơn #${row.booking_id}`, context: row.tour_title,
+          path: `/admin/managerTour/tourDeparture?tourId=${row.tour_id}&requestId=${row.id}`,
+        })) : []),
+    ];
+    const paymentData = paymentPage.status === 'fulfilled' && paymentPage.value?.code === 1000 ? paymentPage.value.result : undefined;
+    const changeData = changePage.status === 'fulfilled' ? changePage.value : undefined;
+    const totals = [
+      ...(payments ? [{ key: 'PAYMENT', label: 'Đối soát chờ xử lý', count: paymentData ? String(paymentData.total ?? paymentData.items.length) : '—' }] : []),
+      ...(changes ? [{ key: 'CHANGE', label: 'Yêu cầu dời lịch chờ duyệt', count: changeData ? String(changeData.total ?? changeData.items.length) : '—' }] : []),
+    ];
+    return { items, totals, partial: paymentPage.status === 'rejected' || changePage.status === 'rejected'
+      || (paymentPage.status === 'fulfilled' && !!paymentPage.value && paymentPage.value.code !== 1000) };
+  }, { deps: [payments, changes] });
+  if (!loading && !error && data && !data.partial && data.items.length === 0
+    && data.totals.every(item => Number(item.count) === 0)) {
+    return <div className="admin-action-empty">
+      <Space><CheckCircleOutlined aria-hidden />Không có việc cần xử lý</Space>
+      <Link to="/admin/inbox">Mở hộp công việc</Link>
+    </div>;
+  }
+  return <Card size="small" className="admin-action-panel" title="Cần xử lý" extra={<Link to="/admin/inbox">Mở hộp công việc</Link>}>
+    {loading ? <Skeleton active title={false} paragraph={{ rows: 3 }} /> : <>
+      {(error || data?.partial) && <Alert type="warning" showIcon message="Một số công việc chưa tải được." />}
+      {!error && data && !data.partial && !data.items.length && data.totals.every(item => Number(item.count) === 0) && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có việc cần xử lý" />}
+      {(data && (data.totals.some(item => Number(item.count) > 0) || data.items.length || data.partial)) ? <div className="admin-inbox-summary">{data.totals.map(item => {
+        const Icon = item.key === 'PAYMENT' ? CreditCard : CalendarClock;
+        const examples = data.items.filter(example => example.icon === Icon);
+        return <Tooltip key={item.key} title={examples.length ? examples.map(example => <div key={example.key}>{example.label} · {example.context}</div>) : undefined}>
+          <Link to={`/admin/inbox?category=${item.key}`}>
+            <span className="admin-case-icon"><Icon size={18} aria-hidden="true" /></span>
+            <span>{item.label}</span><strong>{item.count}</strong><ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </Tooltip>;
+      })}</div> : null}
+    </>}
   </Card>;
 }
 
 export default function OperationsPage() {
-  const [category, setCategory] = useState('ALL');
-  const [action, setAction] = useState('ALL');
-  const [day, setDay] = useState<string>();
-  const [input, setInput] = useState<number | null>(null);
-  const [bookingId, setBookingId] = useState<number>();
+  const { pathname } = useLocation();
+  const view = pathname === '/admin/audit' ? 'audit' : pathname === '/admin/inbox' ? 'inbox' : 'dashboard';
   const canSeeBookings = useHasPermission(P.BOOKINGS.GET_ALL);
   const canSeeInvoices = useHasPermission(P.INVOICES.GET_ALL);
   const admin = useHasPermission({ code: 'SGU_SUPER_ADMIN' });
   const canReconcile = useHasPermission(P.PAYMENT_RECONCILIATION.GET_LIST);
   const canSeeDepartures = useHasPermission(P.TOUR_DEPARTURES.GET_LIST);
   const canSeeChanges = useHasPermission(P.BOOKING_CHANGES.READ);
+  const departures = canSeeDepartures && view === 'dashboard';
 
-  const payment = canReconcile && ['ALL', 'PAYMENT'].includes(category) && action !== 'CUSTOMER';
-  const changes = canSeeDepartures && canSeeChanges && ['ALL', 'CHANGE'].includes(category);
-  const departures = canSeeDepartures && ['ALL', 'DEPARTURE'].includes(category) && action !== 'CUSTOMER' && !bookingId;
-  const scope = `${day ?? ''}:${action}:${bookingId ?? ''}`;
-  const search = () => setBookingId(input && Number.isInteger(input) && input > 0 ? input : undefined);
-
-  return <div>
-    <Typography.Title level={3}>Việc cần xử lý</Typography.Title>
-    {(canReconcile || canSeeDepartures) && <Space direction="vertical" size="small" className="mb-4">
-      <Space wrap>
-        <Select aria-label="Loại công việc" value={category} onChange={setCategory} options={[
-          { value: 'ALL', label: 'Tất cả công việc' },
-          ...(canReconcile ? [{ value: 'PAYMENT', label: 'Đối soát' }] : []),
-          ...(canSeeChanges && canSeeDepartures ? [{ value: 'CHANGE', label: 'Dời lịch' }] : []),
-          ...(canSeeDepartures ? [{ value: 'DEPARTURE', label: 'Lịch khởi hành' }] : []),
-        ]} />
-        <Select aria-label="Người cần xử lý tiếp" value={action} onChange={setAction} options={[
-          { value: 'ALL', label: 'Tất cả người xử lý' }, { value: 'STAFF', label: 'Nhân viên xử lý' },
-          { value: 'CUSTOMER', label: 'Chờ khách phản hồi' },
-        ]} />
-        <DatePicker aria-label="Ngày nghiệp vụ" format="DD/MM/YYYY" onChange={value => setDay(value?.format('YYYY-MM-DD'))} />
-        <InputNumber aria-label="Mã đơn đặt tour" placeholder="Mã đơn" min={1} max={2147483647} precision={0}
-          value={input} onChange={value => { setInput(value); if (value == null) setBookingId(undefined); }} onPressEnter={search} />
-        <Button onClick={search}>Lọc theo mã đơn</Button>
-        {bookingId && canSeeBookings && <Link to={`/admin/managerBooking?bookingId=${bookingId}`}>Xem đơn #{bookingId}</Link>}
-      </Space>
-      {day && <Typography.Text type="secondary">Ngày tạo giao dịch hoặc ngày khởi hành của lịch gốc, theo giờ Việt Nam.</Typography.Text>}
-    </Space>}
-    {!payment && !changes && !departures && (canReconcile || canSeeDepartures) &&
-      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có nhóm công việc phù hợp với các bộ lọc này" />}
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      {payment && <WorkSection key={`payment:${scope}`} title="Đối soát thanh toán" emptyText="Không có giao dịch cần đối soát"
-        fetchPage={async page => {
-          const response = await reconciliationServices.list(page, 'ACTIONABLE', { size: 5, bookingId, day });
-          if (response.code !== 1000) throw new Error(response.message || 'Chưa tải được giao dịch');
-          return response.result;
+  return <div className="admin-dashboard pb-8">
+    <AdminPageHeader title={view === 'dashboard' ? 'Tổng quan' : view === 'inbox' ? 'Hộp công việc' : 'Nhật ký quản trị'}
+      description={view === 'dashboard' ? 'Theo dõi thu, hoàn tiền và lịch khởi hành.' : view === 'inbox' ? 'Theo dõi cảnh báo chuyến đi, đối soát, yêu cầu dời lịch và đơn cần rà soát.' : 'Truy vết thao tác thay đổi dữ liệu của quản trị viên và nhân viên.'} />
+    {view === 'dashboard' ? <>
+      {(canReconcile || (canSeeChanges && canSeeDepartures)) && <PriorityQueue payments={canReconcile} changes={canSeeChanges && canSeeDepartures} />}
+      {canSeeBookings && canSeeInvoices && <Report />}
+      {(departures || admin) && <div className="admin-dashboard-lower">
+      {departures && <WorkSection title="Khởi hành 7 ngày tới" emptyText="Chưa có lịch khởi hành" allHref="/admin/departures?upcoming=7"
+        fetchPage={async () => {
+          const result = await getUpcomingDepartures(0);
+          if (result.code !== 1000) throw new Error(result.message);
+          return { items: result.result.items.slice(0, 5), hasNext: false };
         }}
         renderRow={row => ({
-          id: `${row.provider}-${row.txn_ref}`,
-          link: `/admin/paymentReconciliation?txnRef=${encodeURIComponent(row.txn_ref)}`,
-          label: `Đối soát đơn #${row.booking_id}`,
-          detail: `${row.provider === 'VNPAY' ? 'VNPAY' : 'MoMo'} · ${formatCurrencyVND(Number(row.amount_vnd))} · ${formatDatetime(row.created_at)}`,
-          status: <Tag color="orange">{row.case_status === 'OPEN' ? 'Ưu tiên đối chiếu' : 'Nhân viên đối soát'}</Tag>,
+          id: row.id, label: row.tourTitle, departureDate: row.departureDate,
+          link: `/admin/tours/${row.tourId}/departures?departureId=${row.id}`,
+          detail: formatDatetime(row.departureDate), status: row.capacity != null && row.availableSeats != null
+            ? <div className="admin-capacity-score"><span>{Math.max(0, row.capacity - row.availableSeats)} / {row.capacity}</span>
+              <Progress size="small" percent={row.capacity > 0 ? Math.max(0, (row.capacity - row.availableSeats) / row.capacity * 100) : 0} showInfo={false} /></div>
+            : <Tag>Chưa rõ sức chứa</Tag>,
         })} />}
-      {changes && <WorkSection key={`changes:${scope}`} title="Yêu cầu dời lịch" emptyText="Không có yêu cầu đang chờ"
-        fetchPage={page => bookingChanges.pending(page, {
-          bookingId, day, customerAction: action === 'ALL' ? undefined : action === 'CUSTOMER',
-        })}
-        renderRow={row => ({
-          id: row.id,
-          link: `/admin/managerTour/tourDeparture?tourId=${row.tour_id}&requestId=${row.id}`,
-          label: `Yêu cầu #${row.id} · đơn #${row.booking_id}`,
-          detail: `${row.tour_title} · ${formatDatetime(row.source_departure_at)}`,
-          status: <Tag color="gold">{row.status === 'SUPPORT_REQUIRED' ? 'Cần hỗ trợ'
-            : row.status === 'ACCEPTED' ? 'Chờ chuyển lịch' : row.kind === 'CUSTOMER' ? 'Chờ duyệt' : 'Chờ khách phản hồi'}</Tag>,
-        })} />}
-      {departures && <WorkSection key={`departure:${scope}`} title="Khởi hành trong 7 ngày tới" emptyText="Không có lịch mở trong 7 ngày tới"
-        fetchPage={async page => {
-          const response = await getUpcomingDepartures(page, day);
-          if (response.code !== 1000) throw new Error(response.message || 'Chưa tải được lịch khởi hành');
-          return response.result;
-        }}
-        renderRow={row => ({
-          id: row.id,
-          link: `/admin/managerTour/tourDeparture?tourId=${row.tourId}&departureId=${row.id}`,
-          label: row.tourTitle,
-          detail: `${row.tourCode} · ${formatDatetime(row.departureDate)}`,
-          status: <Tag>{row.availableSeats == null ? 'Chưa rõ số chỗ' : row.availableSeats > 0
-            ? `Còn ${row.availableSeats} chỗ` : 'Hết chỗ'}</Tag>,
-        })} />}
-    </div>
-    <OperationsInsightsPanel bookings={canSeeBookings} invoices={canSeeInvoices} admin={admin} />
+      {admin && <RecentAudit />}
+      </div>}
+    </> : view === 'inbox' ? <AdminInbox payment={canReconcile} changes={canSeeChanges && canSeeDepartures} integrity={canSeeBookings} operations={admin} />
+      : <Card><OperationsInsightsPanel /></Card>}
   </div>;
 }

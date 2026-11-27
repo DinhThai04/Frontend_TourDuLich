@@ -1,12 +1,12 @@
-'use client';
-import React, { useRef, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { AdminStatus } from '../Shared/AdminStatus';
+import AdminPageHeader from '../Shared/AdminPageHeader';
+import { AdminProTable as ProTable } from '@/components/Admin/Shared/AdminTable';
+import React, { useState } from 'react';
 import {
-  PageContainer,
-  ProTable,
   type ProColumns,
-  type ActionType,
 } from '@ant-design/pro-components';
-import { Tag, Button, Space, Popconfirm, message } from 'antd';
+import { Tag, Button, Space, Popconfirm, Input, Select, Typography, message } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from '@ant-design/icons';
 import { getPermissions, createPermission, updatePermission, deletePermission } from '@/services/permissionService';
 import { getRoles } from '@/services/rolesServices';
@@ -38,8 +38,12 @@ interface Permission {
 }
 
 // ==== Component ====
-const ManagerRoleUser: React.FC = () => {
-  const actionRef = useRef<ActionType>(null);
+const ManagerRoleUser: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
+  const [params, setParams] = useSearchParams();
+  const focusedPermission = params.get('permissionId');
+  const [keyword, setKeyword] = useState('');
+  const [module, setModule] = useState<string>();
+  const [method, setMethod] = useState<string>();
   const [openModal, setOpenModal] = useState(false); // modal edit
   const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
   const [isAddNewPermission, setIsAddNewPermission] = useState<boolean>(false); // modal add mới
@@ -79,10 +83,6 @@ const ManagerRoleUser: React.FC = () => {
     },
     { enabled: canList, onError: (msg) => message.error(msg) },
   );
-  // ProTable keeps the request closure from its first render; the ref keeps filtering on fresh rows.
-  const permissionsRef = useRef<Permission[]>(data);
-  permissionsRef.current = data;
-  useEffect(() => { actionRef.current?.reload(); }, [data]);
   // Modules come from the database so the form can offer every module the backend actually uses.
   const moduleOptions = Array.from(new Set(data.map((permission) => permission.module))).sort();
 
@@ -122,55 +122,46 @@ const ManagerRoleUser: React.FC = () => {
     {
       title: 'ID',
       dataIndex: 'id',
-      width: 70,
+      width: 58,
+      responsive: ['lg'],
       search: false,
     },
     {
-      title: 'Tên quyền',
+      title: 'Quyền',
       dataIndex: 'name',
-      filterSearch: true,
+
+      ellipsis: true,
+      render: (_, row) => row.name !== row.code ? row.name : <code>{row.code}</code>,
     },
     {
       title: 'Mã quyền',
       dataIndex: 'code',
-      render: (c) => <Tag color="geekblue">{c}</Tag>,
-    },
-    {
-      title: 'API Path',
-      dataIndex: 'apiPath',
-      search: false,
+      width: '25%',
+      render: (_, row) => row.name === row.code ? <Typography.Text copyable={{ text: row.code }} /> : <Typography.Text code copyable>{row.code}</Typography.Text>,
     },
     {
       title: 'Method',
       dataIndex: 'method',
-      width: 120,
-      render: (text) => <Tag color="blue">{text}</Tag>,
-      valueEnum: {
-        GET: { text: 'GET', color: 'blue' },
-        POST: { text: 'POST', color: 'green' },
-        PUT: { text: 'PUT', color: 'orange' },
-        DELETE: { text: 'DELETE', color: 'red' },
-      },
+      width: 82,
+      responsive: ['md'],
+      render: (_, row) => <AdminStatus tone={row.method === 'POST' ? 'success'
+        : row.method === 'DELETE' ? 'danger' : row.method === 'GET' ? 'neutral' : 'warning'}>{row.method}</AdminStatus>,
     },
     {
       title: 'Module',
       dataIndex: 'module',
-      width: 120,
-      render: (m) => <Tag color="purple">{m}</Tag>,
-      valueEnum: Array.from(new Set(data.map((d) => d.module))).reduce(
-        (acc, cur) => {
-          acc[cur] = { text: cur };
-          return acc;
-        },
-        {} as Record<string, { text: string }>
-      ),
+      width: 100,
+      responsive: ['lg'],
+      render: (_, row) => <Tag className="admin-role-tag">{row.module}</Tag>,
     },
     {
       title: 'Thuộc vai trò',
       dataIndex: 'roles',
+      width: '18%',
+      responsive: ['lg'],
       search: false,
       render: (_, record) =>
-        record.roles?.map((r) => (
+        record.roles?.slice(0, 2).map((r) => (
           <Tag key={r.id} style={{ marginBottom: 4 }}>
             {r.name}
           </Tag>
@@ -179,14 +170,15 @@ const ManagerRoleUser: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 150,
+      width: 136,
       render: (_, record) => (
-        <Space>
+        <Space size={4} wrap>
           {canView && (
             <Button
               type="text"
+              size="small"
               aria-label="Xem quyền"
-              icon={<EyeOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
+              icon={<EyeOutlined style={{ color: '#176258', fontSize: 18 }} />}
               onClick={() => {
                 setViewingPermission(record);
                 setOpenView(true);
@@ -197,8 +189,9 @@ const ManagerRoleUser: React.FC = () => {
           {canUpdate && (
             <Button
               type="text"
+              size="small"
               aria-label="Sửa quyền"
-              icon={<EditOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
+              icon={<EditOutlined style={{ color: '#176258', fontSize: 18 }} />}
               onClick={() => {
                 setEditingPermission(record);
                 setOpenModal(true);
@@ -208,15 +201,17 @@ const ManagerRoleUser: React.FC = () => {
 
           {canDelete && (
             <Popconfirm
-              title="Bạn có chắc muốn xóa quyền này?"
+              title="Xóa quyền này?"
+              description={`Đang được ${record.roles?.length ?? 0} vai trò sử dụng.`}
               okText="Xóa"
               cancelText="Hủy"
               onConfirm={() => handleDelete(record.id)}
             >
               <Button
                 type="text"
+                size="small"
                 aria-label="Xóa quyền"
-                icon={<DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />}
+                icon={<DeleteOutlined style={{ color: '#991b1b', fontSize: 18 }} />}
               />
             </Popconfirm>
           )}
@@ -231,32 +226,28 @@ const ManagerRoleUser: React.FC = () => {
   }
 
   return (
-    <PageContainer>
+    <div className="admin-dashboard">
+      {!embedded && <AdminPageHeader title="Quyền hạn" description="Tra mã quyền theo module và xem các vai trò đang sử dụng quyền đó." />}
+      {focusedPermission && <Button onClick={() => setParams({ tab: 'permissions' }, { replace: true })}>Xem tất cả quyền hạn</Button>}
       <ProTable<Permission>
-        headerTitle="Quản Lý Quyền"
+        headerTitle="Danh mục quyền"
         columns={columns}
         rowKey="id"
-        actionRef={actionRef}
-        search={{ labelWidth: 'auto' }}
-        pagination={{ pageSize: 5 }}
-        request={async (params) => {
-          const keyword = params.name ? params.name.toLowerCase() : '';
-          const CodeName = params.code ? params.code.toLowerCase() : '';
-          const MethodName = params.method ? params.method.toLowerCase() : '';
-          const ModuleName = params.module ? params.module.toLowerCase() : '';
-          const filtered = permissionsRef.current.filter(
-            (item) =>
-              item.name.toLowerCase().includes(keyword) &&
-              item.code.toLowerCase().includes(CodeName) &&
-              item.method.toLowerCase().includes(MethodName) &&
-              item.module.toLowerCase().includes(ModuleName)
-          );
-          return {
-            data: filtered,
-            success: true,
-          };
-        }}
+        search={false}
+        options={{ reload: reloadPermissions }}
+        filterKey={JSON.stringify([keyword, method, module])}
+        dataSource={data.filter(item => (!focusedPermission || String(item.id) === focusedPermission) && (!method || item.method === method) && (!module || item.module === module)
+          && [item.name, item.code].some(value => value.toLowerCase().includes(keyword.trim().toLowerCase())))}
+        tableLayout="fixed"
+        size="small"
+        pagination={{ pageSize: 10 }}
         toolBarRender={() => [
+          <Input key="query" allowClear aria-label="Tìm tên hoặc mã quyền" placeholder="Tên hoặc mã quyền"
+            value={keyword} onChange={event => setKeyword(event.target.value)} />,
+          <Select key="module" allowClear aria-label="Module" placeholder="Module" value={module} onChange={setModule}
+            options={moduleOptions.map(value => ({ value, label: value }))} />,
+          <Select key="method" allowClear aria-label="Method" placeholder="Method" value={method} onChange={setMethod}
+            options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(value => ({ value, label: value }))} />,
           canCreate && (
             <Button
               type="primary"
@@ -307,7 +298,7 @@ const ManagerRoleUser: React.FC = () => {
         }}
         viewingPermission={viewingPermission}
       />
-    </PageContainer>
+    </div>
   );
 };
 

@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 const source = await readFile(new URL('../src/utils/tourSchedule.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
   .replace("from 'dayjs'", `from '${import.meta.resolve('dayjs')}'`);
-const { departureCalendar, departureMonthStart, departureAdultPrice, departureIdFromSearch } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const { departureCalendar, departureMonthStart, departureAdultPrice, departureIdFromSearch, isBookableDeparture, formatBookingClose } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const now = dayjs('2026-10-15T01:00:00');
 
 test('ISO month from API produces October, not NaN from slash splitting', () => {
@@ -51,4 +51,16 @@ test('a selected day displays its own adult price and shares a validated departu
   assert.equal(departureAdultPrice({ basePrice: 3350000 }, null), 3350000);
   assert.equal(departureIdFromSearch('?departureId=42'), 42);
   assert.equal(departureIdFromSearch('?departureId=4.2'), null);
+});
+
+
+test('Vietnam offset controls the exact cutoff and a closed day stays distinct from sold out', () => {
+  const departure = { id: 7, departureDate: '2026-11-01T12:00:00', bookingCloseAt: '2026-11-01T08:00:00+07:00', availableSeats: 5 };
+  const cutoff = Date.parse(departure.bookingCloseAt);
+  assert.equal(isBookableDeparture(departure, cutoff - 1), true);
+  assert.equal(isBookableDeparture(departure, cutoff), false);
+  assert.match(formatBookingClose(departure), /08:00/);
+  const calendar = departureCalendar([departure], undefined, dayjs(cutoff));
+  assert.deepEqual([...calendar.closedDays], ['2026-11-01']);
+  assert.equal(calendar.soldOutDays.size, 0);
 });

@@ -69,3 +69,11 @@ export function budgetKeyFromParams(minP: string | null, maxP: string | null): s
     )?.key ?? null
   );
 }
+
+export function formatVehicleLabel(name?: string | null): string {
+  const clean = (name || '').trim();
+  if (!clean) return 'Đang cập nhật';
+  if (clean.toLowerCase() === 'xe du lịch') return 'Xe du lịch (tiêu chuẩn)';
+  if (clean.toLowerCase() === 'xe du lịch cao cấp') return 'Xe du lịch cao cấp (Limousine)';
+  return clean;
+}

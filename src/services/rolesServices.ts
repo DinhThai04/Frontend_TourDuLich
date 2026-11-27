@@ -1,5 +1,5 @@
 import axiosClient from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 
 export type RoleInput = Pick<Role, 'name' | 'description' | 'active'> & { permissions: { id: number }[] };
 

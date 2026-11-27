@@ -7,9 +7,22 @@ export function departureIdFromSearch(search: string) {
   return value && /^\d+$/.test(value) && Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-export function isBookableDeparture(departure: ITourDeparture) {
+export function isDepartureSalesClosed(departure: ITourDeparture, now = Date.now()) {
+  const cutoff = departure.bookingCloseAt ? Date.parse(departure.bookingCloseAt) : NaN;
+  return Number.isFinite(cutoff) && now >= cutoff;
+}
+
+export function formatBookingClose(departure: ITourDeparture) {
+  const cutoff = departure.bookingCloseAt ? Date.parse(departure.bookingCloseAt) : NaN;
+  return Number.isFinite(cutoff) ? new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(cutoff) : null;
+}
+
+export function isBookableDeparture(departure: ITourDeparture, now = Date.now()) {
   return (!departure.operationalStatus || departure.operationalStatus === 'OPEN') &&
-    Number(departure.availableSeats) > 0;
+    Number(departure.availableSeats) > 0 && !isDepartureSalesClosed(departure, now);
 }
 
 export function departureAdultPrice(tour: ITour, departure: ITourDeparture | null) {
@@ -31,16 +44,22 @@ export function departureCalendar(departures: ITourDeparture[], basePrice?: numb
       (!departure.operationalStatus || departure.operationalStatus === 'OPEN');
   }).sort((left, right) => left.departureDate.localeCompare(right.departureDate));
   const soldOutDays = new Set<string>();
+  const closedDays = new Set<string>();
   for (const departure of upcoming) {
     const date = dayjs(departure.departureDate);
     const day = date.format('YYYY-MM-DD');
     months.add(date.format('YYYY-MM'));
-    if (departure.availableSeats !== undefined && !isBookableDeparture(departure)) {
+    if (isDepartureSalesClosed(departure, now.valueOf())) {
+      if (!dates[day]) closedDays.add(day);
+      continue;
+    }
+    if (departure.availableSeats !== undefined && !isBookableDeparture(departure, now.valueOf())) {
       if (!dates[day]) soldOutDays.add(day);
       continue;
     }
     if (dates[day]) continue;
     soldOutDays.delete(day);
+    closedDays.delete(day);
     const adultPrice = departure.tourPrice?.adultPrice;
     const displayPrice = adultPrice && adultPrice > 0 ? adultPrice : basePrice;
     dates[day] = {
@@ -48,7 +67,7 @@ export function departureCalendar(departures: ITourDeparture[], basePrice?: numb
       price: displayPrice !== undefined ? `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(displayPrice / 1000)}K` : '',
     };
   }
-  return { dates, months: [...months], upcoming, soldOutDays };
+  return { dates, months: [...months], upcoming, soldOutDays, closedDays };
 }
 
 export function departureMonthStart(month: string) {

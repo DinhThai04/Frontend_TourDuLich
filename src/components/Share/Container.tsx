@@ -6,13 +6,11 @@ type ContainerProps = {
   className?: string;
 };
 
-const Container: React.FC<ContainerProps> = ({ children, style, className }) => {
+const Container: React.FC<ContainerProps> = ({ children, style, className = '' }) => {
   return (
     <div
-      className={`${className} site-container w-[1280px] my-[0px] !mx-auto max-w-full`}
-      style={{
-        ...style,
-      }}
+      className={`site-container w-full max-w-[1240px] mx-auto px-4 md:px-6 ${className}`.trim()}
+      style={style}
     >
       {children}
     </div>

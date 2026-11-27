@@ -10,7 +10,7 @@ const compile = async path => ts.transpileModule(await readFile(new URL(path, im
 }).outputText;
 const replace = (source, specifier, url) => source.replaceAll(`'${specifier}'`, JSON.stringify(url)).replaceAll(`"${specifier}"`, JSON.stringify(url));
 const storage = new Map();
-globalThis.sessionStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
+globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
 const sessionUrl = dataUrl(await compile('../src/services/sessionServices.ts'));
 const utilsUrl = dataUrl(await compile('../src/utils/index.tsx'));
 const { sessionService } = await import(sessionUrl);

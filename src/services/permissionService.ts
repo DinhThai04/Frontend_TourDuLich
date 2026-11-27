@@ -1,5 +1,5 @@
 import axiosClient from '@/api/axios';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 import type { PermissionInput, Permission } from '@/types/Permission';
 
 const getPermissions = (): Promise<ApiResponse<Permission[]>> => {

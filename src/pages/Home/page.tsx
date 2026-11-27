@@ -2,19 +2,28 @@ import HomeMotionProvider from '@/components/Home/HomeMotionProvider';
 import HomeCatalogProvider from '@/components/Home/HomeCatalogProvider';
 import { useHomeMotion } from '@/components/Home/homeMotionContext';
 import '@/components/Home/homepage.css';
-import { lazy, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { searchTours } from '@/services/tourServices';
 import Banner from '@/components/Home/Banner/Banner';
-import DeferredSection from '@/components/Share/DeferredSection';
-const Slide = lazy(() => import('@/components/Home/Slide/Slide'));
-const Explore = lazy(() => import('@/components/Home/Explore/Explore'));
-const PopularTours = lazy(() => import('@/components/Home/PopularTours/PopularTours'));
-const Highlights = lazy(() => import('@/components/Home/Highlights/Highlights'));
-const Rating = lazy(() => import('@/components/Home/Rating/Rating'));
+import Slide from '@/components/Home/Slide/Slide';
+import Explore from '@/components/Home/Explore/Explore';
+import PopularTours from '@/components/Home/PopularTours/PopularTours';
+import Highlights from '@/components/Home/Highlights/Highlights';
+import Rating from '@/components/Home/Rating/Rating';
 
 const HomeContent = () => {
   const motion = useHomeMotion();
   const { hash, search, key } = useLocation();
+
+  useEffect(() => {
+    // Prefetch first page of tour list in background so switching to /tours is instant.
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void searchTours(new URLSearchParams('page=0&size=6'), controller.signal).catch(() => {});
+    }, 800);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, []);
 
   useEffect(() => {
     if (!hash) return;
@@ -43,11 +52,11 @@ const HomeContent = () => {
   return (
     <div className="home-page">
       <Banner />
-      <DeferredSection id="cam-hung" height={500} label="cảm hứng"><Slide /></DeferredSection>
-      <DeferredSection id="diem-den-noi-bat" height={440} label="địa điểm"><Explore /></DeferredSection>
-      <DeferredSection id="tour-noi-bat" height={540} label="tour gợi ý"><PopularTours key={key} /></DeferredSection>
-      <DeferredSection id="diem-noi-bat" height={420} label="điểm nổi bật"><Highlights /></DeferredSection>
-      <DeferredSection id="danh-gia" height={450} label="đánh giá"><Rating /></DeferredSection>
+      <div id="cam-hung"><Slide /></div>
+      <div id="diem-den-noi-bat"><Explore /></div>
+      <div id="tour-noi-bat"><PopularTours key={key} /></div>
+      <div id="diem-noi-bat"><Highlights /></div>
+      <div id="danh-gia"><Rating /></div>
     </div>
   );
 };

@@ -1,43 +1,37 @@
+import { contactEmail, personName, vietnamesePhone } from '@/utils/contactValidation';
 import type { FormInstance } from 'antd';
 import type { PersonalFormValues } from '@/types/Booking';
-import { Form, Input, Select, DatePicker } from "antd";
-import { useContext, useEffect } from "react";
+import { Form, Input, Select, DatePicker, Button } from "antd";
+import { useContext, useEffect, useState } from "react";
 import { sessionService } from "@/services/sessionServices";
 import { BookingDraftContext } from "@/layouts/BookingDraftContext";
 import { ageOnVietnamDate } from '@/utils/booking';
+import VietnamAddressFields from '@/components/Share/VietnamAddressFields';
+import { formatVietnamAddress, parseVietnamAddress, validateVietnamAddress } from '@/utils/vietnamAddress';
 
-export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: FormInstance<PersonalFormValues>) => void; }) {
+export default function PersonalInfo({ onFormReady, disabled = false }: { onFormReady?: (form: FormInstance<PersonalFormValues>) => void; disabled?: boolean; }) {
   const [form] = Form.useForm<PersonalFormValues>();
   const { markDirty } = useContext(BookingDraftContext);
 
-  // expose form to parent
-  useEffect(() => {
-    onFormReady?.(form);
-  }, [form, onFormReady]);
+  const [user] = useState(() => sessionService.getUser());
+  const [savedAddress] = useState(() => parseVietnamAddress(user?.address));
+  const [editingAddress, setEditingAddress] = useState(() => !formatVietnamAddress(savedAddress));
+  const addressDraft = Form.useWatch('addressDraft', form);
 
-  // load user info into form
-  useEffect(() => {
-    const user = sessionService.getUser();
-    if (user) {
-      form.setFieldsValue({
-        fullName: user.username || "",
-        email: user.email || "",
-        phone: user.phone || "",
-      });
-    }
-  }, [form]);
+  useEffect(() => { onFormReady?.(form); }, [form, onFormReady]);
 
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4">Thông tin cá nhân</h2>
 
-      <Form form={form} layout="vertical" name="personalInfo" autoComplete="off" onValuesChange={markDirty}>
+      <Form form={form} layout="vertical" name="personalInfo" autoComplete="off" disabled={disabled} onValuesChange={markDirty}
+        initialValues={{ fullName: user?.username, email: user?.email, phone: user?.phone, addressDraft: savedAddress }}>
 
         {/* HỌ TÊN */}
         <Form.Item
           label="Họ tên"
           name="fullName"
-          rules={[{ required: true, message: "Vui lòng nhập họ tên!" }]}
+          rules={[{ required: true, message: "Vui lòng nhập họ tên!" }, { pattern: personName, min: 2, max: 100, message: "Nhập họ tên từ 2 đến 100 ký tự chữ" }]}
         >
           <Input placeholder="Nhập họ tên" />
         </Form.Item>
@@ -87,7 +81,7 @@ export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: For
           name="email"
           rules={[
             { required: true, message: "Vui lòng nhập email!" },
-            { type: "email", message: "Email không hợp lệ!" },
+            { type: "email", pattern: contactEmail, max: 254, message: "Email không hợp lệ!" },
           ]}
         >
           <Input placeholder="Nhập email" />
@@ -99,20 +93,38 @@ export default function PersonalInfo({ onFormReady }: { onFormReady?: (form: For
           name="phone"
           rules={[
             { required: true, message: "Vui lòng nhập số điện thoại!" },
-            { pattern: /^\d{9,11}$/, message: "SĐT phải có từ 9 đến 11 chữ số" },
+            { pattern: vietnamesePhone, message: "SĐT bắt đầu bằng 0 và gồm 10–11 chữ số" },
           ]}
         >
           <Input placeholder="Nhập số điện thoại" />
         </Form.Item>
 
-        {/* ĐỊA CHỈ */}
-        <Form.Item
-          label="Địa chỉ"
-          name="address"
-          rules={[{ required: true, message: "Vui lòng nhập địa chỉ!" }]}
-        >
-          <Input.TextArea rows={2} placeholder="Nhập địa chỉ" />
+        {!editingAddress && (
+          <div className="mb-3">
+            <div className="font-medium">Địa chỉ</div>
+            <div className="flex flex-wrap items-center gap-x-3">
+              <span>{formatVietnamAddress(addressDraft ?? savedAddress)}</span>
+              <Button type="link" className="px-0" onClick={() => setEditingAddress(true)}>Sửa địa chỉ</Button>
+            </div>
+          </div>
+        )}
+        <Form.Item name="addressDraft" label="Địa chỉ" hidden={!editingAddress} required
+          extra={user?.address && !formatVietnamAddress(savedAddress)
+            ? `Địa chỉ đã lưu: ${user.address}. Chọn lại tỉnh/thành phố và xã/phường để dùng cho đơn này.`
+            : 'Thay đổi tại đây chỉ áp dụng cho đơn đặt tour này.'}
+          rules={[{ validator: validateVietnamAddress }]}>
+          <VietnamAddressFields />
         </Form.Item>
+        {editingAddress && (
+          <Button onClick={async () => {
+            try {
+              await form.validateFields(['addressDraft']);
+              setEditingAddress(false);
+            } catch {
+              // Validation messages are shown on the address field.
+            }
+          }}>Xong</Button>
+        )}
 
       </Form>
     </div>

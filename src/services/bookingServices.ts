@@ -1,13 +1,13 @@
 import axiosClient from '@/api/axios';
 import type { BookingRequest, BookingResponse, CustomerResponse } from '@/types/Booking';
-import type { ApiResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/api';
 import { listPageParams, type ListQuery } from '@/utils';
 
 const BOOKING_API = '/booking/book';
 const CUSTOMER_API = '/booking/customer';
 
 export type BookingHistoryRow = {
-  booking: BookingResponse; tourCode?: string; tourTitle?: string; departureDate?: string; returnDate?: string; invoiceStatus?: string;
+  booking: BookingResponse; tourCode?: string; tourTitle?: string; departureDate?: string; returnDate?: string; invoiceStatus?: string; totalAmount?: number;
 };
 
 const bookingServices = {
@@ -15,8 +15,8 @@ const bookingServices = {
     return axiosClient.post(`${BOOKING_API}/create`, data);
   },
 
-  getAll: (query?: ListQuery): Promise<ApiResponse<BookingResponse[]>> => {
-    return axiosClient.get(`${BOOKING_API}/all`, { params: listPageParams(query) });
+  getAll: (query?: ListQuery & { departureId?: number }): Promise<ApiResponse<BookingResponse[]>> => {
+    return axiosClient.get(`${BOOKING_API}/all`, { params: { ...listPageParams(query), departureId: query?.departureId } });
   },
 
   paymentStatus: (id: number, signal?: AbortSignal): Promise<ApiResponse<{ bookings: { bookingId: number; state: string }[] }>> => {
@@ -48,3 +48,38 @@ const bookingServices = {
 };
 
 export default bookingServices;
+
+
+export type BookingPickupOption = {
+  confirmationKey: string;
+  address: string;
+  landmark?: string;
+  arrivalTime?: string;
+  directionsUrl?: string;
+};
+
+export type BookingPickupChoices = {
+  options: BookingPickupOption[];
+  selectedKey?: string;
+  pickupStatus?: import('./departureManifest').PickupStatus;
+  chooseUntil?: string;
+  editable: boolean;
+};
+
+export const getAdminBookingPickup = (id: number, signal?: AbortSignal): Promise<ApiResponse<BookingPickupChoices>> =>
+  axiosClient.get(`${BOOKING_API}/${id}/pickup/admin`, { signal });
+
+export const assignBookingPickup = (id: number, confirmationKey: string, reason: string): Promise<ApiResponse<BookingPickupChoices>> =>
+  axiosClient.put(`${BOOKING_API}/${id}/pickup/admin`, { confirmationKey, reason });
+
+export const getBookingPickup = (id: number): Promise<ApiResponse<BookingPickupChoices>> =>
+  axiosClient.get(`${BOOKING_API}/${id}/pickup`);
+
+export const chooseBookingPickup = (id: number, confirmationKey: string): Promise<ApiResponse<BookingPickupChoices>> =>
+  axiosClient.put(`${BOOKING_API}/${id}/pickup`, { confirmationKey });
+
+export const announceBookingPickup = (departureId: number): Promise<ApiResponse<{
+  queued: number;
+  alreadyQueued: number;
+  withoutEmail: number;
+}>> => axiosClient.post(`${BOOKING_API}/departures/${departureId}/pickup-announcements`);
